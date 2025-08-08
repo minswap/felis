@@ -4,8 +4,7 @@ export class IsomorphicTextEncodeDecode {
       return TextEncoder;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const NodeTextEncoder = require("util").TextEncoder;
+    const NodeTextEncoder = require("node:util").TextEncoder;
     return NodeTextEncoder;
   }
 
@@ -14,8 +13,7 @@ export class IsomorphicTextEncodeDecode {
       return TextDecoder;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const NodeTextDecoder = require("util").TextDecoder;
+    const NodeTextDecoder = require("node:util").TextDecoder;
     return NodeTextDecoder;
   }
 }

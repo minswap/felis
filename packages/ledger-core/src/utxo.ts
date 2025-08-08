@@ -1,9 +1,7 @@
 import type * as Ogmios from "@cardano-ogmios/schema";
 import invariant from "@minswap/tiny-invariant";
-import * as cbor from "cbor";
-
 import {
-  CborHex,
+  type CborHex,
   type CSLPlutusData,
   type CSLTransaction,
   type CSLTransactionInput,
@@ -18,14 +16,15 @@ import {
   safeFreeRustObjects,
   unwrapRustVec,
 } from "@repo/ledger-utils";
+import * as cbor from "cbor";
 
 import {
   ADA,
   Address,
-  Asset,
+  type Asset,
   Bytes,
   DEFAULT_STABLE_PROTOCOL_PARAMS,
-  KupoValue,
+  type KupoValue,
   type NetworkEnvironment,
   PlutusBytes,
   PlutusConstr,
@@ -34,7 +33,7 @@ import {
   Value,
   XJSON,
 } from ".";
-import { PlutusVersion, ScriptReference } from "./plutus";
+import { PlutusVersion, type ScriptReference } from "./plutus";
 
 export type TxIn = {
   txId: Bytes;
@@ -43,7 +42,6 @@ export type TxIn = {
 
 export namespace TxId {
   export function isValidTxId(s: string): boolean {
-    // biome-ignore lint/performance/useTopLevelRegex: <explanation>
     return /^[a-f0-9]{64}$/i.test(s);
   }
 
@@ -136,7 +134,6 @@ export namespace TxIn {
     return a.txId.equals(b.txId) && a.index === b.index;
   }
 
-  // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
   export function toString(txIn: TxIn): string {
     return `${txIn.txId.hex}#${txIn.index}`;
   }
@@ -372,7 +369,7 @@ export class TxOut {
     const datumHash = transactionOutput.data_hash();
     const plutusData = transactionOutput.plutus_data();
 
-    let datumSource: DatumSource | undefined = undefined;
+    let datumSource: DatumSource | undefined;
     if (plutusData) {
       datumSource = {
         type: DatumSourceType.INLINE_DATUM,
@@ -440,7 +437,7 @@ export class TxOut {
 
   static fromOgmios(o: Ogmios.TransactionOutput): TxOut {
     const CSL = RustModule.get;
-    let datumSource: DatumSource | undefined = undefined;
+    let datumSource: DatumSource | undefined;
     const datum = o.datum;
     const datumHash = o.datumHash;
 
@@ -469,7 +466,7 @@ export class TxOut {
       };
     }
 
-    let scriptRef: ScriptReference | undefined = undefined;
+    let scriptRef: ScriptReference | undefined;
     if (o.script) {
       switch (o.script.language) {
         case "native":
@@ -855,12 +852,22 @@ export namespace Utxo {
    * @param asset asset to compare quantity
    * @param considerMinimumAda compare by removing minimum ADA quantity if ADA is used for comparison
    */
-  export function sortDesc(a: Utxo, b: Utxo, asset: Asset, networkEnvironment: NetworkEnvironment, considerMinimumAda?: boolean): number {
+  export function sortDesc(
+    a: Utxo,
+    b: Utxo,
+    asset: Asset,
+    networkEnvironment: NetworkEnvironment,
+    considerMinimumAda?: boolean,
+  ): number {
     const offsetMinAdaFirst =
-      considerMinimumAda && a.output.value.hasNativeTokens() && asset.equals(ADA) ? a.output.getMinimumADA(networkEnvironment) : 0n;
+      considerMinimumAda && a.output.value.hasNativeTokens() && asset.equals(ADA)
+        ? a.output.getMinimumADA(networkEnvironment)
+        : 0n;
     const first = a.output.value.get(asset) - offsetMinAdaFirst;
     const offsetMinAdaSecond =
-      considerMinimumAda && b.output.value.hasNativeTokens() && asset.equals(ADA) ? b.output.getMinimumADA(networkEnvironment) : 0n;
+      considerMinimumAda && b.output.value.hasNativeTokens() && asset.equals(ADA)
+        ? b.output.getMinimumADA(networkEnvironment)
+        : 0n;
     const second = b.output.value.get(asset) - offsetMinAdaSecond;
     if (first > second) {
       return -1;

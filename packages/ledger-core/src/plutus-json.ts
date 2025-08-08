@@ -1,13 +1,7 @@
 import invariant from "@minswap/tiny-invariant";
+import { type CSLPlutusData, Maybe, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
 import * as cbors from "@stricahq/cbors";
 import { BigNumber } from "bignumber.js";
-
-import {
-  RustModule,
-  CSLPlutusData,
-  Maybe,
-  safeFreeRustObjects,
-} from "@repo/ledger-utils";
 import { Bytes } from ".";
 
 export const DATUM_HASH_HEX_LENGTH = 64;
@@ -67,20 +61,11 @@ export type DecodedPlutusData =
   | Map<DecodedPlutusData, DecodedPlutusData>;
 
 export namespace PlutusConstr {
-  export function unwrap<T extends PlutusConstr>(
-    d: PlutusData,
-    constraints: Record<number, number>,
-  ): T {
+  export function unwrap<T extends PlutusConstr>(d: PlutusData, constraints: Record<number, number>): T {
     const length = Object.keys(d).length;
     const validLength = length === 2 || length === 3;
-    invariant(
-      validLength && "constructor" in d && "fields" in d,
-      `Data is not Constr: ${JSON.stringify(d)}`,
-    );
-    invariant(
-      d.constructor in constraints,
-      `Constr ${d.constructor} is not defined in constraints`,
-    );
+    invariant(validLength && "constructor" in d && "fields" in d, `Data is not Constr: ${JSON.stringify(d)}`);
+    invariant(d.constructor in constraints, `Constr ${d.constructor} is not defined in constraints`);
     invariant(
       constraints[d.constructor] === d.fields.length,
       `Expect Constr data to have ${constraints[d.constructor]} fields, got ${d.fields.length} fields`,
@@ -97,14 +82,8 @@ export namespace PlutusConstrFixedLengthArray {
   ): T {
     const length = Object.keys(d).length;
     const validLength = length === 2 || length === 3;
-    invariant(
-      validLength && "constructor" in d && "fieldArray" in d,
-      `Data is not Constr: ${JSON.stringify(d)}`,
-    );
-    invariant(
-      d.constructor in constraints,
-      `Constr ${d.constructor} is not defined in constraints`,
-    );
+    invariant(validLength && "constructor" in d && "fieldArray" in d, `Data is not Constr: ${JSON.stringify(d)}`);
+    invariant(d.constructor in constraints, `Constr ${d.constructor} is not defined in constraints`);
     invariant(
       constraints[d.constructor] === d.fieldArray.length,
       `Expect Constr data to have ${constraints[d.constructor]} fields, got ${d.fieldArray.length} fields`,
@@ -147,10 +126,7 @@ export namespace PlutusMap {
 
 export namespace PlutusInt {
   export function unwrap(d: PlutusData): PlutusInt {
-    invariant(
-      "int" in d && typeof d.int === "string",
-      `Data is not Int: ${JSON.stringify(d)}`,
-    );
+    invariant("int" in d && typeof d.int === "string", `Data is not Int: ${JSON.stringify(d)}`);
     return d;
   }
 
@@ -181,23 +157,16 @@ export namespace PlutusBytes {
 }
 
 export namespace PlutusData {
-  export const isPlutusBytes = (data: PlutusData): data is PlutusBytes =>
-    "bytes" in data;
+  export const isPlutusBytes = (data: PlutusData): data is PlutusBytes => "bytes" in data;
   export const isPlutusConstr = (data: PlutusData): data is PlutusConstr => {
     return "constructor" in data && "fields" in data;
   };
-  export const isPlutusInt = (data: PlutusData): data is PlutusInt =>
-    "int" in data;
-  export const isPlutusList = (data: PlutusData): data is PlutusList =>
-    "list" in data;
-  export const isPlutusMap = (data: PlutusData): data is PlutusMap =>
-    "map" in data;
-  export const isPlutusFixedLengthArray = (
-    data: PlutusData,
-  ): data is PlutusFixedLengthArray => "array" in data;
-  export const isPlutusConstrFixedLengthArray = (
-    data: PlutusData,
-  ): data is PlutusConstrFixedLengthArray => "fieldArray" in data;
+  export const isPlutusInt = (data: PlutusData): data is PlutusInt => "int" in data;
+  export const isPlutusList = (data: PlutusData): data is PlutusList => "list" in data;
+  export const isPlutusMap = (data: PlutusData): data is PlutusMap => "map" in data;
+  export const isPlutusFixedLengthArray = (data: PlutusData): data is PlutusFixedLengthArray => "array" in data;
+  export const isPlutusConstrFixedLengthArray = (data: PlutusData): data is PlutusConstrFixedLengthArray =>
+    "fieldArray" in data;
 
   const postDecode = (value: DecodedPlutusData): PlutusData => {
     if (typeof value === "number") {
@@ -234,10 +203,10 @@ export namespace PlutusData {
         };
       } else if (value.tag === 2) {
         // The prefix "0x" is added to the hex string to indicate that it should be interpreted as a hexadecimal number
-        const v = BigInt("0x" + value.value.toString("hex"));
+        const v = BigInt(`0x${value.value.toString("hex")}`);
         return { int: v.toString() };
       } else if (value.tag === 3) {
-        let v = BigInt("0x" + value.value.toString("hex"));
+        let v = BigInt(`0x${value.value.toString("hex")}`);
         v += 1n;
         v *= -1n;
         return { int: v.toString() };
@@ -328,9 +297,7 @@ export namespace PlutusData {
   };
 
   export function fromDataHex(dataHex: string): PlutusData {
-    const value: DecodedPlutusData = cbors.Decoder.decode(
-      Buffer.from(dataHex, "hex"),
-    ).value;
+    const value: DecodedPlutusData = cbors.Decoder.decode(Buffer.from(dataHex, "hex")).value;
     return {
       ...postDecode(value),
       source: dataHex,
@@ -346,9 +313,7 @@ export namespace PlutusData {
     return buffer.toString("hex");
   }
 
-  export function splitPlutusBytes(
-    pBytes: PlutusBytes,
-  ): PlutusBytes | PlutusList {
+  export function splitPlutusBytes(pBytes: PlutusBytes): PlutusBytes | PlutusList {
     if (pBytes.bytes.length > 64) {
       const splittedBytes = pBytes.bytes.match(/.{1,64}/g);
       invariant(splittedBytes, `could not split string: ${pBytes.bytes}`);
@@ -367,10 +332,7 @@ export namespace PlutusData {
         bytes: "",
       };
     } else {
-      invariant(
-        pList.list.every(isPlutusBytes),
-        "All elements of the list have to be Plutus Bytes",
-      );
+      invariant(pList.list.every(isPlutusBytes), "All elements of the list have to be Plutus Bytes");
       let combinedHex: string = "";
       for (const d of pList.list) {
         combinedHex += PlutusBytes.unwrap(d).hex;
@@ -381,9 +343,7 @@ export namespace PlutusData {
     }
   }
 
-  export function toPlutusDataEncoding(
-    plutusData: PlutusData,
-  ): PreEncodedPlutusData {
+  export function toPlutusDataEncoding(plutusData: PlutusData): PreEncodedPlutusData {
     return preEncode(plutusData);
   }
 
@@ -481,27 +441,21 @@ export namespace PlutusMaybeFixedLengthArray {
     }
   }
 
-  export function just<T extends PlutusData>(
-    d: T,
-  ): PlutusMaybeFixedLengthArray<T> {
+  export function just<T extends PlutusData>(d: T): PlutusMaybeFixedLengthArray<T> {
     return {
       constructor: 0,
       fieldArray: [d],
     };
   }
 
-  export function nothing<
-    T extends PlutusData,
-  >(): PlutusMaybeFixedLengthArray<T> {
+  export function nothing<T extends PlutusData>(): PlutusMaybeFixedLengthArray<T> {
     return {
       constructor: 1,
       fieldArray: [],
     };
   }
 
-  export function wrap<T extends PlutusData>(
-    a: Maybe<T>,
-  ): PlutusMaybeFixedLengthArray<T> {
+  export function wrap<T extends PlutusData>(a: Maybe<T>): PlutusMaybeFixedLengthArray<T> {
     if (Maybe.isJust(a)) {
       return just(a);
     } else {
@@ -512,7 +466,6 @@ export namespace PlutusMaybeFixedLengthArray {
 
 export namespace PlutusBool {
   export function unwrap(d: PlutusData): boolean {
-    // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
     const { constructor } = PlutusConstr.unwrap(d, {
       [0]: 0,
       [1]: 0,

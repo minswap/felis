@@ -1,19 +1,15 @@
 import invariant from "@minswap/tiny-invariant";
-import * as Typhon from "@stricahq/typhonjs";
-import { Bytes, NetworkID, PlutusBytes,
-  PlutusConstr,
-  PlutusData,
-} from ".";
 import {
-  safeFreeRustObjects,
   type CSLAddress,
   type CSLStakeCredential,
-  
-  Result,
-  RustModule,
   decodeBech32,
   encodeBech32,
+  Result,
+  RustModule,
+  safeFreeRustObjects,
 } from "@repo/ledger-utils";
+import * as Typhon from "@stricahq/typhonjs";
+import { Bytes, NetworkID, PlutusBytes, PlutusConstr, type PlutusData } from ".";
 
 const B32_PREFIX = "addr";
 const TESTNET_SUFFIX = "_test";
@@ -62,7 +58,7 @@ export namespace Credential {
   export function fromHex(input: string): Credential {
     const CSL = RustModule.get;
     const c = CSL.StakeCredential.from_hex(input);
-    let payload: Bytes | undefined = undefined;
+    let payload: Bytes | undefined;
     const credentialType = c.kind();
     switch (credentialType) {
       case CSL.StakeCredKind.Key: {
@@ -292,7 +288,7 @@ export namespace CardanoAddress {
 
     const header = s[0];
     const networkId = header & 0x0f;
-    let network: NetworkID | undefined = undefined;
+    let network: NetworkID | undefined;
     switch (networkId) {
       case 0: {
         network = NetworkID.TESTNET;

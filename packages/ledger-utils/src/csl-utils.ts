@@ -1,8 +1,4 @@
-import {
-  blake2b256, ECSLTransaction,
-  RustModule,
-  safeFreeRustObjects,
-} from ".";
+import { blake2b256, type ECSLTransaction, RustModule, safeFreeRustObjects } from ".";
 
 export namespace CSLUtils {
   export function getTransactionFromHex(data: string): ECSLTransaction {

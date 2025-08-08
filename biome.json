@@ -7,10 +7,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": [
-      "packages/ledger-core/**",
-      "packages/ledger-utils/**"
-    ]
+    "includes": ["packages/ledger-core/**", "packages/ledger-utils/**"]
   },
   "formatter": {
     "enabled": true,
@@ -22,11 +19,24 @@
     "enabled": true,
     "rules": {
       "recommended": true,
+      "complexity": {
+        "recommended": true,
+        "noStaticOnlyClass": "off",
+        "useLiteralKeys": "off"
+      },
       "security": {
         "noDangerouslySetInnerHtml": "off"
       },
       "correctness": {
+        "recommended": true,
+        "noNodejsModules": "off"
+      },
+      "performance": {
         "recommended": true
+      },
+      "suspicious": {
+        "recommended": true,
+        "noShadowRestrictedNames": "off"
       }
     }
   },

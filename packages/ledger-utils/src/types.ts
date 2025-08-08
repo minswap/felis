@@ -1,4 +1,13 @@
 export type {
+  PrivateKey as ECSLPrivateKey,
+  Transaction as ECSLTransaction,
+  TransactionBody as ECSLTransactionBody,
+  TransactionJSON as ECSLTransactionJSON,
+  TransactionWitnessSet as ECSLTransactionWitnessSet,
+  VotingProcedures as ECSLVotingProcedures,
+  VotingProposals as ECSLVotingProposals,
+} from "@emurgo/cardano-serialization-lib-nodejs";
+export type {
   Address as CSLAddress,
   AssetName as CSLAssetName,
   AssetNames as CSLAssetNames,
@@ -53,13 +62,3 @@ export type {
   Vkeywitness as CSLVkeywitness,
   Withdrawals as CSLWithdrawals,
 } from "@minswap/cardano-serialization-lib-nodejs";
-
-export type {
-  PrivateKey as ECSLPrivateKey,
-  Transaction as ECSLTransaction,
-  TransactionBody as ECSLTransactionBody,
-  TransactionJSON as ECSLTransactionJSON,
-  TransactionWitnessSet as ECSLTransactionWitnessSet,
-  VotingProcedures as ECSLVotingProcedures,
-  VotingProposals as ECSLVotingProposals,
-} from "@emurgo/cardano-serialization-lib-nodejs";

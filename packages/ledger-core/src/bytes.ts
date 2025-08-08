@@ -1,11 +1,11 @@
 import {
-  RustModule,
-  CSLPlutusData,
-  IsomorphicTextEncodeDecode,
   type CborHex,
+  type CSLPlutusData,
+  IsomorphicTextEncodeDecode,
+  RustModule,
   safeFreeRustObjects,
 } from "@repo/ledger-utils";
-import { PlutusBytes, PlutusData } from ".";
+import { PlutusBytes, type PlutusData } from ".";
 
 const HEX_REGEX = /^[a-f0-9]*$/i;
 const BASE64_REGEX = /^[a-z0-9+/=]*$/i;
@@ -47,10 +47,7 @@ export class Bytes {
   toDataHex(): CborHex<CSLPlutusData> {
     const CSL = RustModule.get;
     const plutusJson = this.toPlutusJson();
-    const plutusData = CSL.PlutusData.from_json(
-      JSON.stringify(plutusJson),
-      CSL.PlutusDatumSchema.DetailedSchema,
-    );
+    const plutusData = CSL.PlutusData.from_json(JSON.stringify(plutusJson), CSL.PlutusDatumSchema.DetailedSchema);
     const ret = plutusData.to_hex();
 
     safeFreeRustObjects(plutusData);

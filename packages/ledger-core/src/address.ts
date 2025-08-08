@@ -1,35 +1,34 @@
 import type * as Ogmios from "@cardano-ogmios/schema";
 import invariant from "@minswap/tiny-invariant";
-
 import {
-  AddressType,
-  Bytes,
-  CardanoAddress,
-  type CardanoEnterpriseAddress,
-  type CardanoRewardAddress,
-  type NetworkEnvironment,
-  type NetworkID,
-  type CardanoBaseAddress,
-  type CardanoPointerAddress,
-  PublicKeyHash,
-  CredentialType,
-  PlutusData,
-  networkEnvironmentToNetworkID,
-  PlutusInt,
-  PlutusMaybe,
-  PlutusMaybeFixedLengthArray,
-  Credential,
-  PlutusConstr,
-} from ".";
-import {
+  type CborHex,
   type CSLAddress,
   type CSLPlutusData,
   type CSLRewardAddress,
-  type CborHex,
   Maybe,
   RustModule,
   safeFreeRustObjects,
 } from "@repo/ledger-utils";
+import {
+  AddressType,
+  Bytes,
+  CardanoAddress,
+  type CardanoBaseAddress,
+  type CardanoEnterpriseAddress,
+  type CardanoPointerAddress,
+  type CardanoRewardAddress,
+  Credential,
+  CredentialType,
+  type NetworkEnvironment,
+  type NetworkID,
+  networkEnvironmentToNetworkID,
+  PlutusConstr,
+  type PlutusData,
+  PlutusInt,
+  PlutusMaybe,
+  PlutusMaybeFixedLengthArray,
+  PublicKeyHash,
+} from ".";
 
 export class Address {
   public readonly bech32: string;
@@ -193,10 +192,7 @@ export class Address {
     return this.bech32 === other.bech32;
   }
 
-  static fromPlutusJson(
-    data: PlutusData,
-    networkEnvironment: NetworkEnvironment,
-  ): Address {
+  static fromPlutusJson(data: PlutusData, networkEnvironment: NetworkEnvironment): Address {
     const networkId = networkEnvironmentToNetworkID(networkEnvironment);
     const { fields } = PlutusConstr.unwrap(data, { [0]: 2 });
     const paymentCred = Credential.fromPlutusJson(fields[0]);
@@ -335,10 +331,7 @@ export class Address {
     }
   }
 
-  static fromPlutusDataHex(
-    data: CborHex<CSLPlutusData>,
-    networkEnvironment: NetworkEnvironment,
-  ): Address {
+  static fromPlutusDataHex(data: CborHex<CSLPlutusData>, networkEnvironment: NetworkEnvironment): Address {
     const CSL = RustModule.get;
     const plutusData = CSL.PlutusData.from_hex(data);
     const plutusJson = plutusData.to_json(CSL.PlutusDatumSchema.DetailedSchema);

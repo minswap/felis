@@ -1,12 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/** biome-ignore-all lint/suspicious/noExplicitAny: xjson is a complex data structure */
 import BigNumber from "bignumber.js";
 
-import {
-  Address,
-  Asset,
-  Bytes,
-  Value,
-} from ".";
+import { Address, Asset, Bytes, Value } from ".";
 
 type XJsonDecoder = (a: any) => any;
 

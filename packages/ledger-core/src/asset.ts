@@ -9,10 +9,7 @@ export class Asset {
 
   constructor(currencySymbol: Bytes, tokenName: Bytes) {
     if (currencySymbol.length > 0 || tokenName.length > 0) {
-      invariant(
-        currencySymbol.length === 28,
-        `expect CurrencySymbol has length 28, got: ${currencySymbol.hex}`,
-      );
+      invariant(currencySymbol.length === 28, `expect CurrencySymbol has length 28, got: ${currencySymbol.hex}`);
       invariant(
         tokenName.length >= 0 && tokenName.length <= 32,
         `expect TokenName has length from 0 to 32, got: ${tokenName.hex}`,
@@ -32,10 +29,7 @@ export class Asset {
   toPlutusJson(): PlutusData {
     return {
       constructor: 0,
-      fields: [
-        this.currencySymbol.toPlutusJson(),
-        this.tokenName.toPlutusJson(),
-      ],
+      fields: [this.currencySymbol.toPlutusJson(), this.tokenName.toPlutusJson()],
     };
   }
 
@@ -125,10 +119,7 @@ export class Asset {
   }
 
   static getString(currencySymbol: string, tokenName: string): string {
-    const asset = new Asset(
-      Bytes.fromHex(currencySymbol),
-      Bytes.fromHex(tokenName),
-    );
+    const asset = new Asset(Bytes.fromHex(currencySymbol), Bytes.fromHex(tokenName));
     return asset.toString();
   }
 }

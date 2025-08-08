@@ -1,4 +1,4 @@
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 import { blake2b } from "blakejs";
 import { SHA3 } from "sha3";
 

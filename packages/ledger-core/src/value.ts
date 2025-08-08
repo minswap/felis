@@ -1,20 +1,8 @@
 import type * as Ogmios from "@cardano-ogmios/schema";
+import { type CborHex, type CSLValue, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
 import JSONBig from "json-bigint";
 import { isDeepEqual } from "remeda";
-
-import {
-  ADA,
-  Asset,
-  Bytes,
-  DEFAULT_STABLE_PROTOCOL_PARAMS,
-  NetworkEnvironment,
-} from ".";
-import {
-  RustModule,
-  CSLValue,
-  CborHex,
-  safeFreeRustObjects,
-} from "@repo/ledger-utils";
+import { ADA, Asset, Bytes, DEFAULT_STABLE_PROTOCOL_PARAMS, type NetworkEnvironment } from ".";
 
 export type BigintIsh = bigint | bigint | string | number;
 
@@ -37,10 +25,7 @@ export class Value {
   }
 
   flatten(): [Asset, bigint][] {
-    return Object.entries(this.map).map(([key, val]) => [
-      Asset.fromString(key),
-      val,
-    ]);
+    return Object.entries(this.map).map(([key, val]) => [Asset.fromString(key), val]);
   }
 
   static unflatten(arr: [Asset, bigint][]): Value {
@@ -173,27 +158,19 @@ export class Value {
 
   // Find first asset matching with @currencySymbol (hex format)
   findAsset(currencySymbol: Bytes): Asset | undefined {
-    return this.assets().find(
-      (a) => a.currencySymbol.hex === currencySymbol.hex,
-    );
+    return this.assets().find((a) => a.currencySymbol.hex === currencySymbol.hex);
   }
 
   // Find all assets matching with @currencySymbol (hex format)
   findAssets(currencySymbol: Bytes): Asset[] {
-    return this.assets().filter(
-      (a) => a.currencySymbol.hex === currencySymbol.hex,
-    );
+    return this.assets().filter((a) => a.currencySymbol.hex === currencySymbol.hex);
   }
 
   /**
    * @deprecated Try to use TxOut.getMinimumADA() instead! | only use with `isScriptOutput` = True
    */
-  getMinimumLovelace(
-    isScriptOutput: boolean,
-    networkEnv: NetworkEnvironment,
-  ): bigint {
-    const utxoCostPerByte =
-      DEFAULT_STABLE_PROTOCOL_PARAMS[networkEnv].utxoCostPerByte;
+  getMinimumLovelace(isScriptOutput: boolean, networkEnv: NetworkEnvironment): bigint {
+    const utxoCostPerByte = DEFAULT_STABLE_PROTOCOL_PARAMS[networkEnv].utxoCostPerByte;
     const CSL = RustModule.get;
     const valueCSL = this.toCSL();
     const coins = CSL.BigNum.from_str((utxoCostPerByte * 8).toString());
@@ -312,18 +289,10 @@ export class Value {
     const ret = new Value().add(ADA, BigInt(coin.to_str()));
     const ma = value.multiasset();
     if (ma !== undefined) {
-      const mapMultiAsset: Record<
-        string,
-        Record<string, string>
-      > = JSONBig.parse(ma.to_json());
-      for (const [currencySymbol, mapTokenName] of Object.entries(
-        mapMultiAsset,
-      )) {
+      const mapMultiAsset: Record<string, Record<string, string>> = JSONBig.parse(ma.to_json());
+      for (const [currencySymbol, mapTokenName] of Object.entries(mapMultiAsset)) {
         for (const [tokenName, amount] of Object.entries(mapTokenName)) {
-          const asset = new Asset(
-            Bytes.fromHex(currencySymbol),
-            Bytes.fromHex(tokenName),
-          );
+          const asset = new Asset(Bytes.fromHex(currencySymbol), Bytes.fromHex(tokenName));
           ret.add(asset, BigInt(amount));
         }
       }
@@ -334,19 +303,15 @@ export class Value {
 
   toCSL(): CSLValue {
     const CSL = RustModule.get;
-    const assetMap: Record<
-      string,
-      Record<string, bigint>
-    > = this.flatten().reduce<Record<string, Record<string, bigint>>>(
-      (amap, [asset, amount]) => {
-        if (amap[asset.currencySymbol.hex] === undefined) {
-          amap[asset.currencySymbol.hex] = {};
-        }
-        amap[asset.currencySymbol.hex][asset.tokenName.hex] = amount;
-        return amap;
-      },
-      {},
-    );
+    const assetMap: Record<string, Record<string, bigint>> = this.flatten().reduce<
+      Record<string, Record<string, bigint>>
+    >((amap, [asset, amount]) => {
+      if (amap[asset.currencySymbol.hex] === undefined) {
+        amap[asset.currencySymbol.hex] = {};
+      }
+      amap[asset.currencySymbol.hex][asset.tokenName.hex] = amount;
+      return amap;
+    }, {});
 
     const ret = CSL.Value.new(CSL.BigNum.from_str(this.get(ADA).toString()));
     const multiasset = CSL.MultiAsset.new();
@@ -420,10 +385,7 @@ export class Value {
         continue;
       }
       for (const [tokenName, amount] of Object.entries(tokenNameMap)) {
-        natives.push([
-          new Asset(Bytes.fromHex(pid), Bytes.fromHex(tokenName)),
-          amount,
-        ]);
+        natives.push([new Asset(Bytes.fromHex(pid), Bytes.fromHex(tokenName)), amount]);
       }
     }
     natives.sort((a, b) => a[0].compare(b[0]));
@@ -438,10 +400,7 @@ export class Value {
     const natives: [Asset, bigint][] = [];
     for (const [pid, tokenNameMap] of Object.entries(input)) {
       for (const [tokenName, amount] of Object.entries(tokenNameMap)) {
-        natives.push([
-          new Asset(Bytes.fromHex(pid), Bytes.fromHex(tokenName)),
-          amount,
-        ]);
+        natives.push([new Asset(Bytes.fromHex(pid), Bytes.fromHex(tokenName)), amount]);
       }
     }
     natives.sort((a, b) => a[0].compare(b[0]));

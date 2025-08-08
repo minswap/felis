@@ -14,6 +14,6 @@ export function networkEnvironmentToNetworkID(env: NetworkEnvironment): NetworkI
     [NetworkEnvironment.TESTNET_PREPROD]: NetworkID.TESTNET,
     [NetworkEnvironment.TESTNET_PREVIEW]: NetworkID.TESTNET,
   };
-  
+
   return cases[env];
 }
