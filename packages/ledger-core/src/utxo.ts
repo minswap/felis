@@ -10,7 +10,6 @@ import {
   type CSLTransactionOutput,
   type CSLTransactionUnspentOutput,
   type CSLTransactionUnspentOutputs,
-  CSLUtils,
   type ECSLTransaction,
   Maybe,
   parseIntSafe,
@@ -732,30 +731,6 @@ export namespace Utxo {
     return utxo;
   }
 
-  /** Testing Purpose Only */
-  export function getOutputsFromTxRaw(txRaw: CborHex<ECSLTransaction>): Utxo[] {
-    const ECSL = RustModule.getE;
-    const tx = ECSL.Transaction.from_hex(txRaw);
-    const cslTxBody = tx.body();
-    const txID = CSLUtils.getTxHash(tx);
-    const cslOutputs = cslTxBody.outputs();
-    const outputs: Utxo[] = unwrapRustVec(cslOutputs).map((o, index) => {
-      const outputHex = o.to_hex();
-      const output = TxOut.fromHex(outputHex);
-      const utxo: Utxo = {
-        input: {
-          txId: Bytes.fromHex(txID),
-          index: index,
-        },
-        output: output,
-      };
-      o.free();
-      return utxo;
-    });
-    safeFreeRustObjects(tx, cslTxBody, cslOutputs);
-    return outputs;
-  }
-
   export function toCSL(utxo: Utxo): CSLTransactionUnspentOutput {
     const CSL = RustModule.get;
     const input = TxIn.toCSL(utxo.input);
@@ -894,26 +869,6 @@ export namespace Utxo {
     } else {
       return 0;
     }
-  }
-
-  export function getLastOutFromRawTx(txRaw: CborHex<ECSLTransaction>): Utxo {
-    const ECSL = RustModule.getE;
-    const tx = ECSL.Transaction.from_bytes(Bytes.fromHex(txRaw).bytes);
-    const cslTxBody = tx.body();
-    const txID = CSLUtils.getTxHash(tx);
-    const cslOutputs = cslTxBody.outputs();
-    const changeOutputIdx = cslOutputs.len() - 1;
-    const cslChangeOutput = cslOutputs.get(changeOutputIdx);
-    const changeOutput = TxOut.fromHex(cslChangeOutput.to_hex());
-    const changeUTxO: Utxo = {
-      input: {
-        txId: Bytes.fromHex(txID),
-        index: changeOutputIdx,
-      },
-      output: changeOutput,
-    };
-    safeFreeRustObjects(tx, cslTxBody, cslOutputs, cslChangeOutput);
-    return changeUTxO;
   }
 
   export function utxosToTxInSet(utxos: Utxo[]): Set<string> {

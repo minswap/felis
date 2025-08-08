@@ -1,0 +1,6 @@
+- [ ] Utxo.getOutputsFromTxRaw
+- [ ] Utxo.getLastOutFromRawTx
+- [ ] Utxo.feeForInput
+- [ ] Utxo.feeForInputs
+- [ ] Utxo.feeForOutput
+- [ ] Utxo.feeForOutputs
