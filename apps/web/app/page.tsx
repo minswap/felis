@@ -1,6 +1,9 @@
+"use client";
+
 import Image, { type ImageProps } from "next/image";
 import { Button } from "@repo/ui/button";
 import styles from "./page.module.css";
+import { RustModule } from "@repo/ledger-utils";
 
 type Props = Omit<ImageProps, "src"> & {
   srcLight: string;
@@ -19,6 +22,19 @@ const ThemeImage = (props: Props) => {
 };
 
 export default function Home() {
+  const handleLoadRustModule = async () => {
+    try {
+      console.log("Loading RustModule...");
+      await RustModule.load();
+      console.log("RustModule loaded successfully!");
+      console.log("Minswap WASM:", RustModule.get);
+      console.log("Emurgo WASM:", RustModule.getE);
+      console.log("UPLC WASM:", RustModule.getU);
+    } catch (error) {
+      console.error("Failed to load RustModule:", error);
+    }
+  };
+
   return (
     <div className={styles.page}>
       <main className={styles.main}>
@@ -37,7 +53,12 @@ export default function Home() {
           </li>
           <li>Save and see your changes instantly.</li>
         </ol>
-
+        <button
+          className={styles.secondary}
+          onClick={handleLoadRustModule}
+        >
+          Load RustModule
+        </button>
         <div className={styles.ctas}>
           <a
             className={styles.primary}
