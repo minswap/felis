@@ -7,20 +7,16 @@
   },
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
-    "build": "tsc",
-    "lint": "eslint .",
-    "format": "prettier --write ."
+    "build": "tsc"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
-    "eslint": "^9.31.0",
     "typescript": "5.8.2",
     "@types/json-bigint": "^1.0.4"
   },
   "dependencies": {
-    "@cardano-ogmios/schema": "^6.11.0",
     "@emurgo/cardano-serialization-lib-browser": "13.2.1",
     "@emurgo/cardano-serialization-lib-nodejs": "13.2.1",
     "@minswap/cardano-serialization-lib-browser": "11.1.0-minswap.33",
@@ -28,11 +24,6 @@
     "@minswap/tiny-invariant": "^1.2.0",
     "@repo/uplc-node": "workspace:*",
     "@repo/uplc-web": "workspace:*",
-    "@stricahq/cbors": "^1.0.3",
-    "@stricahq/typhonjs": "2.0.0",
-    "bignumber.js": "^9.1.2",
-    "json-bigint": "^1.0.0",
-    "remeda": "^2.19.2",
     "sha3": "^2.1.4",
     "blakejs": "^1.2.1"
   }

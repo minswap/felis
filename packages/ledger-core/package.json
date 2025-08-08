@@ -5,15 +5,11 @@
   },
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
-    "build": "tsc",
-    "lint": "eslint .",
-    "format": "prettier --write ."
+    "build": "tsc"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
-    "eslint": "^9.31.0",
     "typescript": "5.8.2",
     "@types/json-bigint": "^1.0.4"
   },
