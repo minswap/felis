@@ -9,7 +9,9 @@ import {
   safeFreeRustObjects,
 } from "@repo/ledger-utils";
 import * as Typhon from "@stricahq/typhonjs";
-import { Bytes, NetworkID, PlutusBytes, PlutusConstr, type PlutusData } from ".";
+import { Bytes } from "./bytes";
+import { NetworkID } from "./network-id";
+import { PlutusBytes, PlutusConstr, type PlutusData } from "./plutus-json";
 
 const B32_PREFIX = "addr";
 const TESTNET_SUFFIX = "_test";

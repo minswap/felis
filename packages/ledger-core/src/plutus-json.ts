@@ -2,7 +2,7 @@ import invariant from "@minswap/tiny-invariant";
 import { type CSLPlutusData, Maybe, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
 import * as cbors from "@stricahq/cbors";
 import { BigNumber } from "bignumber.js";
-import { Bytes } from ".";
+import { Bytes } from "./bytes";
 
 export const DATUM_HASH_HEX_LENGTH = 64;
 

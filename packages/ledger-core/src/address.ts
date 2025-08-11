@@ -9,9 +9,9 @@ import {
   RustModule,
   safeFreeRustObjects,
 } from "@repo/ledger-utils";
+import { Bytes } from "./bytes";
 import {
   AddressType,
-  Bytes,
   CardanoAddress,
   type CardanoBaseAddress,
   type CardanoEnterpriseAddress,
@@ -19,16 +19,10 @@ import {
   type CardanoRewardAddress,
   Credential,
   CredentialType,
-  type NetworkEnvironment,
-  type NetworkID,
-  networkEnvironmentToNetworkID,
-  PlutusConstr,
-  type PlutusData,
-  PlutusInt,
-  PlutusMaybe,
-  PlutusMaybeFixedLengthArray,
-  PublicKeyHash,
-} from ".";
+} from "./cardano-address";
+import { PublicKeyHash } from "./crypto";
+import { type NetworkEnvironment, type NetworkID, networkEnvironmentToNetworkID } from "./network-id";
+import { PlutusConstr, type PlutusData, PlutusInt, PlutusMaybe, PlutusMaybeFixedLengthArray } from "./plutus-json";
 
 export class Address {
   public readonly bech32: string;

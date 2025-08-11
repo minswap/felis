@@ -7,7 +7,8 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["packages/ledger-core/**", "packages/ledger-utils/**"]
+    "includes": ["packages/ledger-core/**", "packages/ledger-utils/**"],
+    "experimentalScannerIgnores": ["**/test/**", "test"]
   },
   "formatter": {
     "enabled": true,

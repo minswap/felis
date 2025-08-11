@@ -2,7 +2,10 @@ import type * as Ogmios from "@cardano-ogmios/schema";
 import { type CborHex, type CSLValue, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
 import JSONBig from "json-bigint";
 import { isDeepEqual } from "remeda";
-import { ADA, Asset, Bytes, DEFAULT_STABLE_PROTOCOL_PARAMS, type NetworkEnvironment } from ".";
+import { ADA, Asset } from "./asset";
+import { Bytes } from "./bytes";
+import type { NetworkEnvironment } from "./network-id";
+import { DEFAULT_STABLE_PROTOCOL_PARAMS } from "./protocol-parameters";
 
 export type BigintIsh = bigint | bigint | string | number;
 

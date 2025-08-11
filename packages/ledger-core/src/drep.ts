@@ -1,5 +1,6 @@
 import { type CSLDRep, RustModule } from "@repo/ledger-utils";
-import type { Bytes, PublicKeyHash } from ".";
+import type { Bytes } from "./bytes";
+import type { PublicKeyHash } from "./crypto";
 
 export enum DRepEnum {
   KEY_HASH = 0,

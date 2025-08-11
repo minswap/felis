@@ -25,6 +25,11 @@
     "//#format-and-lint": {},
     "//#format-and-lint:fix": {
       "cache": false
+    },
+    "test": {},
+    "test:watch": {
+      "cache": false,
+      "persistent": true
     }
   }
 }

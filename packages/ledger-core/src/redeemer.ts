@@ -9,7 +9,8 @@ import {
   unwrapRustVec,
 } from "@repo/ledger-utils";
 import * as cbors from "@stricahq/cbors";
-import { type Bytes, PlutusData, type PreEncodedPlutusData } from ".";
+import type { Bytes } from "./bytes";
+import { PlutusData, type PreEncodedPlutusData } from "./plutus-json";
 
 export enum RedeemerType {
   SPEND = 0,

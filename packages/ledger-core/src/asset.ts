@@ -1,7 +1,8 @@
 import invariant from "@minswap/tiny-invariant";
 
 import { sha3 } from "@repo/ledger-utils";
-import { Bytes, PlutusBytes, PlutusConstr, type PlutusData } from ".";
+import { Bytes } from "./bytes";
+import { PlutusBytes, PlutusConstr, type PlutusData } from "./plutus-json";
 
 export class Asset {
   readonly currencySymbol: Bytes;

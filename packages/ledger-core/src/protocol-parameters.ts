@@ -1,4 +1,4 @@
-import { NetworkEnvironment } from ".";
+import { NetworkEnvironment } from "./network-id";
 
 type Fraction = {
   numerator: number;

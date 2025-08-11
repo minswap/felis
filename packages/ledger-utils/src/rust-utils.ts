@@ -1,4 +1,4 @@
-import type { Maybe } from ".";
+import type { Maybe } from "./maybe";
 
 // Phantom type
 export type CborHex<_> = string;

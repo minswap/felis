@@ -17,23 +17,15 @@ import {
   unwrapRustVec,
 } from "@repo/ledger-utils";
 import * as cbor from "cbor";
-
-import {
-  ADA,
-  Address,
-  type Asset,
-  Bytes,
-  DEFAULT_STABLE_PROTOCOL_PARAMS,
-  type KupoValue,
-  type NetworkEnvironment,
-  PlutusBytes,
-  PlutusConstr,
-  PlutusData,
-  PlutusInt,
-  Value,
-  XJSON,
-} from ".";
+import { Address } from "./address";
+import { ADA, type Asset } from "./asset";
+import { Bytes } from "./bytes";
+import type { NetworkEnvironment } from "./network-id";
 import { PlutusVersion, type ScriptReference } from "./plutus";
+import { PlutusBytes, PlutusConstr, PlutusData, PlutusInt } from "./plutus-json";
+import { DEFAULT_STABLE_PROTOCOL_PARAMS } from "./protocol-parameters";
+import { type KupoValue, Value } from "./value";
+import { XJSON } from "./xjson";
 
 export type TxIn = {
   txId: Bytes;

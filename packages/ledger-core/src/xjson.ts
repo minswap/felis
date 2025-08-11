@@ -1,7 +1,10 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: xjson is a complex data structure */
 import BigNumber from "bignumber.js";
 
-import { Address, Asset, Bytes, Value } from ".";
+import { Address } from "./address";
+import { Asset } from "./asset";
+import { Bytes } from "./bytes";
+import { Value } from "./value";
 
 type XJsonDecoder = (a: any) => any;
 

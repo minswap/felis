@@ -9,7 +9,9 @@ import {
   safeFreeRustObjects,
 } from "@repo/ledger-utils";
 import * as cbor from "cbor";
-import { Bytes, type NativeScript, type PlutusData } from ".";
+import { Bytes } from "./bytes";
+import type { NativeScript } from "./native-script";
+import type { PlutusData } from "./plutus-json";
 
 export class PrivateKey {
   readonly key: Bytes;

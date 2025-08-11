@@ -5,7 +5,7 @@ import {
   RustModule,
   safeFreeRustObjects,
 } from "@repo/ledger-utils";
-import { PlutusBytes, type PlutusData } from ".";
+import { PlutusBytes, type PlutusData } from "./plutus-json";
 
 const HEX_REGEX = /^[a-f0-9]*$/i;
 const BASE64_REGEX = /^[a-z0-9+/=]*$/i;

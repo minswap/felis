@@ -5,7 +5,13 @@ import {
   type CSLPlutusScript,
   RustModule,
 } from "@repo/ledger-utils";
-import type { Address, Asset, Bytes, ExUnit, PlutusData, RewardAddress, Utxo, Value } from ".";
+import type { Address, RewardAddress } from "./address";
+import type { Asset } from "./asset";
+import type { Bytes } from "./bytes";
+import type { PlutusData } from "./plutus-json";
+import type { ExUnit } from "./redeemer";
+import type { Utxo } from "./utxo";
+import type { Value } from "./value";
 
 export enum PlutusVersion {
   V1 = "V1",
