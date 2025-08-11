@@ -2,7 +2,7 @@ import invariant from "@minswap/tiny-invariant";
 
 import { sha3 } from "@repo/ledger-utils";
 import { Bytes } from "./bytes";
-import { PlutusBytes, PlutusConstr, type PlutusData } from "./plutus-json";
+import { PlutusConstr, type PlutusData } from "./plutus-json";
 
 export class Asset {
   readonly currencySymbol: Bytes;
@@ -22,8 +22,8 @@ export class Asset {
 
   static fromPlutusJson(d: PlutusData): Asset {
     const data = PlutusConstr.unwrap(d, { [0]: 2 });
-    const currencySymbol = PlutusBytes.unwrap(data.fields[0]);
-    const tokenName = PlutusBytes.unwrap(data.fields[1]);
+    const currencySymbol = Bytes.fromPlutusJson(data.fields[0]);
+    const tokenName = Bytes.fromPlutusJson(data.fields[1]);
     return new Asset(currencySymbol, tokenName);
   }
 

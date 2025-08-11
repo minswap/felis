@@ -1,5 +1,6 @@
 export * from "./bech32";
 export * from "./hash";
+export * from "./hex-utils";
 export * from "./isomorphic-text-encoder";
 export * from "./loader";
 export * from "./maybe";

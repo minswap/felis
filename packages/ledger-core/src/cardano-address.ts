@@ -11,7 +11,7 @@ import {
 import * as Typhon from "@stricahq/typhonjs";
 import { Bytes } from "./bytes";
 import { NetworkID } from "./network-id";
-import { PlutusBytes, PlutusConstr, type PlutusData } from "./plutus-json";
+import { PlutusConstr, type PlutusData } from "./plutus-json";
 
 const B32_PREFIX = "addr";
 const TESTNET_SUFFIX = "_test";
@@ -36,7 +36,7 @@ export namespace Credential {
     });
     return {
       type: data.constructor,
-      payload: PlutusBytes.unwrap(data.fields[0]),
+      payload: Bytes.fromPlutusJson(data.fields[0]),
     };
   }
 

@@ -2,7 +2,6 @@ import invariant from "@minswap/tiny-invariant";
 import { type CSLPlutusData, Maybe, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
 import * as cbors from "@stricahq/cbors";
 import { BigNumber } from "bignumber.js";
-import { Bytes } from "./bytes";
 
 export const DATUM_HASH_HEX_LENGTH = 64;
 
@@ -146,12 +145,17 @@ export namespace PlutusInt {
 }
 
 export namespace PlutusBytes {
-  export function unwrap(d: PlutusData): Bytes {
+  export function unwrap(d: PlutusData): string {
     invariant("bytes" in d, `Data is not Bytes: ${JSON.stringify(d)}`);
-    return Bytes.fromHex(d.bytes);
+    return d.bytes;
   }
 
-  export function wrap(d: Bytes): PlutusData {
+  export function unwrapToUint8Array(d: PlutusData): Uint8Array {
+    const hex = unwrap(d);
+    return Uint8Array.from(Buffer.from(hex, "hex"));
+  }
+
+  export function wrap(d: { hex: string }): PlutusData {
     return { bytes: d.hex };
   }
 }
@@ -251,7 +255,7 @@ export namespace PlutusData {
     } else if (isPlutusInt(plutusData)) {
       return new BigNumber(plutusData.int);
     } else if (isPlutusBytes(plutusData)) {
-      return PlutusBytes.unwrap(plutusData).bytes;
+      return PlutusBytes.unwrapToUint8Array(plutusData);
     } else if (isPlutusConstr(plutusData)) {
       let fields: Array<unknown> = [];
       if (plutusData.fields.length) {
@@ -318,7 +322,7 @@ export namespace PlutusData {
       const splittedBytes = pBytes.bytes.match(/.{1,64}/g);
       invariant(splittedBytes, `could not split string: ${pBytes.bytes}`);
       const pList: PlutusList = {
-        list: splittedBytes.map((s) => PlutusBytes.wrap(Bytes.fromHex(s))),
+        list: splittedBytes.map((s) => PlutusBytes.wrap({ hex: s })),
       };
       return pList;
     } else {
@@ -335,7 +339,7 @@ export namespace PlutusData {
       invariant(pList.list.every(isPlutusBytes), "All elements of the list have to be Plutus Bytes");
       let combinedHex: string = "";
       for (const d of pList.list) {
-        combinedHex += PlutusBytes.unwrap(d).hex;
+        combinedHex += PlutusBytes.unwrap(d);
       }
       return {
         bytes: combinedHex,
@@ -347,7 +351,7 @@ export namespace PlutusData {
     return preEncode(plutusData);
   }
 
-  export function hashPlutusData(plutusData: PlutusData | string): Bytes {
+  export function hashPlutusData(plutusData: PlutusData | string): string {
     const CSL = RustModule.get;
     let dataHex: string;
     if (typeof plutusData === "string") {
@@ -361,9 +365,9 @@ export namespace PlutusData {
     }
     const cslPlutusData = CSL.PlutusData.from_hex(dataHex);
     const cslDatumHash = CSL.hash_plutus_data(cslPlutusData);
-    const datumHash = cslDatumHash.to_bytes();
+    const datumHash = cslDatumHash.to_hex();
     safeFreeRustObjects(cslPlutusData, cslDatumHash);
-    return new Bytes(datumHash);
+    return datumHash;
   }
 
   export function toCSL(plutusData: PlutusData): CSLPlutusData {

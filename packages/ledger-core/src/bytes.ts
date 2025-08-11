@@ -2,15 +2,13 @@ import {
   type CborHex,
   type CSLPlutusData,
   IsomorphicTextEncodeDecode,
+  isValidBase64,
+  isValidHex,
   RustModule,
   safeFreeRustObjects,
 } from "@repo/ledger-utils";
-import { PlutusBytes, type PlutusData } from "./plutus-json";
 
-const HEX_REGEX = /^[a-f0-9]*$/i;
-const BASE64_REGEX = /^[a-z0-9+/=]*$/i;
-const isValidHex = (s: string): boolean => HEX_REGEX.test(s);
-const isValidBase64 = (s: string): boolean => BASE64_REGEX.test(s);
+import { PlutusBytes, type PlutusData } from "./plutus-json";
 
 export class Bytes {
   readonly bytes: Uint8Array;
@@ -33,7 +31,7 @@ export class Bytes {
   }
 
   static fromPlutusJson(d: PlutusData): Bytes {
-    return PlutusBytes.unwrap(d);
+    return Bytes.fromHex(PlutusBytes.unwrap(d));
   }
 
   static fromNumberArr(arr: number[]): Bytes {

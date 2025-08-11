@@ -21,8 +21,8 @@ import { Address } from "./address";
 import { ADA, type Asset } from "./asset";
 import { Bytes } from "./bytes";
 import type { NetworkEnvironment } from "./network-id";
-import { PlutusVersion, type ScriptReference } from "./plutus";
-import { PlutusBytes, PlutusConstr, PlutusData, PlutusInt } from "./plutus-json";
+import { PlutusConstr, PlutusData, PlutusInt } from "./plutus-json";
+import { PlutusVersion, type ScriptReference } from "./plutus-version";
 import { DEFAULT_STABLE_PROTOCOL_PARAMS } from "./protocol-parameters";
 import { type KupoValue, Value } from "./value";
 import { XJSON } from "./xjson";
@@ -39,7 +39,7 @@ export namespace TxId {
 
   export function fromPlutusJson(data: PlutusData): Bytes {
     const { fields } = PlutusConstr.unwrap(data, { [0]: 1 });
-    return PlutusBytes.unwrap(fields[0]);
+    return Bytes.fromPlutusJson(fields[0]);
   }
 
   export function toPlutusJson(data: Bytes): PlutusData {
@@ -286,7 +286,7 @@ export namespace DatumSource {
     const datumHash = PlutusData.hashPlutusData(PlutusData.fromDataHex(data.hex));
     return {
       type: DatumSourceType.OUTLINE_DATUM,
-      hash: datumHash,
+      hash: Bytes.fromHex(datumHash),
       data: data,
     };
   }
