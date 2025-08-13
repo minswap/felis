@@ -23,6 +23,9 @@
     "check-types": {
       "dependsOn": ["^check-types"]
     },
+    "check-circular-imports": {
+      "dependsOn": ["^check-circular-imports"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

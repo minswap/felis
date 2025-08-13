@@ -8,6 +8,7 @@ import {
   type PlutusSpend,
   Transaction,
   TxIn,
+  TxOut,
   type Utxo,
 } from "@repo/ledger-core";
 import type {
@@ -23,6 +24,25 @@ import type {
   CSLTransactionUnspentOutput,
 } from "@repo/ledger-utils";
 import { Maybe } from "@repo/ledger-utils";
+
+export interface CoverForFeesResult {
+  finalCoins: TxOut[];
+  finalNativeTokens: TxOut[];
+  finalFee: bigint;
+}
+
+export class SplitChangeOutError extends Error {
+  additionalAdaRequired: bigint;
+  constructor(additionalAdaRequired: bigint) {
+    super(`require ${additionalAdaRequired} more ADA`);
+    this.additionalAdaRequired = additionalAdaRequired;
+  }
+}
+
+export type SplitChangeOutResult = {
+  coins: TxOut[];
+  nativeTokens: TxOut[];
+};
 
 export type ScriptOrRef = { inlineScript: CSLPlutusScript } | { referenceScript: CSLPlutusScript };
 

@@ -7,14 +7,16 @@
   },
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
-    "build": "tsc"
+    "build": "tsc",
+    "check-circular-imports": "dpdm --no-warning --no-tree src"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/json-bigint": "^1.0.4",
     "@types/node": "^22.15.3",
-    "typescript": "5.8.2"
+    "typescript": "5.8.2",
+    "dpdm": "^3.14.0"
   },
   "dependencies": {
     "@emurgo/cardano-serialization-lib-browser": "13.2.1",

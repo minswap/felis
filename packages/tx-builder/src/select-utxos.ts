@@ -1,7 +1,8 @@
 import { ADA, Address, Asset, NetworkEnvironment, TxOut, Utxo, Value } from "@repo/ledger-core";
 import { Result } from "@repo/ledger-utils";
-import { MAX_TOKEN_BUNDLE_SIZE, splitChangeOut } from "./change-builder";
+import { MAX_TOKEN_BUNDLE_SIZE } from "./constants";
 import { SelectUtxosError } from "./tx-builder-error";
+import { SplitChangeOutError, SplitChangeOutResult } from "./types";
 
 /**
  * Select utxos to cover @requiredValue from @availableUtxos
@@ -125,6 +126,50 @@ export function selectUtxosForToken(
     }
   }
   return Result.ok(selectingUtxos);
+}
+
+
+/**
+ * Split Change Out if it is big enough (e.g. >20 assets). This should help prevent 2 types of errors:
+ *
+ * 1. `Value over 5000..` - Value size is max 5k bytes, so with the split value size would be <5k bytes.
+ * 2. `Transaction size over 16384..` - When wallet has smaller utxos, this issue will occur less often.
+ *
+ * @param changeOut Change out to be split into smaller outs with max no of tokens specified in @maxBundleSize
+ * @param maxTokenBundleSize max no of tokens contained in each bundle
+ * @returns minAdaAddiitional: amount ADA need to add more for satisfied minimumADA
+ */
+export function splitChangeOut(
+  changeOut: TxOut,
+  networkEnvironment: NetworkEnvironment,
+  maxTokenBundleSize = MAX_TOKEN_BUNDLE_SIZE,
+): Result<SplitChangeOutResult, SplitChangeOutError> {
+  const nativeTokens: TxOut[] = [];
+  const coins: TxOut[] = [];
+  const assets = changeOut.value.flatten().filter(([asset]) => !asset.equals(ADA));
+  while (assets.length) {
+    const value = Value.unflatten(assets.splice(0, maxTokenBundleSize));
+    const output = new TxOut(changeOut.address, value);
+    output.addMinimumADAIfRequired(networkEnvironment);
+    nativeTokens.push(output);
+  }
+  const remainingCoins = changeOut.value.get(ADA) - TxOut.sumValue(nativeTokens).get(ADA);
+  if (remainingCoins < 0n) {
+    return Result.err(new SplitChangeOutError(-remainingCoins));
+  }
+  if (remainingCoins >= TxOut.getMinimumAdaForAdaOnlyOut(networkEnvironment)) {
+    coins.push(new TxOut(changeOut.address, new Value().add(ADA, remainingCoins)));
+  } else {
+    if (nativeTokens.length === 0) {
+      return Result.err(new SplitChangeOutError(TxOut.getMinimumAdaForAdaOnlyOut(networkEnvironment) - remainingCoins));
+    }
+    // push remaining ada to last token bundle out since remaining ada cannot form an independent out
+    nativeTokens[nativeTokens.length - 1].value.add(ADA, remainingCoins);
+  }
+  return Result.ok({
+    coins,
+    nativeTokens,
+  });
 }
 
 function getSpareADAAfterSplit(utxo: Utxo, changeAddress: Address, networkEnv: NetworkEnvironment): bigint {

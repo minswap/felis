@@ -5,7 +5,8 @@
   },
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
-    "build": "tsc"
+    "build": "tsc",
+    "check-circular-imports": "dpdm --no-warning --no-tree src"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",

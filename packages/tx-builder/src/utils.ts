@@ -1,8 +1,7 @@
 import { ADA, Address, DEFAULT_STABLE_PROTOCOL_PARAMS, ExUnit, NetworkEnvironment, ProtocolParameters, ReferenceScriptFee, TxCollateral, TxIn, TxOut, Utxo, Value } from "@repo/ledger-core";
 import { CSLTransactionBuilder, Maybe, Result, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
 import BigNumber from "bignumber.js";
-import { splitChangeOut } from "./change-builder";
-import { selectUtxos } from "./select-utxos";
+import { selectUtxos, splitChangeOut } from "./select-utxos";
 import { ChangeValueTooLargeError, InsufficientBalanceCause, InsufficientBalanceError, MaxCollateralBreachError } from "./tx-builder-error";
 import { TxDraft } from "./types";
 
@@ -429,7 +428,7 @@ export namespace ChangeOutputBuilder {
         address: changeAddress,
         value: changeValue,
       });
-      const splitResult = splitChangeOut(changeOut);
+      const splitResult = splitChangeOut(changeOut, networkEnv);
       if (splitResult.type === "err") {
         const utxosToCoverChangeOutSplitting = selectUtxos(
           new Value().add(ADA, splitResult.error.additionalAdaRequired),
@@ -486,7 +485,7 @@ export namespace ChangeOutputBuilder {
         address: changeAddress,
         value: changeValueResult.error.changeValue,
       });
-      const splitResult = splitChangeOut(changeOut);
+      const splitResult = splitChangeOut(changeOut, networkEnv);
       if (splitResult.type === "err") {
         throw new InsufficientBalanceError(
           ADA.toString(),
