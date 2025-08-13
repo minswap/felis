@@ -1,5 +1,5 @@
 {
-  "name": "@repo/tx-builder",
+  "name": "@repo/cip",
   "version": "0.0.1",
   "private": true,
   "exports": {
@@ -22,9 +22,6 @@
   "dependencies": {
     "@repo/ledger-core": "workspace:*",
     "@repo/ledger-utils": "workspace:*",
-    "@repo/cip": "workspace:*",
-    "remeda": "^2.19.2",
-    "@minswap/tiny-invariant": "^1.2.0",
-    "bignumber.js": "^9.1.2"
+    "@minswap/tiny-invariant": "^1.2.0"
   }
 }

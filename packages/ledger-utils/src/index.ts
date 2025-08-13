@@ -1,4 +1,5 @@
 export * from "./bech32";
+export * from "./duration";
 export * from "./hash";
 export * from "./hex-utils";
 export * from "./isomorphic-text-encoder";
