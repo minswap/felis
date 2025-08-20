@@ -19,7 +19,8 @@
     "@types/node": "^22.15.3",
     "typescript": "5.8.2",
     "dpdm": "^3.14.0",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "fast-check": "^3.23.2"
   },
   "dependencies": {
     "@emurgo/cardano-serialization-lib-browser": "13.2.1",

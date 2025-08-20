@@ -1,6 +1,6 @@
 import invariant from "@minswap/tiny-invariant";
-import { Asset, Bytes, DatumSourceType, InlineDatum } from "@repo/ledger-core";
-import { Maybe, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
+import { Asset, Bytes, DatumSourceType, type InlineDatum } from "@repo/ledger-core";
+import { type Maybe, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
 
 export const CIP_LABEL_LENGTH = 8;
 
@@ -123,7 +123,7 @@ export namespace CIP68 {
 
   export function checksum(byteArr: Uint8Array): number {
     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    let c: any = undefined;
+    let c: any;
     for (let i = 0; i < byteArr.length; i++) {
       const byte = byteArr[i];
       invariant(typeof byte === "number", "CHECKSUM");
