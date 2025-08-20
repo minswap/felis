@@ -1,12 +1,58 @@
 import type { CIP25Metadata, CIP25NFT } from "@repo/cip";
-import { ADA, Address, Bytes, CredentialType, DEFAULT_STABLE_PROTOCOL_PARAMS, DRep, ExUnit, getSlotFromTimeMagic, Metadatum, NativeScript, NetworkEnvironment, PlutusData, PlutusUsageType, PlutusVersion, PrivateKey, ProtocolParameters, PublicKeyHash, RedeemerType, RedeemerWithRef, RewardAddress, TxIn, TxOut, UnstableProtocolParams, Utxo, Validator, Value, XJSON } from "@repo/ledger-core";
-import { CborHex, CSLTransaction, CSLVkeywitness, ECSLTransaction, ECSLTransactionWitnessSet, Maybe, Result, RustModule, safeFreeRustObjects, unwrapRustVec } from "@repo/ledger-utils";
+import {
+  ADA,
+  type Address,
+  Bytes,
+  CredentialType,
+  DEFAULT_STABLE_PROTOCOL_PARAMS,
+  type DRep,
+  type ExUnit,
+  getSlotFromTimeMagic,
+  NativeScript,
+  type NetworkEnvironment,
+  PlutusData,
+  PlutusUsageType,
+  PlutusVersion,
+  type PrivateKey,
+  type ProtocolParameters,
+  type PublicKeyHash,
+  RedeemerType,
+  type RedeemerWithRef,
+  type RewardAddress,
+  TxIn,
+  TxOut,
+  type UnstableProtocolParams,
+  Utxo,
+  type Validator,
+  Value,
+  XJSON,
+} from "@repo/ledger-core";
+import {
+  type CborHex,
+  type CSLTransaction,
+  type CSLVkeywitness,
+  type ECSLTransaction,
+  type ECSLTransactionWitnessSet,
+  Maybe,
+  Result,
+  RustModule,
+  safeFreeRustObjects,
+  unwrapRustVec,
+} from "@repo/ledger-utils";
 import { unique } from "remeda";
-import { CoinSelectionAlgorithm, DebugInfo, DebugNativeScriptMint, DebugPlutusMint, DebugPlutusSpend, TxDraft, UtxoState } from "./types";
 import { ECSLConverter } from "./ecsl-converter";
-import { TxBuildingError } from "./tx-builder-error";
-import { ChangeOutputBuilder, UtxoSelection } from "./utils";
 import { CSLTxSerializer } from "./serializer";
+import { TxBuildingError } from "./tx-builder-error";
+import {
+  CoinSelectionAlgorithm,
+  type DebugInfo,
+  type DebugNativeScriptMint,
+  type DebugPlutusMint,
+  type DebugPlutusSpend,
+  TxDraft,
+  type UtxoState,
+} from "./types";
+import { ChangeOutputBuilder, UtxoSelection } from "./utils";
 
 export type TxBuilderBuildOptions = {
   changeAddress: Address;
@@ -799,7 +845,6 @@ export class TxBuilderV2 {
         cTx: ECSLTransaction;
         cTx11: CSLTransaction;
       } = new CSLTxSerializer(this.networkEnv, this.getTxDraft(), protocolParameters).build();
-
 
       const { cTx: cFinalTx, txId } = builtTx;
       if (debug) {

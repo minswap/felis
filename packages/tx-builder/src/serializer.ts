@@ -1,11 +1,47 @@
 import invariant from "@minswap/tiny-invariant";
-import { getSlotConfig, ADA, Bytes, CborSerializer, CredentialType, ExUnit, getSlotFromTimeMagic, NetworkEnvironment, PlutusData, PlutusList, PlutusVersion, ProtocolParameters, Redeemer, RedeemerType, RedeemerWithRef, RewardAddress, TxIn, Utxo, Value } from "@repo/ledger-core";
-import { CSLTransactionBuilder, RustModule, Maybe, safeFreeRustObjects, CSLPlutusScripts, CSLPlutusScript, CSLPlutusList, CSLPlutusData, CSLRedeemers, ECSLTransaction, CSLTransaction, Result, unwrapRustVec, unwrapRustMap, Duration } from "@repo/ledger-utils";
+import {
+  ADA,
+  Bytes,
+  CborSerializer,
+  CredentialType,
+  ExUnit,
+  getSlotConfig,
+  getSlotFromTimeMagic,
+  type NetworkEnvironment,
+  PlutusData,
+  PlutusList,
+  PlutusVersion,
+  type ProtocolParameters,
+  Redeemer,
+  RedeemerType,
+  type RedeemerWithRef,
+  RewardAddress,
+  TxIn,
+  Utxo,
+  Value,
+} from "@repo/ledger-core";
+import {
+  type CSLPlutusData,
+  type CSLPlutusList,
+  type CSLPlutusScript,
+  type CSLPlutusScripts,
+  type CSLRedeemers,
+  type CSLTransaction,
+  type CSLTransactionBuilder,
+  Duration,
+  type ECSLTransaction,
+  Maybe,
+  Result,
+  RustModule,
+  safeFreeRustObjects,
+  unwrapRustMap,
+  unwrapRustVec,
+} from "@repo/ledger-utils";
 import JSONBig from "json-bigint";
-import { ECSLConverter } from "./ecsl-converter";
-import { TxDraft } from "./types";
-import { TxBuilderUtils } from "./utils";
 import { CertsBuilder } from "./certs-builder";
+import { ECSLConverter } from "./ecsl-converter";
+import type { TxDraft } from "./types";
+import { TxBuilderUtils } from "./utils";
 
 export function fakeSignature(): string {
   return "dfaabe3664b19c02a2c20ed8bc4abcf2a59975e7212c6857eb89f58f4b6854c9ba78ca491b7bf625ef82a6c4119701382e2817f099cb1b42796e55d3dacb090d";
@@ -371,7 +407,7 @@ export class CSLTxSerializer {
     const plutusVersions: PlutusVersion[] = [];
     const scripts = Object.values(this.txDraft.plutusScripts);
     for (const script of scripts) {
-      let cslScript: CSLPlutusScript | undefined = undefined;
+      let cslScript: CSLPlutusScript | undefined;
       if ("inlineScript" in script) {
         cslScript = script.inlineScript;
       } else if ("referenceScript" in script) {

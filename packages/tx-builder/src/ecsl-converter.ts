@@ -1,9 +1,13 @@
+import { Asset, Bytes, Value } from "@repo/ledger-core";
 import {
-  Asset,
-  Bytes,
-  Value,
-} from "@repo/ledger-core";
-import { blake2b256, ECSLTransaction, ECSLTransactionBody, Maybe, RustModule, safeFreeRustObjects, unwrapRustVec } from "@repo/ledger-utils";
+  blake2b256,
+  type ECSLTransaction,
+  type ECSLTransactionBody,
+  Maybe,
+  RustModule,
+  safeFreeRustObjects,
+  unwrapRustVec,
+} from "@repo/ledger-utils";
 
 export namespace ECSLConverter {
   export function getTransactionFromHex(data: string): ECSLTransaction {

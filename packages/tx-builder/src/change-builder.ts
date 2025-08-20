@@ -2,11 +2,19 @@ import invariant from "@minswap/tiny-invariant";
 
 import { ADA, type Address, type NetworkEnvironment, TxOut, Utxo, Value } from "@repo/ledger-core";
 import { Result } from "@repo/ledger-utils";
-import { ChangeValueTooLargeError, CoverForDustAdaError, CoverForFeesError, DustAdaNotCoveredCause, IncorrectInputSupplied, InsufficientBalanceCause, InsufficientBalanceError } from "./tx-builder-error";
+import { LEFT_OVER_ADA_SPLIT_THRESHOLD } from "./constants";
 import { selectUtxos, splitChangeOut } from "./select-utxos";
+import {
+  ChangeValueTooLargeError,
+  CoverForDustAdaError,
+  CoverForFeesError,
+  DustAdaNotCoveredCause,
+  IncorrectInputSupplied,
+  InsufficientBalanceCause,
+  InsufficientBalanceError,
+} from "./tx-builder-error";
+import type { CoverForFeesResult } from "./types";
 import { TxBuilderUtils } from "./utils";
-import { CoverForFeesResult } from "./types";
-import { LEFT_OVER_ADA_SPLIT_THRESHOLD, MAX_TOKEN_BUNDLE_SIZE } from "./constants";
 
 export type ChangeBuilderOptions = {
   initMinFee: bigint;
@@ -94,9 +102,11 @@ export class ChangeBuilder {
     const changeOut = new TxOut(this.changeAddress, this.changeValue);
     const coins: TxOut[] = [];
     const nativeTokens: TxOut[] = [];
-    const leftOverAda = getTotalExtractableAda(this.getAvailableUtxos(), [
-      new TxOut(this.changeAddress, this.changeValue),
-    ], this.networkEnvironment);
+    const leftOverAda = getTotalExtractableAda(
+      this.getAvailableUtxos(),
+      [new TxOut(this.changeAddress, this.changeValue)],
+      this.networkEnvironment,
+    );
     // skip change out if left over ada is less
     const shouldSplitSkip = leftOverAda < LEFT_OVER_ADA_SPLIT_THRESHOLD;
     if (!shouldSplitSkip && shouldSplitChange) {
@@ -154,7 +164,10 @@ export class ChangeBuilder {
       }
     }
     const changeOuts = [...nativeTokens, ...coins];
-    const feeForAdditionalChosenInputs = TxBuilderUtils.feeForInputs(this.networkEnvironment, this.additionalChosenInputs);
+    const feeForAdditionalChosenInputs = TxBuilderUtils.feeForInputs(
+      this.networkEnvironment,
+      this.additionalChosenInputs,
+    );
     const feeForChangeOutputs = TxBuilderUtils.feeForOutputs(this.networkEnvironment, changeOuts);
     const feeAfterChangeOut = initMinFee + feeForAdditionalChosenInputs + feeForChangeOutputs;
 
@@ -442,8 +455,15 @@ export function getChangeValue(
 
 // NOTE: this function will work correctly only if change out is always merged into a single out
 // (done in tx-builder.ts before change building)
-function getTotalExtractableAda(availableUtxos: Utxo[], changeOuts: TxOut[], networkEnvironment: NetworkEnvironment): bigint {
-  const usableAdaInAvailableUtxos = availableUtxos.reduce((pre, u) => pre + u.output.getExtractableADA(networkEnvironment), 0n);
+function getTotalExtractableAda(
+  availableUtxos: Utxo[],
+  changeOuts: TxOut[],
+  networkEnvironment: NetworkEnvironment,
+): bigint {
+  const usableAdaInAvailableUtxos = availableUtxos.reduce(
+    (pre, u) => pre + u.output.getExtractableADA(networkEnvironment),
+    0n,
+  );
   const usableAdaInChangeOuts = changeOuts.reduce((pre, o) => pre + o.getExtractableADA(networkEnvironment), 0n);
   const totalExtractableAda = usableAdaInAvailableUtxos + usableAdaInChangeOuts;
   return totalExtractableAda;

@@ -1,9 +1,27 @@
-import { ADA, Address, DEFAULT_STABLE_PROTOCOL_PARAMS, ExUnit, NetworkEnvironment, ProtocolParameters, ReferenceScriptFee, TxCollateral, TxIn, TxOut, Utxo, Value } from "@repo/ledger-core";
-import { CSLTransactionBuilder, Maybe, Result, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
+import {
+  ADA,
+  type Address,
+  DEFAULT_STABLE_PROTOCOL_PARAMS,
+  type ExUnit,
+  type NetworkEnvironment,
+  type ProtocolParameters,
+  type ReferenceScriptFee,
+  type TxCollateral,
+  TxIn,
+  TxOut,
+  Utxo,
+  Value,
+} from "@repo/ledger-core";
+import { type CSLTransactionBuilder, Maybe, Result, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
 import BigNumber from "bignumber.js";
 import { selectUtxos, splitChangeOut } from "./select-utxos";
-import { ChangeValueTooLargeError, InsufficientBalanceCause, InsufficientBalanceError, MaxCollateralBreachError } from "./tx-builder-error";
-import { TxDraft } from "./types";
+import {
+  ChangeValueTooLargeError,
+  InsufficientBalanceCause,
+  InsufficientBalanceError,
+  MaxCollateralBreachError,
+} from "./tx-builder-error";
+import type { TxDraft } from "./types";
 
 export namespace TxBuilderUtils {
   export function createTransactionBuilder(network: NetworkEnvironment): CSLTransactionBuilder {
@@ -81,7 +99,6 @@ export namespace TxBuilderUtils {
     }, 0n);
   }
 
-
   export function feeForOutput(network: NetworkEnvironment, out: TxOut): bigint {
     const feeBuilder = TxBuilderUtils.createTransactionBuilder(network);
     const cslOut = out.toCSL();
@@ -89,14 +106,14 @@ export namespace TxBuilderUtils {
     const fee = BigInt(cslFee.to_str());
     safeFreeRustObjects(cslOut, cslFee, feeBuilder);
     return fee;
-  };
+  }
 
   export function feeForOutputs(network: NetworkEnvironment, outs: TxOut[]): bigint {
     return outs.reduce((totalFee, out) => {
       const feeForChangeOutput = feeForOutput(network, out);
       return totalFee + feeForChangeOutput;
     }, 0n);
-  };
+  }
 
   export function calContractFee(networkEnv: NetworkEnvironment, exUnit: ExUnit): bigint {
     const protocolParams = DEFAULT_STABLE_PROTOCOL_PARAMS[networkEnv];

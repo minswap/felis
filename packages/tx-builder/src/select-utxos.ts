@@ -1,8 +1,8 @@
-import { ADA, Address, Asset, NetworkEnvironment, TxOut, Utxo, Value } from "@repo/ledger-core";
+import { ADA, type Address, type Asset, type NetworkEnvironment, TxOut, Utxo, Value } from "@repo/ledger-core";
 import { Result } from "@repo/ledger-utils";
 import { MAX_TOKEN_BUNDLE_SIZE } from "./constants";
 import { SelectUtxosError } from "./tx-builder-error";
-import { SplitChangeOutError, SplitChangeOutResult } from "./types";
+import { SplitChangeOutError, type SplitChangeOutResult } from "./types";
 
 /**
  * Select utxos to cover @requiredValue from @availableUtxos
@@ -127,7 +127,6 @@ export function selectUtxosForToken(
   }
   return Result.ok(selectingUtxos);
 }
-
 
 /**
  * Split Change Out if it is big enough (e.g. >20 assets). This should help prevent 2 types of errors:
