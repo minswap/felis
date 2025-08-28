@@ -8,7 +8,7 @@ import {
   type PlutusSpend,
   Transaction,
   TxIn,
-  TxOut,
+  type TxOut,
   type Utxo,
 } from "@repo/ledger-core";
 import type {
@@ -112,14 +112,12 @@ export namespace TxDraft {
           input: txIn,
           output: output,
         });
-        continue;
       } else {
         // Shelley address
         state.pubKeyUtxos.push({
           input: txIn,
           output: output,
         });
-        continue;
       }
     }
 

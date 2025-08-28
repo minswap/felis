@@ -1,7 +1,6 @@
-import { Value } from "@repo/ledger-core";
+import type { Value } from "@repo/ledger-core";
 import { getErrorMessage } from "@repo/ledger-utils";
-import type { CoverForFeesResult } from "./types";
-import { DebugInfo } from "./types";
+import type { CoverForFeesResult, DebugInfo } from "./types";
 
 export type ExtendedDebugInfo = DebugInfo & {
   allUtxos: string[] | undefined;

@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
     "build": "tsc",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
     "check-circular-imports": "dpdm --no-warning --no-tree src"
   },
   "devDependencies": {
@@ -13,7 +15,9 @@
     "@types/node": "^22.15.3",
     "typescript": "5.8.2",
     "@types/json-bigint": "^1.0.4",
-    "dpdm": "^3.14.0"
+    "dpdm": "^3.14.0",
+    "vitest": "^3.2.4",
+    "fast-check": "^3.23.2"
   },
   "dependencies": {
     "@repo/ledger-utils": "workspace:*",

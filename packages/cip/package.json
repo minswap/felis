@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
     "build": "tsc",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
     "check-circular-imports": "dpdm --no-warning --no-tree src"
   },
   "devDependencies": {
@@ -17,11 +19,13 @@
     "eslint": "^9.31.0",
     "typescript": "5.8.2",
     "@types/json-bigint": "^1.0.4",
-    "dpdm": "^3.14.0"
+    "dpdm": "^3.14.0",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@repo/ledger-core": "workspace:*",
     "@repo/ledger-utils": "workspace:*",
-    "@minswap/tiny-invariant": "^1.2.0"
+    "@minswap/tiny-invariant": "^1.2.0",
+    "bip39": "^3.1.0"
   }
 }

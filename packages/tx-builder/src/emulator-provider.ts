@@ -1,5 +1,5 @@
-import { DEFAULT_PROTOCOL_PARAMS, NetworkEnvironment, UnstableProtocolParams } from "@repo/ledger-core";
-import { ITxBuilderProvider } from "./tx-builder";
+import { DEFAULT_PROTOCOL_PARAMS, type NetworkEnvironment, type UnstableProtocolParams } from "@repo/ledger-core";
+import type { ITxBuilderProvider } from "./tx-builder";
 
 export class EmulatorProvider implements ITxBuilderProvider {
   private readonly networkEnv: NetworkEnvironment;

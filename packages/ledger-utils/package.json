@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
     "build": "tsc",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
     "check-circular-imports": "dpdm --no-warning --no-tree src"
   },
   "devDependencies": {
@@ -16,7 +18,9 @@
     "@types/json-bigint": "^1.0.4",
     "@types/node": "^22.15.3",
     "typescript": "5.8.2",
-    "dpdm": "^3.14.0"
+    "dpdm": "^3.14.0",
+    "vitest": "^3.2.4",
+    "fast-check": "^3.23.2"
   },
   "dependencies": {
     "@emurgo/cardano-serialization-lib-browser": "13.2.1",
@@ -27,6 +31,7 @@
     "@repo/uplc-node": "workspace:*",
     "@repo/uplc-web": "workspace:*",
     "blakejs": "^1.2.1",
-    "sha3": "^2.1.4"
+    "sha3": "^2.1.4",
+    "json-bigint": "^1.0.0"
   }
 }

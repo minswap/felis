@@ -8,7 +8,7 @@
   },
   "files": {
     "includes": ["packages/ledger-core/**", "packages/ledger-utils/**"],
-    "experimentalScannerIgnores": ["**/test/**", "test"]
+    "experimentalScannerIgnores": ["**/uplc/**"]
   },
   "formatter": {
     "enabled": true,
