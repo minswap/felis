@@ -1,0 +1,14 @@
+- [ ] Utxo.getOutputsFromTxRaw
+- [ ] Utxo.getLastOutFromRawTx
+- [ ] Utxo.feeForInput
+- [ ] Utxo.feeForInputs
+- [ ] Utxo.feeForOutput
+- [ ] Utxo.feeForOutputs
+
+Check usage:
+- [ ] PlutusData.splitPlutusBytes
+- [ ] PlutusData.combinePlutusBytes
+
+BreakingChanges:
+- [ ] Bytes.hashPlutusData
+- [ ] namespace PlutusBytes

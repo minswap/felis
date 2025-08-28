@@ -1,0 +1,33 @@
+{
+  "name": "@repo/ledger-core",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsc --watch --preserveWatchOutput",
+    "build": "tsc",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "check-circular-imports": "dpdm --no-warning --no-tree src"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "typescript": "5.8.2",
+    "@types/json-bigint": "^1.0.4",
+    "dpdm": "^3.14.0",
+    "vitest": "^3.2.4",
+    "fast-check": "^3.23.2"
+  },
+  "dependencies": {
+    "@repo/ledger-utils": "workspace:*",
+    "bignumber.js": "^9.1.2",
+    "@stricahq/cbors": "^1.0.3",
+    "@minswap/tiny-invariant": "^1.2.0",
+    "remeda": "^2.19.2",
+    "json-bigint": "^1.0.0",
+    "@cardano-ogmios/schema": "^6.11.0",
+    "cbor": "^10.0.3",
+    "@stricahq/typhonjs": "2.0.0"
+  }
+}

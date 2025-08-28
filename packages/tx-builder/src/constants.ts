@@ -1,0 +1,2 @@
+export const MAX_TOKEN_BUNDLE_SIZE = 20;
+export const LEFT_OVER_ADA_SPLIT_THRESHOLD = 20_000_000n;

@@ -5,7 +5,17 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "@repo/ledger-core#build": {
+      "dependsOn": ["@repo/ledger-utils#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@repo/tx-builder#build": {
+      "dependsOn": ["@repo/ledger-core#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
     },
     "lint": {
       "dependsOn": ["^lint"]
@@ -13,7 +23,20 @@
     "check-types": {
       "dependsOn": ["^check-types"]
     },
+    "check-circular-imports": {
+      "dependsOn": ["^check-circular-imports"]
+    },
     "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "//#format-and-lint": {},
+    "//#format-and-lint:fix": {
+      "cache": false
+    },
+    "test": {
+    },
+    "test:watch": {
       "cache": false,
       "persistent": true
     }

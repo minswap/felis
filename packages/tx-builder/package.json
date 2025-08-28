@@ -1,0 +1,34 @@
+{
+  "name": "@repo/tx-builder",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsc --watch --preserveWatchOutput",
+    "build": "tsc",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "check-circular-imports": "dpdm --no-warning --no-tree src"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "eslint": "^9.31.0",
+    "typescript": "5.8.2",
+    "@types/json-bigint": "^1.0.4",
+    "dpdm": "^3.14.0",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@repo/ledger-core": "workspace:*",
+    "@repo/ledger-utils": "workspace:*",
+    "@repo/cip": "workspace:*",
+    "remeda": "^2.19.2",
+    "@minswap/tiny-invariant": "^1.2.0",
+    "bignumber.js": "^9.1.2",
+    "json-bigint": "^1.0.0"
+  }
+}
