@@ -90,11 +90,11 @@ export interface ITxBuilderProvider {
   getUnstableProtocolParams(): Promise<UnstableProtocolParams>;
 }
 
-export class TxBuilderV2 {
+export class TxBuilder {
   protected readonly networkEnv: NetworkEnvironment;
   txDraft: TxDraft;
 
-  protected tasks: ((txb: TxBuilderV2) => void)[];
+  protected tasks: ((txb: TxBuilder) => void)[];
 
   constructor(networkEnv: NetworkEnvironment) {
     this.networkEnv = networkEnv;

@@ -1,9 +1,9 @@
 import type * as Ogmios from "@cardano-ogmios/schema";
+import { RustModule } from "@repo/ledger-utils";
 import * as fc from "fast-check";
 import JSONBig from "json-bigint";
-import { RustModule } from "@repo/ledger-utils";
 import { beforeAll, describe, expect, it } from "vitest";
-import { ADA, Address, Bytes, DatumSourceType, PlutusVersion, ScriptReference, TxIn, TxOut, Value } from "../src";
+import { ADA, Address, Bytes, DatumSourceType, PlutusVersion, type ScriptReference, TxIn, TxOut, Value } from "../src";
 import { arbValue } from "./arb-things";
 
 const arbTxIn: fc.Arbitrary<TxIn> = fc.record({
