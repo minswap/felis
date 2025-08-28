@@ -1,0 +1,32 @@
+{
+  "name": "@repo/minswap-build-tx",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsc --watch --preserveWatchOutput",
+    "build": "tsc",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "check-circular-imports": "dpdm --no-warning --no-tree src"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "eslint": "^9.31.0",
+    "typescript": "5.8.2",
+    "@types/json-bigint": "^1.0.4",
+    "dpdm": "^3.14.0",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@repo/ledger-core": "workspace:*",
+    "@repo/ledger-utils": "workspace:*",
+    "@repo/tx-builder": "workspace:*",
+    "@repo/minswap-dex-v2": "workspace:*",
+    "@minswap/tiny-invariant": "^1.2.0"
+  }
+}
