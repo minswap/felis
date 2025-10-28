@@ -15,7 +15,9 @@
     "next": "^15.4.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "@repo/ledger-utils": "workspace:*"
+    "@repo/ledger-utils": "workspace:*",
+    "@repo/ledger-core": "workspace:*",
+    "@minswap/tiny-invariant": "^1.2.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
