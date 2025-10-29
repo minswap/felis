@@ -17,6 +17,26 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
+    "@repo/cip#build": {
+      "dependsOn": ["@repo/ledger-core#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@repo/minswap-lending-market#build": {
+      "dependsOn": ["@repo/tx-builder#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@repo/minswap-build-tx": {
+      "dependsOn": ["@repo/tx-builder#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@repo/minswap-lending-market": {
+      "dependsOn": ["@repo/tx-builder#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
     "lint": {
       "dependsOn": ["^lint"]
     },
