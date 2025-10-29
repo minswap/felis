@@ -26,6 +26,8 @@ import {
 } from "@ant-design/icons";
 import type { WalletInfo } from "../lib/wallet-utils";
 import { Utils } from "../lib/utils";
+import { LendingMarket } from "@repo/minswap-lending-market";
+import { NetworkEnvironment } from "@repo/ledger-core";
 
 interface MarginTradingProps {
   nitroWallet: {
@@ -77,8 +79,9 @@ export const MarginTrading = ({ nitroWallet }: MarginTradingProps) => {
       try {
         // TODO: Implement LendingMarket.fetchAdaMinPrice
         // For now, using placeholder price
-        setMinPrice(0.5); // 1 MIN = 0.5 ADA (placeholder)
-        message.info("MIN price fetched: 0.5 ADA per MIN");
+        const minPrice = await LendingMarket.fetchAdaMinPrice(NetworkEnvironment.TESTNET_PREVIEW);
+        setMinPrice(Number(minPrice.price));
+        message.info(`MIN price fetched: ${minPrice.price} ADA per MIN`);
       } catch (err) {
         message.error("Failed to fetch MIN price");
       } finally {
@@ -284,7 +287,7 @@ export const MarginTrading = ({ nitroWallet }: MarginTradingProps) => {
                       onChange={(e) => setLeverage(e.target.value)}
                       style={{ width: "100%" }}
                     >
-                      <Radio value={1}>1.00x</Radio>
+                      <Radio value={1} disabled={true}>1.00x</Radio>
                       <Radio value={2}>2.00x</Radio>
                     </Radio.Group>
                   </Col>
@@ -298,7 +301,7 @@ export const MarginTrading = ({ nitroWallet }: MarginTradingProps) => {
                       style={{ width: "100%" }}
                     >
                       <Radio value="auto">Auto</Radio>
-                      <Radio value="manual">Manual</Radio>
+                      <Radio value="manual" disabled={true}>Manual</Radio>
                     </Radio.Group>
                   </Col>
                   <Col span={6}>
@@ -312,28 +315,6 @@ export const MarginTrading = ({ nitroWallet }: MarginTradingProps) => {
                 </Row>
 
                 <Divider />
-
-                {/* Trade Mode */}
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Button
-                      type={tradeMode === "buy" ? "primary" : "default"}
-                      block
-                      size="large"
-                      disabled
-                    >
-                      BUY
-                    </Button>
-                  </Col>
-                  <Col span={12}>
-                    <Button type="default" block size="large" disabled>
-                      SELL
-                    </Button>
-                  </Col>
-                </Row>
-
-                <Divider />
-
                 {/* Market Price Info */}
                 <Card style={{ background: "#fafafa" }}>
                   <Row gutter={16}>
