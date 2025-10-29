@@ -1,90 +1,131 @@
 "use client";
 
-import type { WalletInfo } from "../lib/wallet-utils";
-import styles from "./nitro-wallet-connector.module.css";
+import { useEffect } from "react";
+import { Card, Button, Space, Tooltip, Statistic, Row, Col, Alert, App } from "antd";
+import { CopyOutlined, LogoutOutlined } from "@ant-design/icons";
+import type { NitroWalletData } from "../lib/use-nitro-wallet";
+import { Utils } from "../lib/utils";
 
 interface NitroWalletConnectorProps {
-  wallet: {
-    walletInfo: WalletInfo | null;
+  nitroWallet: {
+    walletData: NitroWalletData | null;
     loading: boolean;
     error: string | null;
     connect: () => Promise<void>;
     disconnect: () => void;
   };
+  isEternlConnected: boolean;
 }
 
 export const NitroWalletConnector = ({
-  wallet,
+  nitroWallet,
+  isEternlConnected,
 }: NitroWalletConnectorProps) => {
-  const shortenAddress = (address: string): string => {
-    return `${address.slice(0, 8)}...${address.slice(-8)}`;
-  };
+  const { message } = App.useApp();
 
   const formatBalance = (balance: bigint): string => {
     return (Number(balance) / 1_000_000).toFixed(2);
   };
 
-  if (wallet.walletInfo) {
+  const handleCopyAddress = async (address: string) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      message.success("Address copied!");
+    } catch (err) {
+      message.error("Failed to copy address");
+    }
+  };
+
+  // Show error notification only once when error occurs
+  useEffect(() => {
+    if (nitroWallet.error) {
+      message.error(nitroWallet.error);
+    }
+  }, [nitroWallet.error]);
+
+  if (nitroWallet.walletData) {
+    const { walletInfo } = nitroWallet.walletData;
     return (
-      <div className={styles.container}>
-        <div className={styles.card}>
-          <h2>Nitro Wallet Connected</h2>
-          <div className={styles.walletInfo}>
-            <div className={styles.balanceDisplay}>
-              {wallet.walletInfo.balance !== undefined && (
-                <div className={styles.field}>
-                  <label>Balance:</label>
-                  <p className={styles.value}>
-                    {formatBalance(wallet.walletInfo.balance)} ADA
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className={styles.field}>
-              <label>Address:</label>
-              <button
-                className={styles.addressButton}
-                onClick={async () => {
-                  await navigator.clipboard.writeText(
-                    wallet.walletInfo!.address.bech32,
-                  );
-                  const button = document.activeElement as HTMLButtonElement;
-                  const originalText = button.textContent;
-                  button.textContent = "Copied!";
-                  setTimeout(() => {
-                    button.textContent = originalText;
-                  }, 400);
-                }}
-                title={`Click to copy: ${wallet.walletInfo!.address.bech32}`}
-              >
-                {shortenAddress(wallet.walletInfo.address.bech32)}
-              </button>
-            </div>
-          </div>
-          <button
-            className={styles.buttonDisconnect}
-            onClick={wallet.disconnect}
+      <Card
+        title="Nitro Wallet Connected"
+        extra={
+          <Button
+            type="text"
+            danger
+            icon={<LogoutOutlined />}
+            onClick={nitroWallet.disconnect}
           >
             Disconnect
-          </button>
-        </div>
-      </div>
+          </Button>
+        }
+        style={{
+          marginTop: 16,
+          background: "linear-gradient(135deg, #764ba2 0%, #667eea 100%)",
+          borderColor: "#764ba2",
+        }}
+        headStyle={{ color: "white", borderColor: "#764ba2" }}
+        bodyStyle={{ color: "white" }}
+      >
+        <Row gutter={16}>
+          <Col span={12}>
+            <Statistic
+              title="Balance"
+              value={formatBalance(walletInfo.balance ?? 0n)}
+              suffix="ADA"
+              valueStyle={{ color: "#ffffff" }}
+            />
+          </Col>
+          <Col span={12}>
+            <div>
+              <div style={{ fontSize: "0.875rem", marginBottom: 8 }}>
+                Nitro Address
+              </div>
+              <Tooltip
+                title={`Click to copy: ${walletInfo.address}`}
+              >
+                <Button
+                  type="text"
+                  icon={<CopyOutlined />}
+                  onClick={() =>
+                    handleCopyAddress(walletInfo.address.bech32)
+                  }
+                  style={{ color: "white", fontFamily: "monospace" }}
+                >
+                  {Utils.shortenAddress(walletInfo.address.bech32)}
+                </Button>
+              </Tooltip>
+            </div>
+          </Col>
+        </Row>
+      </Card>
     );
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.card}>
-        <h2>Nitro Wallet</h2>
-        {wallet.error && <div className={styles.error}>{wallet.error}</div>}
-        <button
-          className={styles.button}
-          onClick={wallet.connect}
-          disabled={wallet.loading}
+    <Card
+      title="Nitro Wallet"
+      style={{ marginTop: 16 }}
+    >
+      <Space direction="vertical" style={{ width: "100%" }}>
+        {!isEternlConnected && (
+          <Alert
+            message="Please connect your Eternl wallet first to create a Nitro wallet"
+            type="info"
+            showIcon
+            style={{ marginBottom: "16px" }}
+          />
+        )}
+        <Button
+          type="primary"
+          size="large"
+          block
+          onClick={nitroWallet.connect}
+          loading={nitroWallet.loading}
+          disabled={!isEternlConnected}
         >
-          {wallet.loading ? "Connecting..." : "Connect Nitro Wallet"}
-        </button>
-      </div>
-    </div>
+          {nitroWallet.loading ? "Connecting..." : "Connect Nitro Wallet"}
+        </Button>
+      </Space>
+    </Card>
   );
 };

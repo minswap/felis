@@ -25,6 +25,7 @@
   "dependencies": {
     "@repo/ledger-core": "workspace:*",
     "@repo/ledger-utils": "workspace:*",
+    "@repo/tx-builder": "workspace:*",
     "@repo/cip": "workspace:*",
     "remeda": "^2.19.2",
     "@minswap/tiny-invariant": "^1.2.0",

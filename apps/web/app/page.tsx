@@ -1,12 +1,14 @@
 "use client";
 
+import { Layout, Button } from "antd";
 import Image, { type ImageProps } from "next/image";
-import { Button } from "@repo/ui/button";
 import styles from "./page.module.css";
 import { RustModule, } from "@repo/ledger-utils";
 import { Bytes } from "@repo/ledger-core";
 import { EternlConnector } from "./components/eternl-connector";
 import { NitroWalletConnector } from "./components/nitro-wallet-connector";
+import { DepositWithdraw } from "./components/deposit-withdraw";
+import { MarginTrading } from "./components/margin-trading";
 import { useWallet } from "./lib/use-wallet";
 import { useNitroWallet } from "./lib/use-nitro-wallet";
 import invariant from "@minswap/tiny-invariant";
@@ -29,7 +31,7 @@ const ThemeImage = (props: Props) => {
 
 export default function Home() {
   const wallet = useWallet();
-  const nitroWallet = useNitroWallet();
+  const nitroWallet = useNitroWallet(wallet);
 
   const handleLoadRustModule = async () => {
     invariant(wallet.api);
@@ -39,17 +41,38 @@ export default function Home() {
   };
 
   return (
-    <div className={styles.page}>
+    <Layout style={{ minHeight: "100vh" }}>
       <EternlConnector wallet={wallet} />
-      <main className={styles.main}>
-      <NitroWalletConnector wallet={nitroWallet} />
-      <button
-          className={styles.secondary}
-          onClick={handleLoadRustModule}
-        >
-          Load RustModule
-        </button>
-      </main>
-    </div>
+      <Layout.Content style={{ padding: "24px" }}>
+        <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+          <NitroWalletConnector
+            nitroWallet={nitroWallet}
+            isEternlConnected={wallet.isConnected}
+          />
+          <DepositWithdraw
+            rootWallet={{
+              walletInfo: wallet.walletInfo,
+              api: wallet.api,
+              isConnected: wallet.isConnected,
+            }}
+            nitroWallet={{
+              walletInfo: nitroWallet.walletData?.walletInfo ?? null,
+              isConnected: nitroWallet.isConnected,
+            }}
+          />
+          <MarginTrading
+            nitroWallet={{
+              walletInfo: nitroWallet.walletData?.walletInfo ?? null,
+              isConnected: nitroWallet.isConnected,
+            }}
+          />
+          <div style={{ marginTop: "24px" }}>
+            <Button onClick={handleLoadRustModule} style={{ marginTop: "16px" }}>
+              Load RustModule
+            </Button>
+          </div>
+        </div>
+      </Layout.Content>
+    </Layout>
   );
 }
