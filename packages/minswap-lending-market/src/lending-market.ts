@@ -1,9 +1,8 @@
-import invariant from "@minswap/tiny-invariant";
 import { type Address, Asset, NetworkEnvironment, PrivateKey, Utxo } from "@repo/ledger-core";
-import { RustModule } from "@repo/ledger-utils";
 import { DEXOrderTransaction } from "@repo/minswap-build-tx";
 import { DexVersion, OrderV2Direction, OrderV2StepType } from "@repo/minswap-dex-v2";
-import { CoinSelectionAlgorithm, EmulatorProvider, TxComplete } from "@repo/tx-builder";
+import { CoinSelectionAlgorithm, EmulatorProvider } from "@repo/tx-builder";
+import { LiqwidProvider } from "./liqwid-provider";
 
 export namespace LendingMarket {
   export const mapMINToken = {
@@ -83,143 +82,32 @@ export namespace LendingMarket {
     };
 
     export type Step2SupplyMINParams = {
-      nitroWallet: NitroWallet;
+      nitroWallet: Omit<NitroWallet, "submitTx">;
       minAmount: bigint; // Amount of MIN tokens to supply (in lovelace units)
     };
     export const step2SupplyMIN = async (params: Step2SupplyMINParams): Promise<string> => {
       const { nitroWallet, minAmount } = params;
-      const query = `
-      query GetSupplyTransaction($input: SupplyTransactionInput!) {
-        liqwid {
-          transactions {
-            supply(input: $input) {
-              cbor
-              __typename
-            }
-            __typename
-          }
-          __typename
-        }
+      const supplyResult = await LiqwidProvider.getSupplyTransaction({
+        marketId: "MIN",
+        amount: Number(minAmount),
+        address: nitroWallet.address.bech32,
+        utxos: nitroWallet.utxos,
+        networkEnv: NetworkEnvironment.TESTNET_PREVIEW,
+      });
+      if (supplyResult.type === "err") {
+        throw new Error(`Failed to get supply transaction: ${supplyResult.error.message}`);
       }
-    `;
-      const variables = {
-        input: {
-          marketId: "MIN",
-          amount: Number(minAmount),
-          address: nitroWallet.address.bech32,
-          changeAddress: nitroWallet.address.bech32,
-          otherAddresses: [nitroWallet.address.bech32],
-          utxos: nitroWallet.utxos,
-        },
-      };
-
-      try {
-        // Make GraphQL request to Liqwid API via Next.js proxy/route to avoid CORS
-        const isClient = typeof window !== "undefined";
-        const apiUrl = isClient ? "/api/liqwid/supply" : "https://v2.api.preview.liqwid.dev/graphql";
-
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({
-            operationName: "GetSupplyTransaction",
-            variables,
-            query,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Liqwid API request failed: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-
-        if (data.errors) {
-          throw new Error(`Liqwid GraphQL error: ${JSON.stringify(data.errors)}`);
-        }
-
-        const txCbor: string | undefined = data.data?.liqwid?.transactions?.supply?.cbor;
-        console.warn("txCbor", txCbor);
-        invariant(txCbor, "No transaction CBOR returned from Liqwid API");
-
-        const ECSL = RustModule.getE;
-        const tx = ECSL.Transaction.from_hex(txCbor);
-        const txComplete = new TxComplete(tx);
-        const privateKey = PrivateKey.fromHex(nitroWallet.privateKey);
-        const witnessSetRaw = txComplete.partialSignWithPrivateKey(privateKey);
-        const txHash = await OpeningLongPosition.submitTransaction({
-          transaction: txCbor,
-          signature: witnessSetRaw,
-        });
-        return txHash;
-      } catch (error) {
-        console.error("Step2 Supply MIN failed:", error);
-        throw new Error(`Failed to supply MIN tokens: ${error instanceof Error ? error.message : String(error)}`);
+      const txHex = supplyResult.value;
+      const witnessSet = LiqwidProvider.signLiqwidTx(txHex, PrivateKey.fromHex(nitroWallet.privateKey));
+      const submitResult = await LiqwidProvider.submitTransaction({
+        transaction: txHex,
+        signature: witnessSet,
+        networkEnv: NetworkEnvironment.TESTNET_PREVIEW,
+      });
+      if (submitResult.type === "err") {
+        throw new Error(`Failed to submit transaction: ${submitResult.error.message}`);
       }
-    };
-
-    export type SubmitTransactionParams = {
-      transaction: string; // CBOR hex string
-      signature: string; // Signature hex string
-    };
-
-    export const submitTransaction = async (params: SubmitTransactionParams): Promise<string> => {
-      const { transaction, signature } = params;
-      const query = `
-        mutation SubmitTransaction($input: SubmitTransactionInput!) {
-          submitTransaction(input: $input)
-        }
-      `;
-
-      const variables = {
-        input: {
-          transaction,
-          signature,
-        },
-      };
-
-      try {
-        // Make GraphQL request to Liqwid API via Next.js proxy/route to avoid CORS
-        const isClient = typeof window !== "undefined";
-        const apiUrl = isClient ? "/api/liqwid/graphql" : "https://v2.api.preview.liqwid.dev/graphql";
-
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers: {
-            accept: "*/*",
-            "accept-language": "en-US,en;q=0.9",
-            "content-type": "application/json",
-            "x-app-source": "liqwid-app",
-          },
-          body: JSON.stringify({
-            operationName: "SubmitTransaction",
-            variables,
-            query,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Liqwid API request failed: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-
-        if (data.errors) {
-          throw new Error(`Liqwid GraphQL error: ${JSON.stringify(data.errors)}`);
-        }
-
-        const txHash = data.data?.submitTransaction;
-        if (!txHash) {
-          throw new Error("No transaction hash returned from Liqwid API");
-        }
-
-        return txHash;
-      } catch (error) {
-        console.error("Submit transaction failed:", error);
-        throw new Error(`Failed to submit transaction: ${error instanceof Error ? error.message : String(error)}`);
-      }
+      return submitResult.value;
     };
   }
 }
