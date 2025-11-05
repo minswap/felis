@@ -26,11 +26,13 @@
     "@repo/ledger-core": "workspace:*",
     "@repo/ledger-utils": "workspace:*",
     "@repo/tx-builder": "workspace:*",
+    "@repo/minswap-build-tx": "workspace:*",
+    "@repo/minswap-dex-v2": "workspace:*",
     "@repo/cip": "workspace:*",
     "remeda": "^2.19.2",
     "@minswap/tiny-invariant": "^1.2.0",
     "bignumber.js": "^9.1.2",
     "json-bigint": "^1.0.0",
-    "chalk": "^5.4.1"
+    "cbor": "^10.0.3"
   }
 }

@@ -1,7 +1,7 @@
-import { Asset } from "@repo/ledger-core";
-import { Maybe, Result } from "@repo/ledger-utils";
+import type { Asset } from "@repo/ledger-core";
+import { type Maybe, Result } from "@repo/ledger-utils";
 import { OrderV2Direction } from "./order";
-import { PoolV2BaseFee } from "./pool";
+import type { PoolV2BaseFee } from "./pool";
 import { bigIntPow, sqrt } from "./sqrt";
 
 export function normalizePair([a, b]: [Asset, Asset]): [Asset, Asset] {

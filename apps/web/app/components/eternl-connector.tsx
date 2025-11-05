@@ -1,23 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
-import { Layout, Button, Space, Tooltip, App } from "antd";
 import { CopyOutlined, LogoutOutlined } from "@ant-design/icons";
-import type { WalletInfo } from "../lib/wallet-utils";
+import { App, Button, Layout, Space, Tooltip } from "antd";
+import { useEffect } from "react";
+import { useWallet } from "../lib/use-wallet";
 import { Utils } from "../lib/utils";
 
-interface EternlConnectorProps {
-  wallet: {
-    walletInfo: WalletInfo | null;
-    loading: boolean;
-    error: string | null;
-    connect: () => Promise<void>;
-    disconnect: () => void;
-  };
-}
-
-export const EternlConnector = ({ wallet }: EternlConnectorProps) => {
+export const EternlConnector = () => {
   const { message } = App.useApp();
+  const wallet = useWallet();
 
   const formatBalance = (balance: bigint): string => {
     return (Number(balance) / 1_000_000).toFixed(2);
@@ -27,7 +18,7 @@ export const EternlConnector = ({ wallet }: EternlConnectorProps) => {
     try {
       await navigator.clipboard.writeText(address);
       message.success("Address copied!");
-    } catch (err) {
+    } catch (_err) {
       message.error("Failed to copy address");
     }
   };
@@ -52,28 +43,19 @@ export const EternlConnector = ({ wallet }: EternlConnectorProps) => {
       >
         <Space size="large" style={{ color: "white" }}>
           {wallet.walletInfo.balance !== undefined && (
-            <span style={{ fontSize: "1rem", fontWeight: 600 }}>
-              {formatBalance(wallet.walletInfo.balance)} ADA
-            </span>
+            <span style={{ fontSize: "1rem", fontWeight: 600 }}>{formatBalance(wallet.walletInfo.balance)} ADA</span>
           )}
           <Tooltip title={`Click to copy: ${wallet.walletInfo.address.bech32}`}>
             <Button
-              type="text"
               icon={<CopyOutlined />}
-              onClick={() =>
-                handleCopyAddress(wallet.walletInfo!.address.bech32)
-              }
+              onClick={() => handleCopyAddress(wallet.walletInfo?.address.bech32 ?? "")}
               style={{ color: "white" }}
+              type="text"
             >
               {Utils.shortenAddress(wallet.walletInfo.address.bech32)}
             </Button>
           </Tooltip>
-          <Button
-            type="text"
-            icon={<LogoutOutlined />}
-            onClick={wallet.disconnect}
-            style={{ color: "white" }}
-          >
+          <Button icon={<LogoutOutlined />} onClick={wallet.disconnect} style={{ color: "white" }} type="text">
             Disconnect
           </Button>
         </Space>
@@ -91,12 +73,7 @@ export const EternlConnector = ({ wallet }: EternlConnectorProps) => {
         paddingInline: 24,
       }}
     >
-      <Button
-        type="primary"
-        size="large"
-        onClick={wallet.connect}
-        loading={wallet.loading}
-      >
+      <Button loading={wallet.loading} onClick={wallet.connect} size="large" type="primary">
         {wallet.loading ? "Connecting..." : "Connect Eternl Wallet"}
       </Button>
     </Layout.Header>

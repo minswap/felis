@@ -1,6 +1,6 @@
-import { TxIn, Value, XJSON, Address } from "@repo/ledger-core";
+import { type Address, type TxIn, type Value, XJSON } from "@repo/ledger-core";
 import { getErrorMessage } from "@repo/ledger-utils";
-import { DexVersion } from "./order-step";
+import type { DexVersion } from "./order-step";
 
 export type InvalidOrder = {
   dexVersion: DexVersion;

@@ -1,14 +1,15 @@
+import invariant from "@minswap/tiny-invariant";
 import {
   ADA,
-  Address,
-  Asset,
+  type Address,
+  type Asset,
   Bytes,
   DatumSource,
-  NetworkEnvironment,
+  type NetworkEnvironment,
   TxOut,
   Value,
 } from "@repo/ledger-core";
-import { TxBuilder } from "@repo/tx-builder";
+import { Maybe } from "@repo/ledger-utils";
 import {
   BATCHER_FEE_DEX_V2,
   buildDexV2OrderAddress,
@@ -17,17 +18,16 @@ import {
   OrderV2AmountType,
   OrderV2AuthorizationMethodType,
   OrderV2Datum,
-  OrderV2Direction,
-  OrderV2ExpirySetting,
+  type OrderV2Direction,
+  type OrderV2ExpirySetting,
   OrderV2ExtraDatum,
   OrderV2Killable,
-  OrderV2Step,
+  type OrderV2Step,
   OrderV2StepType,
-  OrderV2SwapRouting,
+  type OrderV2SwapRouting,
   OUTPUT_ADA,
 } from "@repo/minswap-dex-v2";
-import invariant from "@minswap/tiny-invariant";
-import { Maybe } from "@repo/ledger-utils";
+import { TxBuilder } from "@repo/tx-builder";
 import { MetadataMessage } from "./metadata";
 
 export namespace DEXOrderTransaction {
@@ -150,10 +150,7 @@ export namespace DEXOrderTransaction {
     expiredOptions?: OrderV2ExpirySetting;
   };
 
-  export type MultiDEXOrderOptions =
-    | V1OrderOptions
-    | V2OrderOptions
-    | StableswapOrderOptions;
+  export type MultiDEXOrderOptions = V1OrderOptions | V2OrderOptions | StableswapOrderOptions;
 
   export type BulkOrdersOption = {
     networkEnv: NetworkEnvironment;
@@ -174,70 +171,41 @@ export namespace DEXOrderTransaction {
       case DexVersion.DEX_V2: {
         switch (option.type) {
           case OrderV2StepType.DEPOSIT: {
-            const { assetA, assetB, amountA, amountB, minimumLPReceived } =
-              option;
-            invariant(
-              amountA >= 0n && amountB >= 0n && amountA + amountB > 0n,
-              "amount must be positive"
-            );
-            invariant(
-              minimumLPReceived > 0n,
-              "minimum LP received must be positive"
-            );
-            const orderValue = new Value()
-              .add(ADA, OUTPUT_ADA)
-              .add(assetA, amountA)
-              .add(assetB, amountB);
+            const { assetA, assetB, amountA, amountB, minimumLPReceived } = option;
+            invariant(amountA >= 0n && amountB >= 0n && amountA + amountB > 0n, "amount must be positive");
+            invariant(minimumLPReceived > 0n, "minimum LP received must be positive");
+            const orderValue = new Value().add(ADA, OUTPUT_ADA).add(assetA, amountA).add(assetB, amountB);
             return orderValue;
           }
           case OrderV2StepType.WITHDRAW: {
-            const {
-              lpAsset,
-              lpAmount,
-              minimumAssetAReceived,
-              minimumAssetBReceived,
-            } = option;
+            const { lpAsset, lpAmount, minimumAssetAReceived, minimumAssetBReceived } = option;
             invariant(lpAmount > 0n, "LP amount must be positive");
             invariant(
               minimumAssetAReceived > 0n && minimumAssetBReceived > 0n,
-              "minimum asset received must be positive"
+              "minimum asset received must be positive",
             );
-            const orderValue = new Value()
-              .add(ADA, OUTPUT_ADA)
-              .add(lpAsset, lpAmount);
+            const orderValue = new Value().add(ADA, OUTPUT_ADA).add(lpAsset, lpAmount);
             return orderValue;
           }
           case OrderV2StepType.SWAP_EXACT_IN: {
             const { assetIn, amountIn, minimumAmountOut } = option;
             invariant(amountIn > 0n, "amount in must be positive");
-            invariant(
-              minimumAmountOut > 0n,
-              "minimum amount out must be positive"
-            );
-            const orderValue = new Value()
-              .add(ADA, OUTPUT_ADA)
-              .add(assetIn, amountIn);
+            invariant(minimumAmountOut > 0n, "minimum amount out must be positive");
+            const orderValue = new Value().add(ADA, OUTPUT_ADA).add(assetIn, amountIn);
             return orderValue;
           }
           case OrderV2StepType.SWAP_EXACT_OUT: {
             const { assetIn, maximumAmountIn, expectedReceived } = option;
             invariant(maximumAmountIn > 0n, "amount in must be positive");
-            invariant(
-              expectedReceived > 0n,
-              "minimum amount out must be positive"
-            );
-            const orderValue = new Value()
-              .add(ADA, OUTPUT_ADA)
-              .add(assetIn, maximumAmountIn);
+            invariant(expectedReceived > 0n, "minimum amount out must be positive");
+            const orderValue = new Value().add(ADA, OUTPUT_ADA).add(assetIn, maximumAmountIn);
             return orderValue;
           }
           case OrderV2StepType.STOP_LOSS: {
             const { assetIn, amountIn, stopAmount } = option;
             invariant(amountIn > 0n, "amount in must be positive");
             invariant(stopAmount > 0n, "stop amount out must be positive");
-            const orderValue = new Value()
-              .add(ADA, OUTPUT_ADA)
-              .add(assetIn, amountIn);
+            const orderValue = new Value().add(ADA, OUTPUT_ADA).add(assetIn, amountIn);
             return orderValue;
           }
           case OrderV2StepType.OCO: {
@@ -245,62 +213,41 @@ export namespace DEXOrderTransaction {
             invariant(amountIn > 0n, "amount in must be positive");
             invariant(stopAmount > 0n, "stop amount out must be positive");
             invariant(limitAmount > 0n, "limit amount out must be positive");
-            const orderValue = new Value()
-              .add(ADA, OUTPUT_ADA)
-              .add(assetIn, amountIn);
+            const orderValue = new Value().add(ADA, OUTPUT_ADA).add(assetIn, amountIn);
             return orderValue;
           }
           case OrderV2StepType.ZAP_OUT: {
             const { lpAsset, lpAmount, minimumReceived } = option;
             invariant(lpAmount > 0n, "lp amount in must be positive");
-            invariant(
-              minimumReceived > 0n,
-              "minimum amount out must be positive"
-            );
-            const orderValue = new Value()
-              .add(ADA, OUTPUT_ADA)
-              .add(lpAsset, lpAmount);
+            invariant(minimumReceived > 0n, "minimum amount out must be positive");
+            const orderValue = new Value().add(ADA, OUTPUT_ADA).add(lpAsset, lpAmount);
             return orderValue;
           }
           case OrderV2StepType.PARTIAL_SWAP: {
             const { assetIn, amountIn, expectedInOutRatio } = option;
             invariant(amountIn > 0n, "amount in must be positive");
-            const [expectedInOutRatioNumerator, expectedInOutRatioDenominator] =
-              expectedInOutRatio;
+            const [expectedInOutRatioNumerator, expectedInOutRatioDenominator] = expectedInOutRatio;
             invariant(
-              expectedInOutRatioNumerator > 0n &&
-                expectedInOutRatioDenominator > 0n,
-              "expected input and output ratio must be positive"
+              expectedInOutRatioNumerator > 0n && expectedInOutRatioDenominator > 0n,
+              "expected input and output ratio must be positive",
             );
-            const orderValue = new Value()
-              .add(ADA, OUTPUT_ADA)
-              .add(assetIn, amountIn);
+            const orderValue = new Value().add(ADA, OUTPUT_ADA).add(assetIn, amountIn);
             return orderValue;
           }
           case OrderV2StepType.WITHDRAW_IMBALANCE: {
-            const {
-              lpAsset,
-              lpAmount,
-              ratioAssetA,
-              ratioAssetB,
-              minimumAssetA,
-            } = option;
+            const { lpAsset, lpAmount, ratioAssetA, ratioAssetB, minimumAssetA } = option;
             invariant(lpAmount > 0n, "LP amount must be positive");
             invariant(
               ratioAssetA > 0n && ratioAssetB > 0n && minimumAssetA > 0n,
-              "minimum asset and ratio received must be positive"
+              "minimum asset and ratio received must be positive",
             );
-            const orderValue = new Value()
-              .add(ADA, OUTPUT_ADA)
-              .add(lpAsset, lpAmount);
+            const orderValue = new Value().add(ADA, OUTPUT_ADA).add(lpAsset, lpAmount);
             return orderValue;
           }
           case OrderV2StepType.SWAP_MULTI_ROUTING: {
             const { assetIn, amountIn } = option;
             invariant(amountIn > 0n, "Amount must be positive");
-            const orderValue = new Value()
-              .add(ADA, OUTPUT_ADA)
-              .add(assetIn, amountIn);
+            const orderValue = new Value().add(ADA, OUTPUT_ADA).add(assetIn, amountIn);
             return orderValue;
           }
           default: {
@@ -315,14 +262,8 @@ export namespace DEXOrderTransaction {
     switch (option.type) {
       case OrderV2StepType.DEPOSIT: {
         const { amountA, amountB, minimumLPReceived, killOnFailed } = option;
-        invariant(
-          amountA >= 0n && amountB >= 0n && amountA + amountB > 0n,
-          "amount must be positive"
-        );
-        invariant(
-          minimumLPReceived > 0n,
-          "minimum LP received must be positive"
-        );
+        invariant(amountA >= 0n && amountB >= 0n && amountA + amountB > 0n, "amount must be positive");
+        invariant(minimumLPReceived > 0n, "minimum LP received must be positive");
         const orderStep: OrderV2Step = {
           type: OrderV2StepType.DEPOSIT,
           depositAmountOption: {
@@ -331,24 +272,14 @@ export namespace DEXOrderTransaction {
             depositAmountB: amountB,
           },
           minimumLP: minimumLPReceived,
-          killable: killOnFailed
-            ? OrderV2Killable.KILL_ON_FAILED
-            : OrderV2Killable.PENDING_ON_FAILED,
+          killable: killOnFailed ? OrderV2Killable.KILL_ON_FAILED : OrderV2Killable.PENDING_ON_FAILED,
         };
         return orderStep;
       }
       case OrderV2StepType.WITHDRAW: {
-        const {
-          lpAmount,
-          minimumAssetAReceived,
-          minimumAssetBReceived,
-          killOnFailed,
-        } = option;
+        const { lpAmount, minimumAssetAReceived, minimumAssetBReceived, killOnFailed } = option;
         invariant(lpAmount > 0n, "LP amount must be positive");
-        invariant(
-          minimumAssetAReceived > 0n && minimumAssetBReceived > 0n,
-          "minimum asset received must be positive"
-        );
+        invariant(minimumAssetAReceived > 0n && minimumAssetBReceived > 0n, "minimum asset received must be positive");
         const orderStep: OrderV2Step = {
           type: OrderV2StepType.WITHDRAW,
           withdrawalAmountOption: {
@@ -357,9 +288,7 @@ export namespace DEXOrderTransaction {
           },
           minimumAssetA: minimumAssetAReceived,
           minimumAssetB: minimumAssetBReceived,
-          killable: killOnFailed
-            ? OrderV2Killable.KILL_ON_FAILED
-            : OrderV2Killable.PENDING_ON_FAILED,
+          killable: killOnFailed ? OrderV2Killable.KILL_ON_FAILED : OrderV2Killable.PENDING_ON_FAILED,
         };
         return orderStep;
       }
@@ -375,15 +304,12 @@ export namespace DEXOrderTransaction {
             swapAmount: amountIn,
           },
           minimumReceived: minimumAmountOut,
-          killable: killOnFailed
-            ? OrderV2Killable.KILL_ON_FAILED
-            : OrderV2Killable.PENDING_ON_FAILED,
+          killable: killOnFailed ? OrderV2Killable.KILL_ON_FAILED : OrderV2Killable.PENDING_ON_FAILED,
         };
         return orderStep;
       }
       case OrderV2StepType.SWAP_EXACT_OUT: {
-        const { maximumAmountIn, expectedReceived, direction, killOnFailed } =
-          option;
+        const { maximumAmountIn, expectedReceived, direction, killOnFailed } = option;
         invariant(maximumAmountIn > 0n, "amount in must be positive");
         invariant(expectedReceived > 0n, "minimum amount out must be positive");
         const orderStep: OrderV2Step = {
@@ -394,9 +320,7 @@ export namespace DEXOrderTransaction {
             swapAmount: maximumAmountIn,
           },
           expectedReceived: expectedReceived,
-          killable: killOnFailed
-            ? OrderV2Killable.KILL_ON_FAILED
-            : OrderV2Killable.PENDING_ON_FAILED,
+          killable: killOnFailed ? OrderV2Killable.KILL_ON_FAILED : OrderV2Killable.PENDING_ON_FAILED,
         };
         return orderStep;
       }
@@ -444,27 +368,17 @@ export namespace DEXOrderTransaction {
             withdrawalLPAmount: lpAmount,
           },
           minimumReceived: minimumReceived,
-          killable: killOnFailed
-            ? OrderV2Killable.KILL_ON_FAILED
-            : OrderV2Killable.PENDING_ON_FAILED,
+          killable: killOnFailed ? OrderV2Killable.KILL_ON_FAILED : OrderV2Killable.PENDING_ON_FAILED,
         };
         return orderStep;
       }
       case OrderV2StepType.PARTIAL_SWAP: {
-        const {
-          amountIn,
-          direction,
-          expectedInOutRatio,
-          maximumSwapTime,
-          minimumSwapAmountRequired,
-        } = option;
+        const { amountIn, direction, expectedInOutRatio, maximumSwapTime, minimumSwapAmountRequired } = option;
         invariant(amountIn > 0n, "amount in must be positive");
-        const [expectedInOutRatioNumerator, expectedInOutRatioDenominator] =
-          expectedInOutRatio;
+        const [expectedInOutRatioNumerator, expectedInOutRatioDenominator] = expectedInOutRatio;
         invariant(
-          expectedInOutRatioNumerator > 0n &&
-            expectedInOutRatioDenominator > 0n,
-          "expected input and output ratio must be positive"
+          expectedInOutRatioNumerator > 0n && expectedInOutRatioDenominator > 0n,
+          "expected input and output ratio must be positive",
         );
         const orderStep: OrderV2Step = {
           type: OrderV2StepType.PARTIAL_SWAP,
@@ -474,23 +388,16 @@ export namespace DEXOrderTransaction {
           ioRatioDenominator: expectedInOutRatioDenominator,
           hops: maximumSwapTime,
           minimumSwapAmountRequired: minimumSwapAmountRequired,
-          maxBatcherFeeEachTime:
-            BATCHER_FEE_DEX_V2[OrderV2StepType.PARTIAL_SWAP],
+          maxBatcherFeeEachTime: BATCHER_FEE_DEX_V2[OrderV2StepType.PARTIAL_SWAP],
         };
         return orderStep;
       }
       case OrderV2StepType.WITHDRAW_IMBALANCE: {
-        const {
-          lpAmount,
-          ratioAssetA,
-          ratioAssetB,
-          minimumAssetA,
-          killOnFailed,
-        } = option;
+        const { lpAmount, ratioAssetA, ratioAssetB, minimumAssetA, killOnFailed } = option;
         invariant(lpAmount > 0n, "LP amount must be positive");
         invariant(
           ratioAssetA > 0n && ratioAssetB > 0n && minimumAssetA > 0n,
-          "minimum asset and ratio received must be positive"
+          "minimum asset and ratio received must be positive",
         );
         const orderStep: OrderV2Step = {
           type: OrderV2StepType.WITHDRAW_IMBALANCE,
@@ -501,9 +408,7 @@ export namespace DEXOrderTransaction {
           ratioAssetA: ratioAssetA,
           ratioAssetB: ratioAssetB,
           minimumAssetA: minimumAssetA,
-          killable: killOnFailed
-            ? OrderV2Killable.KILL_ON_FAILED
-            : OrderV2Killable.PENDING_ON_FAILED,
+          killable: killOnFailed ? OrderV2Killable.KILL_ON_FAILED : OrderV2Killable.PENDING_ON_FAILED,
         };
         return orderStep;
       }
@@ -524,7 +429,7 @@ export namespace DEXOrderTransaction {
     }
   }
 
-    export function getOrderMetadata(option: MultiDEXOrderOptions): string {
+  export function getOrderMetadata(option: MultiDEXOrderOptions): string {
     switch (option.version) {
       case DexVersion.DEX_V1: {
         throw new Error("Not implemented");
@@ -609,10 +514,7 @@ export namespace DEXOrderTransaction {
           throw new Error("Not implemented");
         }
         case DexVersion.DEX_V2: {
-          if (
-            option.type === OrderV2StepType.SWAP_EXACT_IN &&
-            option.isLimitOrder
-          ) {
+          if (option.type === OrderV2StepType.SWAP_EXACT_IN && option.isLimitOrder) {
             limitOrders.push(i.toString());
           }
           if (
@@ -638,10 +540,7 @@ export namespace DEXOrderTransaction {
             author: {
               canceller: {
                 type: OrderV2AuthorizationMethodType.SIGNATURE,
-                hash: Maybe.unwrap(
-                  sender.toPubKeyHash(),
-                  "only support PubKey sender"
-                ).keyHash,
+                hash: Maybe.unwrap(sender.toPubKeyHash(), "only support PubKey sender").keyHash,
               },
               refundReceiver: sender,
               refundReceiverDatum: OrderV2ExtraDatum.newNoDatum(),
@@ -661,10 +560,8 @@ export namespace DEXOrderTransaction {
             TxOut.newScriptOut({
               address: orderAddress,
               value: orderValue,
-              datumSource: DatumSource.newInlineDatum(
-                Bytes.fromHex(OrderV2Datum.toDataHex(orderDatum))
-              ),
-            })
+              datumSource: DatumSource.newInlineDatum(Bytes.fromHex(OrderV2Datum.toDataHex(orderDatum))),
+            }),
           );
           break;
         }
@@ -675,9 +572,7 @@ export namespace DEXOrderTransaction {
       const mergedEternlOutputs: Record<string, TxOut> = {};
       for (const eternlOutput of eternlOutputs) {
         if (eternlOutput.address.bech32 in mergedEternlOutputs) {
-          mergedEternlOutputs[eternlOutput.address.bech32].value.addAll(
-            eternlOutput.value
-          );
+          mergedEternlOutputs[eternlOutput.address.bech32].value.addAll(eternlOutput.value);
         } else {
           mergedEternlOutputs[eternlOutput.address.bech32] = eternlOutput;
         }
@@ -687,15 +582,10 @@ export namespace DEXOrderTransaction {
       }
     }
 
-    const metadata =
-      orderOptions.length > 1
-        ? MetadataMessage.DEX_MIXED_ORDERS
-        : getOrderMetadata(orderOptions[0]);
+    const metadata = orderOptions.length > 1 ? MetadataMessage.DEX_MIXED_ORDERS : getOrderMetadata(orderOptions[0]);
 
     const limitOrderMessage = limitOrders.length > 0 ? limitOrders : undefined;
-    txb
-      .addMessageMetadata("msg", [metadata])
-      .addMessageMetadata("limitOrders", limitOrderMessage);
+    txb.addMessageMetadata("msg", [metadata]).addMessageMetadata("limitOrders", limitOrderMessage);
     return txb;
   }
 }

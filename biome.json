@@ -7,7 +7,16 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["packages/ledger-core/**", "packages/ledger-utils/**"],
+    "includes": [
+      "packages/ledger-core/**",
+      "packages/ledger-utils/**",
+      "packages/cip/**",
+      "packages/minswap-build-tx/**",
+      "packages/minswap-dex-v2/**",
+      "packages/minswap-lending-market/**",
+      "packages/tx-builder/**",
+      "apps/web/**"
+    ],
     "experimentalScannerIgnores": ["**/uplc/**"]
   },
   "formatter": {

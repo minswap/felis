@@ -27,7 +27,6 @@ export class PrivateKey {
   }
 
   toHex(): string {
-    // ChatGPT but test covered fromHex | toHex | round-trip by packages/sdk/src/test/bip32.test.ts
     // Encode the raw bytes as a CBOR byte string, matching fromHex
     return cbor.encode(this.key.bytes).toString("hex");
   }

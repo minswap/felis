@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
-import type { WalletInfo } from "./wallet-utils";
-import { useWallet } from "./use-wallet";
-import { sha3 } from "@repo/ledger-utils";
 import { baseWalletFromEntropy } from "@repo/cip";
 import { Address } from "@repo/ledger-core";
+import { sha3 } from "@repo/ledger-utils";
 import { NitroWallet } from "@repo/minswap-lending-market";
+import { useCallback, useEffect, useState } from "react";
+import { useWallet } from "./use-wallet";
+import type { WalletInfo } from "./wallet-utils";
 
 export interface NitroWalletData {
   walletInfo: WalletInfo & { rootAddress: string };
@@ -13,17 +13,8 @@ export interface NitroWalletData {
 
 const NITRO_WALLET_STORAGE_KEY = "minswap_nitro_wallet";
 
-type UseWalletReturn = ReturnType<typeof useWallet>;
-
-/**
- * Hook for managing Nitro Wallet
- * Handles two cases:
- * 1. Loading existing Nitro wallet from localStorage
- * 2. Creating new Nitro wallet using wallet.api.signData()
- *
- * @param wallet - The useWallet hook return value for creating new wallets
- */
-export const useNitroWallet = (wallet?: UseWalletReturn) => {
+export const useNitroWallet = () => {
+  const wallet = useWallet();
   const [walletData, setWalletData] = useState<NitroWalletData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,11 +34,25 @@ export const useNitroWallet = (wallet?: UseWalletReturn) => {
   }, []);
 
   /**
+   * Fetch UTXOs from the blockchain for a given address
+   */
+  const fetchUtxos = useCallback(async (address: Address) => {
+    try {
+      const utxos = await NitroWallet.fetchUtxos(address.bech32);
+      return utxos;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error("Failed to fetch UTXOs:", errorMsg);
+      return [];
+    }
+  }, []);
+
+  /**
    * Load Nitro wallet from localStorage
    */
   const loadFromStorage = useCallback(async () => {
+    console.log("nitro loadFromStorage called", wallet.isConnected, wallet?.walletInfo?.address.bech32);
     const rootAddress = wallet?.walletInfo?.address.bech32;
-    console.log("rootAddress", rootAddress); // --- IGNORE ---
     if (!rootAddress) {
       return false;
     }
@@ -81,7 +86,7 @@ export const useNitroWallet = (wallet?: UseWalletReturn) => {
       console.error("Storage load error:", err);
       return false;
     }
-  }, [wallet?.walletInfo?.address.bech32, fetchBalance]);
+  }, [wallet?.walletInfo?.address.bech32, fetchBalance, wallet.isConnected]);
 
   /**
    * Create new Nitro wallet using wallet.api.signData()
@@ -105,7 +110,7 @@ export const useNitroWallet = (wallet?: UseWalletReturn) => {
       const message = `Create Nitro Wallet with address ${wallet.walletInfo.address.bech32}`;
       const signedData = await wallet.api.signData(
         wallet.walletInfo.address.bech32,
-        Buffer.from(message).toString("hex")
+        Buffer.from(message).toString("hex"),
       );
       const entropy = sha3(signedData.signature);
       const nitroWallet = baseWalletFromEntropy(entropy, wallet.walletInfo.networkId);
@@ -124,6 +129,21 @@ export const useNitroWallet = (wallet?: UseWalletReturn) => {
       throw new Error(`Failed to create new Nitro wallet: ${errorMsg}`);
     }
   }, [wallet]);
+
+  /**
+   * Save Nitro wallet to localStorage
+   */
+  const saveToStorage = useCallback((data: NitroWalletData) => {
+    try {
+      localStorage.setItem(NITRO_WALLET_STORAGE_KEY, JSON.stringify(data));
+      setWalletData(data);
+      setError(null);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(`Failed to save Nitro wallet: ${errorMsg}`);
+      console.error("Storage save error:", err);
+    }
+  }, []);
 
   const connect = useCallback(async () => {
     setLoading(true);
@@ -145,22 +165,7 @@ export const useNitroWallet = (wallet?: UseWalletReturn) => {
     } finally {
       setLoading(false);
     }
-  }, [loadFromStorage, createNewWallet]);
-
-  /**
-   * Save Nitro wallet to localStorage
-   */
-  const saveToStorage = useCallback((data: NitroWalletData) => {
-    try {
-      localStorage.setItem(NITRO_WALLET_STORAGE_KEY, JSON.stringify(data));
-      setWalletData(data);
-      setError(null);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(`Failed to save Nitro wallet: ${errorMsg}`);
-      console.error("Storage save error:", err);
-    }
-  }, []);
+  }, [loadFromStorage, createNewWallet, saveToStorage]);
 
   /**
    * Disconnect and remove from localStorage
@@ -185,10 +190,43 @@ export const useNitroWallet = (wallet?: UseWalletReturn) => {
    * Auto-load Nitro wallet from storage when Eternl wallet connects
    */
   useEffect(() => {
-    if (wallet?.isConnected && wallet?.walletInfo) {
-      loadFromStorage();
+    const autoLoad = async () => {
+      const rootAddress = wallet?.walletInfo?.address.bech32;
+      if (!rootAddress) {
+        return;
+      }
+      try {
+        const stored = localStorage.getItem(NITRO_WALLET_STORAGE_KEY);
+        if (stored) {
+          const parsedData = JSON.parse(stored);
+          const nitroWallet = {
+            ...parsedData,
+            walletInfo: {
+              ...parsedData.walletInfo,
+              address: Address.fromBech32(parsedData.walletInfo.address),
+            },
+          };
+          if (nitroWallet.walletInfo.rootAddress !== rootAddress) {
+            return;
+          }
+
+          // Fetch real-time balance from blockchain
+          const balance = await fetchBalance(nitroWallet.walletInfo.address);
+          nitroWallet.walletInfo.balance = balance;
+
+          setWalletData(nitroWallet);
+          setError(null);
+        }
+      } catch (err) {
+        const _errorMsg = err instanceof Error ? err.message : String(err);
+        console.error("Storage load error:", err);
+      }
+    };
+
+    if (wallet.walletInfo) {
+      autoLoad();
     }
-  }, [wallet?.isConnected, wallet?.walletInfo?.address.bech32, loadFromStorage]);
+  }, [wallet.walletInfo?.address.bech32, fetchBalance, wallet.walletInfo]);
 
   return {
     walletData,
@@ -200,6 +238,8 @@ export const useNitroWallet = (wallet?: UseWalletReturn) => {
     saveToStorage,
     loadFromStorage,
     createNewWallet,
+    fetchBalance,
+    fetchUtxos,
     isConnected: walletData !== null,
   };
 };

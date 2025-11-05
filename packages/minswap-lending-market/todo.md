@@ -25,6 +25,8 @@ Section bellow (show current state of opening position)
   [ADA Position]
   [Liq.price]
   [Close Position] (concluding, sell all MIN to ADA)
+[Position]
+should show current steps of long position firstly.
 
 The Mechanism behind the sense of Long $MIN should be:
 1. User choose amount/ total (MIN / ADA) to purchase.

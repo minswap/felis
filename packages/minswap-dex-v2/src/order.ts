@@ -1,9 +1,28 @@
-import { ADA, Address, AddressType, Asset, BaseUtxoModel, Bytes, CredentialType, DatumSource, NetworkEnvironment, PlutusBytes, PlutusConstr, PlutusData, PlutusInt, PlutusList, PlutusMaybe, TxIn, Utxo, Value } from "@repo/ledger-core";
-import { CborHex, CSLPlutusData, Result, Maybe } from "@repo/ledger-utils";
+import {
+  ADA,
+  Address,
+  AddressType,
+  Asset,
+  BaseUtxoModel,
+  Bytes,
+  CredentialType,
+  DatumSource,
+  type NetworkEnvironment,
+  PlutusBytes,
+  PlutusConstr,
+  PlutusData,
+  PlutusInt,
+  PlutusList,
+  PlutusMaybe,
+  TxIn,
+  type Utxo,
+  type Value,
+} from "@repo/ledger-core";
+import { type CborHex, type CSLPlutusData, Maybe, Result } from "@repo/ledger-utils";
+import { getDexV2Configs, getDexV2OrderScriptHash } from "./constants";
 import { InvalidOrder } from "./invalid-order";
 import { DexVersion, OrderV2StepType } from "./order-step";
 import { normalizePair } from "./utils";
-import { getDexV2Configs, getDexV2OrderScriptHash } from "./constants";
 
 export enum OrderV2AuthorizationMethodType {
   SIGNATURE = 0,
@@ -823,7 +842,7 @@ export namespace OrderV2ExtraDatum {
         return Result.ok(undefined);
       }
       case OrderV2ExtraDatumType.DATUM_HASH: {
-        if (mapDatum && mapDatum[data.hash.hex]) {
+        if (mapDatum?.[data.hash.hex]) {
           const datum = mapDatum[data.hash.hex];
           return Result.ok(DatumSource.newOutlineDatum(Bytes.fromHex(datum)));
         } else {
@@ -831,7 +850,7 @@ export namespace OrderV2ExtraDatum {
         }
       }
       case OrderV2ExtraDatumType.INLINE_DATUM: {
-        if (mapDatum && mapDatum[data.hash.hex]) {
+        if (mapDatum?.[data.hash.hex]) {
           const datum = mapDatum[data.hash.hex];
           return Result.ok(DatumSource.newInlineDatum(Bytes.fromHex(datum)));
         } else {
@@ -879,10 +898,7 @@ export type OrderV2Datum = {
 };
 
 export namespace OrderV2Datum {
-  export function fromPlutusJson(
-    d: PlutusData,
-    networkEnvironment: NetworkEnvironment,
-  ): OrderV2Datum {
+  export function fromPlutusJson(d: PlutusData, networkEnvironment: NetworkEnvironment): OrderV2Datum {
     const { fields } = PlutusConstr.unwrap(d, { [0]: 9 });
     return {
       author: {
@@ -916,10 +932,7 @@ export namespace OrderV2Datum {
     };
   }
 
-  export function fromDataHex(
-    data: CborHex<CSLPlutusData>,
-    networkEnvironment: NetworkEnvironment,
-  ): OrderV2Datum {
+  export function fromDataHex(data: CborHex<CSLPlutusData>, networkEnvironment: NetworkEnvironment): OrderV2Datum {
     const plutusData = PlutusData.fromDataHex(data);
     return fromPlutusJson(plutusData, networkEnvironment);
   }
@@ -1669,16 +1682,18 @@ export class OrderV2 extends BaseUtxoModel {
     rawDatum,
     skipCheck,
     networkEnv,
-  }: { utxo: Utxo; networkEnv: NetworkEnvironment; rawDatum?: Bytes; skipCheck?: boolean }): Result<
-    OrderV2,
-    InvalidOrder
-  > {
+  }: {
+    utxo: Utxo;
+    networkEnv: NetworkEnvironment;
+    rawDatum?: Bytes;
+    skipCheck?: boolean;
+  }): Result<OrderV2, InvalidOrder> {
     const v2OrderScriptHash = getDexV2OrderScriptHash(networkEnv);
     const { input, output } = utxo;
     const { address, value } = output;
-    let datumHash: Maybe<Bytes> = undefined;
-    let datumRaw: Maybe<Bytes> = undefined;
-    let datum: Maybe<OrderV2Datum> = undefined;
+    let datumHash: Maybe<Bytes>;
+    let datumRaw: Maybe<Bytes>;
+    let datum: Maybe<OrderV2Datum>;
     try {
       InvalidOrder.assert(
         address.toScriptHash()?.equals(v2OrderScriptHash),

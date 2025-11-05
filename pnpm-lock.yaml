@@ -38,6 +38,12 @@ importers:
       '@repo/ledger-utils':
         specifier: workspace:*
         version: link:../../packages/ledger-utils
+      '@repo/minswap-build-tx':
+        specifier: workspace:*
+        version: link:../../packages/minswap-build-tx
+      '@repo/minswap-dex-v2':
+        specifier: workspace:*
+        version: link:../../packages/minswap-dex-v2
       '@repo/minswap-lending-market':
         specifier: workspace:*
         version: link:../../packages/minswap-lending-market
@@ -50,6 +56,9 @@ importers:
       antd:
         specifier: ^5.27.6
         version: 5.27.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      jotai:
+        specifier: ^2.10.2
+        version: 2.15.1(@types/react@18.3.26)(react@18.3.1)
       next:
         specifier: ^15.4.2
         version: 15.4.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -362,15 +371,21 @@ importers:
       '@repo/ledger-utils':
         specifier: workspace:*
         version: link:../ledger-utils
+      '@repo/minswap-build-tx':
+        specifier: workspace:*
+        version: link:../minswap-build-tx
+      '@repo/minswap-dex-v2':
+        specifier: workspace:*
+        version: link:../minswap-dex-v2
       '@repo/tx-builder':
         specifier: workspace:*
         version: link:../tx-builder
       bignumber.js:
         specifier: ^9.1.2
         version: 9.3.1
-      chalk:
-        specifier: ^5.4.1
-        version: 5.6.2
+      cbor:
+        specifier: ^10.0.3
+        version: 10.0.10
       json-bigint:
         specifier: ^1.0.0
         version: 1.0.0
@@ -1484,10 +1499,6 @@ packages:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
     engines: {node: '>=10'}
 
-  chalk@5.6.2:
-    resolution: {integrity: sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA==}
-    engines: {node: ^12.17.0 || ^14.13 || >=16.0.0}
-
   check-error@2.1.1:
     resolution: {integrity: sha512-OAlb+T7V4Op9OwdkjmguYRqncdlx5JiofwOAUkmTF+jNdHwzTaTs4sRAGpzLF3oOz5xAyDGrPgeIDFQmDOTiJw==}
     engines: {node: '>= 16'}
@@ -2052,6 +2063,24 @@ packages:
 
   jackspeak@3.4.3:
     resolution: {integrity: sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw==}
+
+  jotai@2.15.1:
+    resolution: {integrity: sha512-yHT1HAZ3ba2Q8wgaUQ+xfBzEtcS8ie687I8XVCBinfg4bNniyqLIN+utPXWKQE93LMF5fPbQSVRZqgpcN5yd6Q==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@babel/core': '>=7.0.0'
+      '@babel/template': '>=7.0.0'
+      '@types/react': '>=17.0.0'
+      react: '>=17.0.0'
+    peerDependenciesMeta:
+      '@babel/core':
+        optional: true
+      '@babel/template':
+        optional: true
+      '@types/react':
+        optional: true
+      react:
+        optional: true
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -4003,8 +4032,6 @@ snapshots:
       ansi-styles: 4.3.0
       supports-color: 7.2.0
 
-  chalk@5.6.2: {}
-
   check-error@2.1.1: {}
 
   classnames@2.5.1: {}
@@ -4706,6 +4733,11 @@ snapshots:
       '@isaacs/cliui': 8.0.2
     optionalDependencies:
       '@pkgjs/parseargs': 0.11.0
+
+  jotai@2.15.1(@types/react@18.3.26)(react@18.3.1):
+    optionalDependencies:
+      '@types/react': 18.3.26
+      react: 18.3.1
 
   js-tokens@4.0.0: {}
 

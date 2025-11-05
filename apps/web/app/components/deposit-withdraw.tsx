@@ -1,48 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Card,
-  Button,
-  Modal,
-  Form,
-  Input,
-  Space,
-  Tabs,
-  Row,
-  Col,
-  Statistic,
-  Alert,
-  App,
-} from "antd";
-import {
-  ArrowDownOutlined,
-  ArrowUpOutlined,
-} from "@ant-design/icons";
-import type { Cip30Api, WalletInfo } from "../lib/wallet-utils";
-import { Utils } from "../lib/utils";
-import { NitroWallet } from "@repo/minswap-lending-market";
-import { RustModule } from "@repo/ledger-utils";
+import { ArrowDownOutlined, ArrowUpOutlined } from "@ant-design/icons";
 import { NetworkEnvironment } from "@repo/ledger-core";
+import { RustModule } from "@repo/ledger-utils";
+import { NitroWallet } from "@repo/minswap-lending-market";
 import { TxComplete } from "@repo/tx-builder";
+import { Alert, App, Button, Card, Col, Form, Input, Modal, Row, Space, Statistic } from "antd";
+import { useAtomValue } from "jotai";
+import { useState } from "react";
+import { nitroWalletAtom, walletAtom } from "../atoms/walletAtom";
+import { Utils } from "../lib/utils";
 
-interface DepositWithdrawProps {
-  rootWallet: {
-    walletInfo: WalletInfo | null;
-    api: Cip30Api | null;
-    isConnected: boolean;
-  };
-  nitroWallet: {
-    walletInfo: (WalletInfo & { rootAddress: string }) | null;
-    isConnected: boolean;
-  };
-}
-
-export const DepositWithdraw = ({
-  rootWallet,
-  nitroWallet,
-}: DepositWithdrawProps) => {
+export const DepositWithdraw = () => {
   const { message } = App.useApp();
+  const nitroWallet = useAtomValue(nitroWalletAtom);
+  const rootWallet = useAtomValue(walletAtom);
   const [depositModal, setDepositModal] = useState(false);
   const [withdrawModal, setWithdrawModal] = useState(false);
   const [depositLoading, setDepositLoading] = useState(false);
@@ -56,7 +28,7 @@ export const DepositWithdraw = ({
   };
 
   const handleDeposit = async (values: { amount: string }) => {
-    if (!rootWallet.api || !rootWallet.walletInfo || !nitroWallet.walletInfo) {
+    if (!rootWallet?.api || !rootWallet?.walletInfo || !nitroWallet?.walletInfo) {
       message.error("Missing wallet information");
       return;
     }
@@ -64,10 +36,6 @@ export const DepositWithdraw = ({
     setDepositLoading(true);
     try {
       const amountInLovelace = BigInt(Math.floor(Number(values.amount) * 1_000_000));
-
-      // // Load RustModule if not already loaded
-      // await RustModule.load();
-
       // Get UTXOs from root wallet
       const utxosRaw = await rootWallet.api.getUtxos();
       if (!utxosRaw || utxosRaw.length === 0) {
@@ -80,7 +48,8 @@ export const DepositWithdraw = ({
         nitroAddress: nitroWallet.walletInfo.address,
         rootAddress: rootWallet.walletInfo.address,
         amount: amountInLovelace,
-        networkEnv: rootWallet.walletInfo.networkId === 0 ? NetworkEnvironment.TESTNET_PREVIEW : NetworkEnvironment.MAINNET,
+        networkEnv:
+          rootWallet.walletInfo.networkId === 0 ? NetworkEnvironment.TESTNET_PREVIEW : NetworkEnvironment.MAINNET,
         rootAddressUtxos: utxosRaw,
       });
 
@@ -93,7 +62,7 @@ export const DepositWithdraw = ({
 
       // Complete Tx
       const signedTx = txComplete.complete();
-      const txHash = await rootWallet.api.submitTx(signedTx)
+      const txHash = await rootWallet.api.submitTx(signedTx);
       message.success(`Deposit successful! Tx: ${txHash}`);
 
       depositForm.resetFields();
@@ -108,16 +77,14 @@ export const DepositWithdraw = ({
   };
 
   const handleWithdraw = async (values: { amount: string }) => {
-    if (!rootWallet.api || !rootWallet.walletInfo || !nitroWallet.walletInfo) {
+    if (!rootWallet?.api || !rootWallet?.walletInfo || !nitroWallet?.walletInfo) {
       message.error("Missing wallet information");
       return;
     }
 
     setWithdrawLoading(true);
     try {
-      const amountInLovelace = BigInt(
-        Math.floor(Number(values.amount) * 1_000_000)
-      );
+      const amountInLovelace = BigInt(Math.floor(Number(values.amount) * 1_000_000));
 
       // Placeholder for transaction building
       // In a real implementation, you would:
@@ -143,72 +110,55 @@ export const DepositWithdraw = ({
     }
   };
 
-  const rootBalance = rootWallet.walletInfo?.balance ?? 0n;
-  const nitroBalance = nitroWallet.walletInfo?.balance ?? 0n;
+  const rootBalance = rootWallet?.walletInfo?.balance ?? 0n;
+  const nitroBalance = nitroWallet?.walletInfo?.balance ?? 0n;
 
-  const isReadyForDeposit =
-    rootWallet.isConnected &&
-    nitroWallet.isConnected &&
-    rootBalance > 0n;
+  const isReadyForDeposit = rootWallet?.walletInfo && nitroWallet?.walletInfo && rootBalance > 0n;
 
-  const isReadyForWithdraw =
-    rootWallet.isConnected &&
-    nitroWallet.isConnected &&
-    nitroBalance > 0n;
+  const isReadyForWithdraw = rootWallet?.walletInfo && nitroWallet?.walletInfo && nitroBalance > 0n;
 
   return (
-    <Card
-      title="Transfer ADA"
-      style={{ marginTop: 16 }}
-    >
+    <Card style={{ marginTop: 16 }} title="Transfer ADA">
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={12}>
           <Card style={{ background: "#f5f5f5" }}>
-            <Statistic
-              title="Root Wallet Balance"
-              value={formatBalance(rootBalance)}
-              suffix="ADA"
-            />
+            <Statistic suffix="ADA" title="Root Wallet Balance" value={formatBalance(rootBalance)} />
           </Card>
         </Col>
         <Col span={12}>
           <Card style={{ background: "#f5f5f5" }}>
-            <Statistic
-              title="Nitro Wallet Balance"
-              value={formatBalance(nitroBalance)}
-              suffix="ADA"
-            />
+            <Statistic suffix="ADA" title="Nitro Wallet Balance" value={formatBalance(nitroBalance)} />
           </Card>
         </Col>
       </Row>
 
-      {!rootWallet.isConnected || !nitroWallet.isConnected ? (
+      {!rootWallet?.walletInfo || !nitroWallet?.walletInfo ? (
         <Alert
           message="Please connect both wallets to transfer ADA"
-          type="warning"
           showIcon
           style={{ marginBottom: 16 }}
+          type="warning"
         />
       ) : null}
 
-      <Space style={{ width: "100%" }} direction="vertical">
+      <Space direction="vertical" style={{ width: "100%" }}>
         <Button
-          type="primary"
-          size="large"
           block
+          disabled={!isReadyForDeposit}
           icon={<ArrowDownOutlined />}
           onClick={() => setDepositModal(true)}
-          disabled={!isReadyForDeposit}
+          size="large"
+          type="primary"
         >
           Deposit to Nitro Wallet
         </Button>
         <Button
-          type="default"
-          size="large"
           block
+          disabled={!isReadyForWithdraw}
           icon={<ArrowUpOutlined />}
           onClick={() => setWithdrawModal(true)}
-          disabled={!isReadyForWithdraw}
+          size="large"
+          type="default"
         >
           Withdraw from Nitro Wallet
         </Button>
@@ -216,35 +166,31 @@ export const DepositWithdraw = ({
 
       {/* Deposit Modal */}
       <Modal
-        title="Deposit ADA to Nitro Wallet"
-        open={depositModal}
-        onOk={() => depositForm.submit()}
+        confirmLoading={depositLoading}
         onCancel={() => {
           setDepositModal(false);
           depositForm.resetFields();
         }}
-        confirmLoading={depositLoading}
+        onOk={() => depositForm.submit()}
+        open={depositModal}
+        title="Deposit ADA to Nitro Wallet"
       >
         <Alert
-          message={`From: ${Utils.shortenAddress(rootWallet.walletInfo?.address.bech32 ?? "")}`}
-          type="info"
+          message={`From: ${Utils.shortenAddress(rootWallet?.walletInfo?.address.bech32 ?? "")}`}
           showIcon
           style={{ marginBottom: 16 }}
+          type="info"
         />
         <Alert
-          message={`To: ${Utils.shortenAddress(nitroWallet.walletInfo?.address.bech32 ?? "")}`}
-          type="info"
+          message={`To: ${Utils.shortenAddress(nitroWallet?.walletInfo?.address.bech32 ?? "")}`}
           showIcon
           style={{ marginBottom: 16 }}
+          type="info"
         />
-        <Form
-          form={depositForm}
-          layout="vertical"
-          onFinish={handleDeposit}
-        >
+        <Form form={depositForm} layout="vertical" onFinish={handleDeposit}>
           <Form.Item
-            name="amount"
             label="Amount (ADA)"
+            name="amount"
             rules={[
               { required: true, message: "Please enter amount" },
               {
@@ -256,64 +202,48 @@ export const DepositWithdraw = ({
                   const amount = parseFloat(value);
                   const availableAda = Number(rootBalance) / 1_000_000;
                   if (amount > availableAda) {
-                    return Promise.reject(
-                      new Error(
-                        `Insufficient balance. Available: ${availableAda.toFixed(2)} ADA`
-                      )
-                    );
+                    return Promise.reject(new Error(`Insufficient balance. Available: ${availableAda.toFixed(2)} ADA`));
                   }
                   return Promise.resolve();
                 },
               },
             ]}
           >
-            <Input
-              type="number"
-              placeholder="0.00"
-              step="0.1"
-              min="0"
-            />
+            <Input min="0" placeholder="0.00" step="0.1" type="number" />
           </Form.Item>
-          <Form.Item
-            label="Transaction Fee"
-            style={{ marginBottom: 0 }}
-          >
-            <Statistic value="~0.17" suffix="ADA" />
+          <Form.Item label="Transaction Fee" style={{ marginBottom: 0 }}>
+            <Statistic suffix="ADA" value="~0.17" />
           </Form.Item>
         </Form>
       </Modal>
 
       {/* Withdraw Modal */}
       <Modal
-        title="Withdraw ADA from Nitro Wallet"
-        open={withdrawModal}
-        onOk={() => withdrawForm.submit()}
+        confirmLoading={withdrawLoading}
         onCancel={() => {
           setWithdrawModal(false);
           withdrawForm.resetFields();
         }}
-        confirmLoading={withdrawLoading}
+        onOk={() => withdrawForm.submit()}
+        open={withdrawModal}
+        title="Withdraw ADA from Nitro Wallet"
       >
         <Alert
-          message={`From: ${Utils.shortenAddress(nitroWallet.walletInfo?.address.bech32 ?? "")}`}
-          type="info"
+          message={`From: ${Utils.shortenAddress(nitroWallet?.walletInfo?.address.bech32 ?? "")}`}
           showIcon
           style={{ marginBottom: 16 }}
+          type="info"
         />
         <Alert
-          message={`To: ${Utils.shortenAddress(rootWallet.walletInfo?.address.bech32 ?? "")}`}
-          type="info"
+          message={`To: ${Utils.shortenAddress(rootWallet?.walletInfo?.address.bech32 ?? "")}`}
           showIcon
           style={{ marginBottom: 16 }}
+          type="info"
         />
-        <Form
-          form={withdrawForm}
-          layout="vertical"
-          onFinish={handleWithdraw}
-        >
+        <Form form={withdrawForm} layout="vertical" onFinish={handleWithdraw}>
           <Form.Item
-            name="amount"
             label="Amount (ADA)"
+            name="amount"
             rules={[
               { required: true, message: "Please enter amount" },
               {
@@ -325,29 +255,17 @@ export const DepositWithdraw = ({
                   const amount = parseFloat(value);
                   const availableAda = Number(nitroBalance) / 1_000_000;
                   if (amount > availableAda) {
-                    return Promise.reject(
-                      new Error(
-                        `Insufficient balance. Available: ${availableAda.toFixed(2)} ADA`
-                      )
-                    );
+                    return Promise.reject(new Error(`Insufficient balance. Available: ${availableAda.toFixed(2)} ADA`));
                   }
                   return Promise.resolve();
                 },
               },
             ]}
           >
-            <Input
-              type="number"
-              placeholder="0.00"
-              step="0.1"
-              min="0"
-            />
+            <Input min="0" placeholder="0.00" step="0.1" type="number" />
           </Form.Item>
-          <Form.Item
-            label="Transaction Fee"
-            style={{ marginBottom: 0 }}
-          >
-            <Statistic value="~0.17" suffix="ADA" />
+          <Form.Item label="Transaction Fee" style={{ marginBottom: 0 }}>
+            <Statistic suffix="ADA" value="~0.17" />
           </Form.Item>
         </Form>
       </Modal>

@@ -11,22 +11,22 @@ import {
   CredentialType,
   NetworkEnvironment,
   NetworkID,
+  networkEnvironmentToNetworkID,
   PlutusVersion,
   RewardAddress,
   TxIn,
   TxOut,
   Utxo,
   Value,
-  networkEnvironmentToNetworkID,
 } from "@repo/ledger-core";
 import { Maybe } from "@repo/ledger-utils";
+import { getMinswapStakeAddresses } from "./data/constants";
 import mainnetRawScripts from "./scripts/mainnet/dex-v2-script.json";
 import mainnetReferenceScripts from "./scripts/mainnet/references-script.json";
 import testnetRawScripts from "./scripts/testnet/dex-v2-script.json";
 import testnetPreviewRawScripts from "./scripts/testnet/preview-dex-v2-script.json";
 import testnetPreviewReferenceScripts from "./scripts/testnet/preview-references-script.json";
 import testnetReferenceScripts from "./scripts/testnet/references-script.json";
-import { getMinswapStakeAddresses } from "./data/constants";
 
 export type RawDexV2Config = {
   factoryAsset: string;
@@ -81,21 +81,21 @@ export type DexV2ReferencesScripts = {
   poolBatchingRef: Utxo;
 };
 
-let dexV2TestnetConfigs: DexV2Config | undefined = undefined;
-let dexV2MainnetConfigs: DexV2Config | undefined = undefined;
-let dexV2TestnetRefScripts: DexV2ReferencesScripts | undefined = undefined;
-let dexV2MainnetRefScripts: DexV2ReferencesScripts | undefined = undefined;
-let poolAddrsTestnet: Address[] | undefined = undefined;
-let poolAddrsMainnet: Address[] | undefined = undefined;
-let poolAddrsSetTestnet: Set<string> | undefined = undefined;
-let poolAddrsSetMainnet: Set<string> | undefined = undefined;
-let orderAddrTestnet: Address | undefined = undefined;
-let orderAddrMainnet: Address | undefined = undefined;
-let factoryAddrTestnet: Address | undefined = undefined;
-let factoryAddrMainnet: Address | undefined = undefined;
-let allDexV2ScriptHashList: Bytes[] | undefined = undefined;
-let allDexV2ReferencesSetTestnet: Set<string> | undefined = undefined;
-let allDexV2ReferencesSetMainnet: Set<string> | undefined = undefined;
+let dexV2TestnetConfigs: DexV2Config | undefined;
+let dexV2MainnetConfigs: DexV2Config | undefined;
+let dexV2TestnetRefScripts: DexV2ReferencesScripts | undefined;
+let dexV2MainnetRefScripts: DexV2ReferencesScripts | undefined;
+let poolAddrsTestnet: Address[] | undefined;
+let poolAddrsMainnet: Address[] | undefined;
+let poolAddrsSetTestnet: Set<string> | undefined;
+let poolAddrsSetMainnet: Set<string> | undefined;
+let orderAddrTestnet: Address | undefined;
+let orderAddrMainnet: Address | undefined;
+let factoryAddrTestnet: Address | undefined;
+let factoryAddrMainnet: Address | undefined;
+let allDexV2ScriptHashList: Bytes[] | undefined;
+let allDexV2ReferencesSetTestnet: Set<string> | undefined;
+let allDexV2ReferencesSetMainnet: Set<string> | undefined;
 
 function deserializeRawDexV2Config(rawConfig: RawDexV2Config): DexV2Config {
   const orderAddress = Address.fromBech32(rawConfig.orderEnterpriseAddress);
@@ -171,9 +171,7 @@ export function getDexV2Configs(networkEnvironment: NetworkEnvironment): DexV2Co
  * This function uses for test suite in order to mock DEX V2 References Script.
  * PLEASE NOT USE THIS FUNCTION ON PRODUCTION
  */
-export function _useDummyDexV2RefScripts(
-  networkEnvironment: NetworkEnvironment,
-): void {
+export function _useDummyDexV2RefScripts(networkEnvironment: NetworkEnvironment): void {
   const config = getDexV2Configs(networkEnvironment);
   const addr = Address.fromBech32("addr_test1vzztre5epvtj5p72sh28nvrs3e6s4xxn95f66cvg0sqsk7qd3mah0");
   const ref = {
@@ -242,9 +240,7 @@ export function _useDummyDexV2RefScripts(
   dexV2TestnetRefScripts = ref;
 }
 
-export function getDexV2RefScripts(
-  networkEnvironment: NetworkEnvironment,
-): DexV2ReferencesScripts {
+export function getDexV2RefScripts(networkEnvironment: NetworkEnvironment): DexV2ReferencesScripts {
   switch (networkEnvironment) {
     case NetworkEnvironment.MAINNET: {
       if (dexV2MainnetRefScripts) {
@@ -291,9 +287,7 @@ export function getDexV2RefScripts(
   }
 }
 
-export function getDexV2PoolAddresses(
-  networkEnvironment: NetworkEnvironment,
-): Address[] {
+export function getDexV2PoolAddresses(networkEnvironment: NetworkEnvironment): Address[] {
   const networkId = networkEnvironmentToNetworkID(networkEnvironment);
   const dexV2Configs = getDexV2Configs(networkEnvironment);
   switch (networkId) {
@@ -332,9 +326,7 @@ export function getDexV2PoolAddresses(
   }
 }
 
-export function getDexV2PoolAddressesSet(
-  networkEnvironment: NetworkEnvironment,
-): Set<string> {
+export function getDexV2PoolAddressesSet(networkEnvironment: NetworkEnvironment): Set<string> {
   const networkId = networkEnvironmentToNetworkID(networkEnvironment);
   switch (networkId) {
     case NetworkID.TESTNET: {
@@ -360,16 +352,12 @@ export function getDexV2PoolAddressesSet(
   }
 }
 
-export function getDexV2PoolCreationAddress(
-  networkEnvironment: NetworkEnvironment,
-): Address {
+export function getDexV2PoolCreationAddress(networkEnvironment: NetworkEnvironment): Address {
   const cfg = getDexV2Configs(networkEnvironment);
   return cfg.poolCreationAddress;
 }
 
-export function getDefaultDexV2OrderAddress(
-  networkEnvironment: NetworkEnvironment,
-): Address {
+export function getDefaultDexV2OrderAddress(networkEnvironment: NetworkEnvironment): Address {
   const networkId = networkEnvironmentToNetworkID(networkEnvironment);
   const dexV2Configs = getDexV2Configs(networkEnvironment);
   switch (networkId) {
@@ -408,19 +396,14 @@ export function getDefaultDexV2OrderAddress(
   }
 }
 
-export function getDexV2OrderScriptHash(
-  networkEnvironment: NetworkEnvironment,
-): Bytes {
+export function getDexV2OrderScriptHash(networkEnvironment: NetworkEnvironment): Bytes {
   return Maybe.unwrap(
     getDefaultDexV2OrderAddress(networkEnvironment).toScriptHash(),
     "Dex V2 order address must have script hash",
   );
 }
 
-export function buildDexV2OrderAddress(
-  stakeAddress: RewardAddress,
-  networkEnvironment: NetworkEnvironment,
-): Address {
+export function buildDexV2OrderAddress(stakeAddress: RewardAddress, networkEnvironment: NetworkEnvironment): Address {
   const networkId = networkEnvironmentToNetworkID(networkEnvironment);
   const dexV2Configs = getDexV2Configs(networkEnvironment);
   return Address.fromCardanoAddress({
@@ -431,16 +414,12 @@ export function buildDexV2OrderAddress(
   });
 }
 
-export function getDexV2GlobalSettingScriptHash(
-  networkEnvironment: NetworkEnvironment,
-): Bytes {
+export function getDexV2GlobalSettingScriptHash(networkEnvironment: NetworkEnvironment): Bytes {
   const config = getDexV2Configs(networkEnvironment);
   return config.lpPolicyId;
 }
 
-export function getDexV2FactoryAddress(
-  networkEnvironment: NetworkEnvironment,
-): Address {
+export function getDexV2FactoryAddress(networkEnvironment: NetworkEnvironment): Address {
   const networkId = networkEnvironmentToNetworkID(networkEnvironment);
   const dexV2Configs = getDexV2Configs(networkEnvironment);
   switch (networkId) {
@@ -479,22 +458,16 @@ export function getDexV2FactoryAddress(
   }
 }
 
-export function getDexV2FactoryScriptHash(
-  networkEnvironment: NetworkEnvironment,
-): Bytes {
+export function getDexV2FactoryScriptHash(networkEnvironment: NetworkEnvironment): Bytes {
   const dexV2Configs = getDexV2Configs(networkEnvironment);
   return dexV2Configs.factoryEnterpriseAddress.payment.payload;
 }
 
-export function getAllDexV2ScriptHashSet(
-  networkEnvironment: NetworkEnvironment,
-): Set<string> {
+export function getAllDexV2ScriptHashSet(networkEnvironment: NetworkEnvironment): Set<string> {
   return new Set(getAllDexV2ScriptHashList(networkEnvironment).map((sh) => sh.hex));
 }
 
-export function getAllDexV2ScriptHashList(
-  networkEnvironment: NetworkEnvironment,
-): Bytes[] {
+export function getAllDexV2ScriptHashList(networkEnvironment: NetworkEnvironment): Bytes[] {
   if (allDexV2ScriptHashList) {
     return allDexV2ScriptHashList;
   }
@@ -509,9 +482,7 @@ export function getAllDexV2ScriptHashList(
   return allDexV2ScriptHashList;
 }
 
-export function getAllDexV2ReferencesSet(
-  networkEnvironment: NetworkEnvironment,
-): Set<string> {
+export function getAllDexV2ReferencesSet(networkEnvironment: NetworkEnvironment): Set<string> {
   const networkId = networkEnvironmentToNetworkID(networkEnvironment);
   switch (networkId) {
     case NetworkID.TESTNET: {
@@ -545,9 +516,7 @@ export function getDexV2PoolScriptHash(networkEnvironment: NetworkEnvironment): 
   return getDexV2Configs(networkEnvironment).poolEnterpriseAddress.payment.payload;
 }
 
-export function getDexV2LiquidityMigrationBot(
-  networkEnvironment: NetworkEnvironment,
-): Address {
+export function getDexV2LiquidityMigrationBot(networkEnvironment: NetworkEnvironment): Address {
   const networkId = networkEnvironmentToNetworkID(networkEnvironment);
   switch (networkId) {
     case NetworkID.TESTNET: {
@@ -561,9 +530,7 @@ export function getDexV2LiquidityMigrationBot(
   }
 }
 
-export function getDexV2PoolBatchingStakeCredential(
-  networkEnvironment: NetworkEnvironment,
-): Credential {
+export function getDexV2PoolBatchingStakeCredential(networkEnvironment: NetworkEnvironment): Credential {
   return getDexV2Configs(networkEnvironment).poolBatchingAddress.cardanoAddress.stake;
 }
 

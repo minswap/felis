@@ -1,12 +1,20 @@
-import { AddressType, Bytes, CardanoRewardAddress, CredentialType, NetworkEnvironment, networkEnvironmentToNetworkID, NetworkID, RewardAddress } from "@repo/ledger-core";
+import {
+  AddressType,
+  Bytes,
+  type CardanoRewardAddress,
+  CredentialType,
+  type NetworkEnvironment,
+  NetworkID,
+  networkEnvironmentToNetworkID,
+  RewardAddress,
+} from "@repo/ledger-core";
 import rawLpStakeAddressMainnet from "../data/mainnet/liquidity-pool-stake-addresses.json";
 import rawLpStakeAddressTestnet from "../data/testnet/liquidity-pool-stake-addresses.json";
 
-
-let minswapStakeAddrsTestnet: CardanoRewardAddress[] | undefined = undefined;
-let minswapStakeAddrsMainnet: CardanoRewardAddress[] | undefined = undefined;
-let lpStakeAddrsTestnet: string[] | undefined = undefined;
-let lpStakeAddrsMainnet: string[] | undefined = undefined;
+let minswapStakeAddrsTestnet: CardanoRewardAddress[] | undefined;
+let minswapStakeAddrsMainnet: CardanoRewardAddress[] | undefined;
+let lpStakeAddrsTestnet: string[] | undefined;
+let lpStakeAddrsMainnet: string[] | undefined;
 
 export function getLPStakeAddresses(networkEnvironment: NetworkEnvironment): string[] {
   const networkId = networkEnvironmentToNetworkID(networkEnvironment);
