@@ -38,7 +38,6 @@ export type OrderV2AuthorizationMethod = {
 
 export namespace OrderV2AuthorizationMethod {
   export function fromPlutusJson(d: PlutusData): OrderV2AuthorizationMethod {
-    // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
     const { constructor, fields } = PlutusConstr.unwrap(d, {
       [OrderV2AuthorizationMethodType.SIGNATURE]: 1,
       [OrderV2AuthorizationMethodType.SPEND_SCRIPT]: 1,
@@ -65,7 +64,6 @@ export enum OrderV2Direction {
 
 export namespace OrderV2Direction {
   export function fromPlutusJson(d: PlutusData): OrderV2Direction {
-    // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
     const { constructor } = PlutusConstr.unwrap(d, {
       [0]: 0,
       [1]: 0,
@@ -97,7 +95,6 @@ export enum OrderV2Killable {
 
 export namespace OrderV2Killable {
   export function fromPlutusJson(d: PlutusData): OrderV2Killable {
-    // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
     const { constructor } = PlutusConstr.unwrap(d, {
       [0]: 0,
       [1]: 0,
@@ -141,7 +138,6 @@ export type OrderV2DepositAmountOption =
 
 export namespace OrderV2DepositAmountOption {
   export function fromPlutusJson(d: PlutusData): OrderV2DepositAmountOption {
-    // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
     const { constructor, fields } = PlutusConstr.unwrap(d, {
       [0]: 2,
       [1]: 2,
@@ -234,7 +230,6 @@ export type OrderV2SwapAmountOption =
 
 export namespace OrderV2SwapAmountOption {
   export function fromPlutusJson(d: PlutusData): OrderV2SwapAmountOption {
-    // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
     const { constructor, fields } = PlutusConstr.unwrap(d, {
       [0]: 1,
       [1]: 1,
@@ -305,7 +300,6 @@ export type OrderV2WithdrawAmountOption =
 
 export namespace OrderV2WithdrawAmountOption {
   export function fromPlutusJson(d: PlutusData): OrderV2WithdrawAmountOption {
-    // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
     const { constructor, fields } = PlutusConstr.unwrap(d, {
       [0]: 1,
       [1]: 1,
@@ -492,7 +486,6 @@ export type OrderV2Step =
 
 export namespace OrderV2Step {
   export function fromPlutusJson(d: PlutusData): OrderV2Step {
-    // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
     const { constructor, fields } = PlutusConstr.unwrap(d, {
       [OrderV2StepType.SWAP_EXACT_IN]: 4,
       [OrderV2StepType.STOP_LOSS]: 3,
@@ -777,7 +770,6 @@ export type OrderV2ExtraDatum =
 
 export namespace OrderV2ExtraDatum {
   export function fromPlutusJson(d: PlutusData): OrderV2ExtraDatum {
-    // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
     const { constructor, fields } = PlutusConstr.unwrap(d, {
       [0]: 0,
       [1]: 1,
@@ -1188,7 +1180,6 @@ export enum OrderV2Redeemer {
 
 export namespace OrderV2Redeemer {
   export function fromPlutusJson(d: PlutusData): OrderV2Redeemer {
-    // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
     const { constructor } = PlutusConstr.unwrap(d, {
       [0]: 0,
       [1]: 0,

@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowDownOutlined, ArrowUpOutlined } from "@ant-design/icons";
-import { NetworkEnvironment } from "@repo/ledger-core";
 import { RustModule } from "@repo/ledger-utils";
 import { NitroWallet } from "@repo/minswap-lending-market";
 import { TxComplete } from "@repo/tx-builder";
@@ -9,6 +8,7 @@ import { Alert, App, Button, Card, Col, Form, Input, Modal, Row, Space, Statisti
 import { useAtomValue } from "jotai";
 import { useState } from "react";
 import { nitroWalletAtom, walletAtom } from "../atoms/walletAtom";
+import { CONFIG } from "../config";
 import { Utils } from "../lib/utils";
 
 export const DepositWithdraw = () => {
@@ -48,8 +48,7 @@ export const DepositWithdraw = () => {
         nitroAddress: nitroWallet.walletInfo.address,
         rootAddress: rootWallet.walletInfo.address,
         amount: amountInLovelace,
-        networkEnv:
-          rootWallet.walletInfo.networkId === 0 ? NetworkEnvironment.TESTNET_PREVIEW : NetworkEnvironment.MAINNET,
+        networkEnv: CONFIG.networkEnv,
         rootAddressUtxos: utxosRaw,
       });
 

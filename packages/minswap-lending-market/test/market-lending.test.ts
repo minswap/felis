@@ -6,7 +6,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { TxComplete } from "../../tx-builder/dist/tx-builder";
 import { LendingMarket, LiqwidProvider, NitroWallet } from "../src";
 
-// biome-ignore lint/suspicious/noExplicitAny: lazy
 let mockData: {
   wallet: BaseAddressWallet;
   txHex: string;

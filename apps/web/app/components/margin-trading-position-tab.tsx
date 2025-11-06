@@ -1,8 +1,9 @@
 "use client";
 
 import { CloseOutlined, DollarOutlined, SwapOutlined, TrophyOutlined } from "@ant-design/icons";
+import invariant from "@minswap/tiny-invariant";
 import { ADA } from "@repo/ledger-core";
-import { LendingMarket } from "@repo/minswap-lending-market";
+import { LendingMarket, NitroWallet } from "@repo/minswap-lending-market";
 import { Alert, App, Button, Card, Col, Divider, Progress, Row, Space, Statistic, Tag } from "antd";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
@@ -10,8 +11,10 @@ import {
   type LongPositionState,
   LongPositionStatus,
   longPositionAtom,
+  type NitroWalletData,
   nitroWalletAtom,
   setLongPositionAtom,
+  type WalletData,
   walletAtom,
 } from "../atoms/walletAtom";
 import { CONFIG } from "../config";
@@ -20,8 +23,6 @@ import { Utils } from "../lib/utils";
 
 const getStatusColor = (status: LongPositionStatus) => {
   switch (status) {
-    case LongPositionStatus.STEP_0_PLACE_ORDER:
-      return "blue";
     case LongPositionStatus.STEP_1_BUY_LONG_ASSET:
       return "orange";
     case LongPositionStatus.STEP_2_SUPPLY_TOKEN:
@@ -35,8 +36,6 @@ const getStatusColor = (status: LongPositionStatus) => {
 
 const getStatusText = (status: LongPositionStatus) => {
   switch (status) {
-    case LongPositionStatus.STEP_0_PLACE_ORDER:
-      return "Placing Order";
     case LongPositionStatus.STEP_1_BUY_LONG_ASSET:
       return "Buying Asset";
     case LongPositionStatus.STEP_2_SUPPLY_TOKEN:
@@ -70,6 +69,62 @@ const calculatePnL = (position: LongPositionState): { pnl: number; pnlPercent: n
   return { pnl, pnlPercent };
 };
 
+type InnerHandleFn = (input: {
+  position: LongPositionState;
+  wallet: WalletData;
+  nitroWallet: NitroWalletData;
+}) => Promise<LongPositionState>;
+type HandlePositionInput = {
+  position: LongPositionState;
+  errorMessage: string;
+  successMessage: string;
+  innerFn: InnerHandleFn;
+};
+
+const _handleStep1: InnerHandleFn = async ({ position, wallet, nitroWallet }) => {
+  const [utxos, priceData] = await Promise.all([
+    NitroWallet.fetchRawUtxos(nitroWallet.walletInfo.address.bech32),
+    LendingMarket.fetchAdaMinPrice(CONFIG.networkEnv),
+  ]);
+  invariant(nitroWallet.walletInfo.balance, "Nitro wallet balance is undefined");
+  const txHash = await LendingMarket.OpeningLongPosition.step1CreateOrder({
+    nitroWallet: {
+      address: nitroWallet.walletInfo.address,
+      privateKey: nitroWallet.privateKey,
+      utxos,
+      submitTx: wallet.api.submitTx.bind(wallet.api),
+    },
+    priceInAdaResponse: priceData,
+    networkEnv: CONFIG.networkEnv,
+    amountIn: nitroWallet.walletInfo.balance,
+  });
+  return {
+    ...position,
+    status: LongPositionStatus.STEP_2_SUPPLY_TOKEN,
+    updatedAt: Date.now(),
+    transactions: [...position.transactions, { txHash, step: LongPositionStatus.STEP_2_SUPPLY_TOKEN }],
+  };
+};
+
+const handleStep2: InnerHandleFn = async ({ position, nitroWallet }) => {
+  const utxos = await Helpers.fetchRawUtxos(nitroWallet.walletInfo.address);
+  const txHash = await LendingMarket.OpeningLongPosition.step2SupplyMIN({
+    nitroWallet: {
+      address: nitroWallet.walletInfo.address,
+      privateKey: nitroWallet.privateKey,
+      utxos,
+    },
+    minAmount: position.amount.mLongBalance,
+    networkEnv: CONFIG.networkEnv,
+  });
+  return {
+    ...position,
+    status: LongPositionStatus.STEP_3_BORROW_TOKEN,
+    updatedAt: Date.now(),
+    transactions: [...position.transactions, { txHash, step: LongPositionStatus.STEP_2_SUPPLY_TOKEN }],
+  };
+};
+
 export const PositionTab = () => {
   const { message } = App.useApp();
   const wallet = useAtomValue(walletAtom);
@@ -79,50 +134,26 @@ export const PositionTab = () => {
 
   // Track positions that are currently being processed to prevent duplicate calls
   const processingPositions = useRef<Set<string>>(new Set());
+  console.log(nitroWallet?.walletInfo.balance);
 
-  const supplyingToken = useCallback(
-    async (position: LongPositionState) => {
+  const handlePosition = useCallback(
+    async (input: HandlePositionInput) => {
+      const { position, errorMessage, successMessage, innerFn } = input;
       if (!nitroWallet || !wallet) return;
-
       // Check if this position is already being processed
       if (processingPositions.current.has(position.positionId)) {
         return;
       }
-
       // Mark position as being processed
       processingPositions.current.add(position.positionId);
       try {
-        const utxos = await Helpers.fetchRawUtxos(nitroWallet.walletInfo.address);
-        const txHash = await LendingMarket.OpeningLongPosition.step2SupplyMIN({
-          nitroWallet: {
-            address: nitroWallet.walletInfo.address,
-            privateKey: nitroWallet.privateKey,
-            utxos,
-            networkEnv: CONFIG.networkEnv,
-          },
-          minAmount: position.amount.mLongBalance,
-          networkEnv: CONFIG.networkEnv,
-        });
-
-        // Update position status to STEP_3_BORROW_TOKEN after successful supply
-        setPositions((prev) =>
-          prev.map((p) =>
-            p.positionId === position.positionId
-              ? {
-                  ...p,
-                  status: LongPositionStatus.STEP_3_BORROW_TOKEN,
-                  updatedAt: Date.now(),
-                  transactions: [...p.transactions, { txHash, step: LongPositionStatus.STEP_2_SUPPLY_TOKEN }],
-                }
-              : p,
-          ),
-        );
-
-        message.success(`Successfully supplied MIN tokens for position ${position.positionId.slice(0, 8)}`);
+        const newPosition = await innerFn({ position, wallet, nitroWallet });
+        setPositions((prev) => prev.map((p) => (p.positionId === position.positionId ? newPosition : p)));
+        message.success(`${successMessage} ${position.positionId.slice(0, 8)}`);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        message.error(`Failed to supply MIN tokens: ${errorMsg}`);
-        console.error("Supply MIN error:", error);
+        message.error(`${errorMessage}: ${errorMsg}`);
+        console.error("handle position error: ", error);
       } finally {
         // Remove from processing set when done (success or error)
         processingPositions.current.delete(position.positionId);
@@ -133,11 +164,29 @@ export const PositionTab = () => {
 
   useEffect(() => {
     for (const position of positions) {
-      if (position.status === LongPositionStatus.STEP_2_SUPPLY_TOKEN) {
-        supplyingToken(position);
+      if (position.status === LongPositionStatus.STEP_1_BUY_LONG_ASSET) {
+        continue;
       }
+      if (position.status === LongPositionStatus.STEP_2_SUPPLY_TOKEN) {
+        handlePosition({
+          position,
+          errorMessage: "Failed to supply MIN tokens",
+          successMessage: "Successfully supplied MIN tokens for position",
+          innerFn: handleStep2,
+        });
+        // continue;
+      }
+      // if (position.status === LongPositionStatus.STEP_3_BORROW_TOKEN) {
+      //   handlePosition({
+      //     position,
+      //     errorMessage: "Failed to borrow tokens",
+      //     successMessage: "Successfully borrowed tokens for position",
+      //     innerFn: handleStep3,
+      //   });
+      //   continue;
+      // }
     }
-  }, [positions, supplyingToken]);
+  }, [positions, handlePosition]);
 
   const handleClosePosition = async (positionId: string) => {
     try {
@@ -162,7 +211,6 @@ export const PositionTab = () => {
     );
   }
 
-  console.log("position", positions[0]);
   return (
     <div style={{ padding: "16px" }}>
       <Space direction="vertical" size="large" style={{ width: "100%" }}>

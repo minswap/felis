@@ -24,7 +24,6 @@ export const setNitroWalletAtom = atom(null, (_get, set, update: NitroWalletData
 });
 
 export enum LongPositionStatus {
-  STEP_0_PLACE_ORDER = "place_order",
   STEP_1_BUY_LONG_ASSET = "buy_long_asset",
   STEP_2_SUPPLY_TOKEN = "supply_token",
   STEP_3_BORROW_TOKEN = "borrow_token",

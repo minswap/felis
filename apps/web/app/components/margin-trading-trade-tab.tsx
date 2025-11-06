@@ -2,7 +2,8 @@
 
 import { ArrowRightOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import invariant from "@minswap/tiny-invariant";
-import { Asset } from "@repo/ledger-core";
+import { ADA, Asset, Bytes } from "@repo/ledger-core";
+import { sha3 } from "@repo/ledger-utils";
 import { DexV2Calculation, OrderV2Direction } from "@repo/minswap-dex-v2";
 import { LendingMarket } from "@repo/minswap-lending-market";
 import {
@@ -21,22 +22,24 @@ import {
   Statistic,
   Tooltip,
 } from "antd";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
-import { nitroWalletAtom, walletAtom } from "../atoms/walletAtom";
+import {
+  type LongPositionState,
+  LongPositionStatus,
+  longPositionAtom,
+  nitroWalletAtom,
+  setLongPositionAtom,
+  walletAtom,
+} from "../atoms/walletAtom";
 import { CONFIG } from "../config";
-
-interface TradeTabProps {
-  rootWallet: {
-    api: any;
-    isConnected: boolean;
-  };
-}
 
 export const TradeTab = () => {
   const { message } = App.useApp();
   const nitroWallet = useAtomValue(nitroWalletAtom);
   const wallet = useAtomValue(walletAtom);
+  const positions = useAtomValue(longPositionAtom);
+  const setPositions = useSetAtom(setLongPositionAtom);
 
   // Trading parameters
   const [leverage, setLeverage] = useState<1 | 2>(2);
@@ -167,6 +170,7 @@ export const TradeTab = () => {
   const liquidationPrice = calculateLiquidationPrice();
 
   const handleBuy = async () => {
+    invariant(wallet && nitroWallet);
     if (adaAmount <= 0) {
       message.error("Please enter ADA amount");
       return;
@@ -179,36 +183,32 @@ export const TradeTab = () => {
 
     setLoading(true);
     try {
-      const operationFeeAda = 10;
-      const actualAmountForStep1 = availableAda - operationFeeAda;
-      const _step1AmountInLovelace = BigInt(Math.floor(actualAmountForStep1 * 1_000_000));
-
-      const _boughtMinAmount = BigInt(Math.floor(minAmount * 1_000_000));
-      const _totalMinAmount = BigInt(Math.floor(minAmount * 1_000_000));
-      const borrowAmount = adaAmount - availableAda;
-      const _borrowedAdaAmount = BigInt(Math.floor(borrowAmount * 1_000_000));
-      invariant(wallet);
-      const _walletApi = wallet.api;
-      const _minAsset = Asset.fromString(LendingMarket.mapMINToken[CONFIG.networkEnv]);
-      const _adaAsset = Asset.fromString("lovelace");
-
-      // await openLongPosition({
-      //   leverage,
-      //   longAsset: minAsset,
-      //   borrowAsset: adaAsset,
-      //   amountIn: step1AmountInLovelace,
-      //   priceInAdaResponse: priceResponse,
-      //   submitTx: async (txHex: string) => {
-      //     return walletApi.submitTx(txHex);
-      //   },
-      //   boughtMinAmount,
-      //   totalMinAmount,
-      //   borrowedAdaAmount,
-      //   fetchUtxos: nitroWallet.fetchUtxos,
-      // });
-
+      const now = Date.now();
+      const newLongPositionState: LongPositionState = {
+        positionId: sha3(Bytes.fromString(`${nitroWallet.walletInfo.address.bech32}.${now}`).hex),
+        status: LongPositionStatus.STEP_1_BUY_LONG_ASSET,
+        nitroWalletAddress: nitroWallet.walletInfo.address.bech32,
+        leverage,
+        longAsset: Asset.fromString(LendingMarket.mapMINToken[CONFIG.networkEnv]), // MIN
+        borrowAsset: ADA,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        amount: {
+          iTotalBuy: BigInt(adaAmount) * 1_000_000n,
+          iTotalOperationFee: LendingMarket.OpeningLongPosition.OPERATION_FEE_ADA,
+          mTotalPaidFee: 0n,
+          mBought: 0n,
+          mTotalLong: 0n,
+          mLongBalance: 0n,
+          mBorrowed: 0n,
+          mSupplied: 0n,
+          mRepaid: 0n,
+          mWithdrawn: 0n,
+        },
+        transactions: [],
+      };
+      setPositions([newLongPositionState]);
       message.success("Position opened successfully!");
-
       setAdaAmount(0);
       setMinAmount(0);
       setSliderValue(0);
@@ -419,13 +419,17 @@ export const TradeTab = () => {
       {/* Buy Button */}
       <Button
         block
-        disabled={!nitroWallet || minAmount <= 0}
+        disabled={!nitroWallet || minAmount <= 0 || positions.length > 0}
         loading={loading}
         onClick={handleBuy}
         size="large"
         type="primary"
       >
-        {loading ? "Opening Position..." : "Open Long Position"}
+        {positions.length > 0
+          ? "Close existing position first"
+          : loading
+            ? "Opening Position..."
+            : "Open Long Position"}
       </Button>
     </Space>
   );

@@ -59,7 +59,7 @@ export namespace InvalidOrder {
       return new OrderError(code as ErrorCode, ...extra);
     }
 
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    // biome-ignore lint/suspicious/noExplicitAny: legacy
     static new(err: any): OrderError {
       if (err instanceof OrderError) {
         return err;
@@ -123,7 +123,7 @@ export namespace InvalidOrder {
     }
   }
 
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  // biome-ignore lint/suspicious/noExplicitAny: legacy
   export function assert(condition: any, code: InvalidOrder.ErrorCode, ...extra: string[]): asserts condition {
     if (!condition) {
       throw new OrderError(code, ...extra);
