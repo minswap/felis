@@ -206,6 +206,60 @@ export namespace LiqwidProvider {
     }
   };
 
+  // amount: raw number qToken (lovelace mode)
+  export type RepayCollateral = { id: CollateralMarket; amount: number };
+  export type GetRepayTransactionInput = {
+    txId: string; // GetLoansBorrow -> results -> 0 -> id
+    amount: number; // raw number (e.g lovelace), 0 to repay full debt
+    address: string; // owner of borrow position
+    utxos: string[];
+    collaterals: RepayCollateral[];
+    networkEnv: NetworkEnvironment;
+  };
+  export const getRepayTransaction = async (options: GetRepayTransactionInput): Promise<Result<string, Error>> => {
+    const query = `
+      query GetRepayTransactionInput($input: ModifyBorrowTransactionInput!) {
+        liqwid {
+          transactions {
+            modifyBorrow(input: $input) {
+              cbor
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+      }
+    `;
+    const variables = {
+      input: {
+        txId: options.txId,
+        amount: options.amount,
+        address: options.address,
+        changeAddress: options.address,
+        otherAddresses: [options.address],
+        utxos: options.utxos,
+        collaterals: options.collaterals,
+      },
+    };
+    const data = await callApi({
+      clientEndpoint: "/api/liqwid/graphql",
+      networkEnv: options.networkEnv,
+      operationName: "GetRepayTransactionInput",
+      variables,
+      query,
+    });
+    if (data.type === "ok") {
+      const txCbor: string | undefined = data.value.liqwid?.transactions?.modifyBorrow?.cbor;
+      if (!txCbor) {
+        return Result.err(new Error("No transaction CBOR returned from Liqwid API"));
+      }
+      return Result.ok(txCbor);
+    } else {
+      return data;
+    }
+  };
+
   export const submitTransaction = async (options: {
     transaction: string;
     signature: string;
@@ -482,6 +536,120 @@ export namespace LiqwidProvider {
       return Result.err(new Error(`Market with ID ${options.marketId} not found`));
     }
     return Result.ok(market.asset.priceInCurrency);
+  };
+
+  export type LoanCollateralAsset = {
+    id: string;
+    displayName?: string;
+    logo?: string;
+    priceInCurrency: number;
+    decimals: number;
+  };
+
+  export type LoanCollateralMarket = {
+    id: string;
+    displayName?: string;
+    delisting: boolean;
+    exchangeRate: number;
+  };
+
+  export type LoanCollateral = {
+    id: string;
+    tokenName?: string;
+    amount: number;
+    amountInCurrency: number;
+    healthFactor: number;
+    market: LoanCollateralMarket;
+    asset: LoanCollateralAsset;
+  };
+
+  export type LoanBorrow = {
+    id: string;
+    amount: number;
+    amountInCurrency: number;
+    collaterals: LoanCollateral[];
+  };
+
+  export type GetLoansInput = {
+    paymentKeys: string[];
+    sorts?: string[];
+    perPage?: number;
+  };
+
+  export const getLoansBorrow = async (options: {
+    input: GetLoansInput;
+    currency?: string;
+    networkEnv: NetworkEnvironment;
+  }): Promise<Result<LoanBorrow[], Error>> => {
+    const query = `
+      query GetLoansBorrow($input: LoansInput, $currencyInput: InCurrencyInput) {
+        liqwid {
+          data {
+            loans(input: $input) {
+              results {
+                id
+                amount
+                amountInCurrency: amount(input: $currencyInput)
+                collaterals {
+                  id
+                  tokenName
+                  amount
+                  amountInCurrency: amount(input: $currencyInput)
+                  healthFactor
+                  market {
+                    id
+                    displayName
+                    delisting
+                    exchangeRate
+                    __typename
+                  }
+                  asset {
+                    id
+                    displayName
+                    logo
+                    priceInCurrency: price(input: $currencyInput)
+                    decimals
+                    __typename
+                  }
+                  __typename
+                }
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+      }
+    `;
+
+    const variables = {
+      input: {
+        paymentKeys: options.input.paymentKeys,
+        sorts: options.input.sorts || ["MARKET_ID"],
+        perPage: options.input.perPage || 100,
+      },
+      currencyInput: { currency: options.currency || "USD" },
+    };
+
+    const data = await callApi({
+      clientEndpoint: "/api/liqwid/graphql",
+      networkEnv: options.networkEnv,
+      operationName: "GetLoansBorrow",
+      variables,
+      query,
+    });
+
+    if (data.type === "ok") {
+      const result: LoanBorrow[] | undefined = data.value.liqwid?.data?.loans?.results;
+      if (!result) {
+        return Result.err(new Error("No loans borrow result returned from Liqwid API"));
+      }
+      return Result.ok(result);
+    } else {
+      return data;
+    }
   };
 
   export const getLiqwidTxHash = (txHex: string): string => {

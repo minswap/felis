@@ -1,6 +1,6 @@
 import invariant from "@minswap/tiny-invariant";
 import { type BaseAddressWallet, baseAddressWalletFromSeed } from "@repo/cip";
-import { Address, Asset, NetworkEnvironment, type PrivateKey, Utxo } from "@repo/ledger-core";
+import { Address, Asset, NetworkEnvironment, type PrivateKey, Utxo, XJSON } from "@repo/ledger-core";
 import { blake2b256, Result, RustModule } from "@repo/ledger-utils";
 import { beforeAll, describe, expect, it } from "vitest";
 import { TxComplete } from "../../tx-builder/dist/tx-builder";
@@ -61,6 +61,50 @@ describe("Minswap Lending Market - Nitro Wallet", () => {
   it("check tx hash", async () => {
     const txHash = LiqwidProvider.getLiqwidTxHash(mockData.txHex);
     expect(txHash).toEqual("6a26c650a27d7de706a16e4148b38ed677529a9c521972ec5b08960230f0a243");
+  });
+
+  it.skip("get loans position", async () => {
+    const paymentKey = mockData.wallet.address.toPubKeyHash()?.keyHash.hex;
+    invariant(paymentKey);
+    const loans = await LiqwidProvider.getLoansBorrow({
+      input: {
+        paymentKeys: [paymentKey],
+      },
+      networkEnv: NetworkEnvironment.TESTNET_PREVIEW,
+    });
+    console.log("Loans:", XJSON.stringify(loans, 2));
+  }, 5000);
+
+  it("build tx repay close loan", async () => {
+    const wallet = mockData.wallet;
+    const utxos = await NitroWallet.fetchRawUtxos(wallet.address.bech32);
+    const paymentKey = mockData.wallet.address.toPubKeyHash()?.keyHash.hex;
+    invariant(paymentKey);
+    const loans = await LiqwidProvider.getLoansBorrow({
+      input: {
+        paymentKeys: [paymentKey],
+      },
+      networkEnv: NetworkEnvironment.TESTNET_PREVIEW,
+    });
+    const loan = Result.unwrap(loans)[0];
+    const loanCollateral = loan.collaterals[0];
+    const collaterals: LiqwidProvider.RepayCollateral[] = [
+      {
+        id: "Ada.186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0",
+        amount: Math.floor((loanCollateral.amount * 1e6) / loanCollateral.market.exchangeRate),
+      },
+    ];
+    const input: LiqwidProvider.GetRepayTransactionInput = {
+      txId: loan.id,
+      amount: 0,
+      address: wallet.address.bech32,
+      utxos,
+      collaterals,
+      networkEnv: NetworkEnvironment.TESTNET_PREVIEW,
+    };
+    console.log(XJSON.stringify(input, 2));
+    const tx = await LiqwidProvider.getRepayTransaction(input);
+    console.log(tx);
   });
 
   it.skip("supply MIN", async () => {
