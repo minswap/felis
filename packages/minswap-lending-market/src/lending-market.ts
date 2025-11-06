@@ -1,6 +1,6 @@
 import invariant from "@minswap/tiny-invariant";
 import { type Address, Asset, NetworkEnvironment, PrivateKey, Utxo } from "@repo/ledger-core";
-import type { Result } from "@repo/ledger-utils";
+import { Result } from "@repo/ledger-utils";
 import { DEXOrderTransaction } from "@repo/minswap-build-tx";
 import { DexVersion, OrderV2Direction, OrderV2StepType } from "@repo/minswap-dex-v2";
 import { CoinSelectionAlgorithm, EmulatorProvider } from "@repo/tx-builder";
@@ -73,7 +73,7 @@ export namespace LendingMarket {
   };
 
   export namespace OpeningLongPosition {
-    export const OPERATION_FEE_ADA = 10_000_000n; // 10 ADA
+    export const OPERATION_FEE_ADA = 12_000_000n; // 12 ADA
     export type NitroWallet = {
       address: Address;
       privateKey: string;
@@ -86,7 +86,6 @@ export namespace LendingMarket {
       networkEnv: NetworkEnvironment;
       amountIn: bigint;
     };
-
     export const step1CreateOrder = async (params: Step1CreateOrderParams): Promise<string> => {
       const { nitroWallet, priceInAdaResponse, amountIn, networkEnv } = params;
       const txb = DEXOrderTransaction.createBulkOrdersTx({
@@ -98,7 +97,7 @@ export namespace LendingMarket {
             version: DexVersion.DEX_V2,
             type: OrderV2StepType.SWAP_EXACT_IN,
             assetIn: Asset.fromString(priceInAdaResponse.assetA),
-            amountIn: amountIn - OPERATION_FEE_ADA,
+            amountIn: amountIn,
             minimumAmountOut: 1n,
             direction: OrderV2Direction.A_TO_B,
             killOnFailed: false,
@@ -150,7 +149,7 @@ export namespace LendingMarket {
       buildTxCollaterals: LiqwidProvider.BorrowCollateral[];
       dry?: boolean;
     };
-    export const borrowAda = async (params: BorrowAdaParams): Promise<string> => {
+    export const borrowAda = async (params: BorrowAdaParams): Promise<{ borrowAmount: bigint; txHash: string }> => {
       const { nitroWallet, networkEnv, borrowMarketId, currentDebt, collaterals, buildTxCollaterals } = params;
       const loanResult = await LiqwidProvider.loanCalculation({
         networkEnv,
@@ -165,6 +164,7 @@ export namespace LendingMarket {
       }
       // buffer 5%
       const maxBorrowAmount = Math.floor((loanResult.value.maxBorrow * 1e6 * 95) / 100);
+      console.warn("debug", maxBorrowAmount / 1e6);
       const borrowBuildTx = await LiqwidProvider.getBorrowTransaction({
         marketId: borrowMarketId,
         amount: maxBorrowAmount,
@@ -173,12 +173,16 @@ export namespace LendingMarket {
         collaterals: buildTxCollaterals,
         networkEnv,
       });
-      return signAndSubmit({
+      const txHash = await signAndSubmit({
         txHex: borrowBuildTx,
         privateKey: nitroWallet.privateKey,
         networkEnv,
         dry: params.dry,
       });
+      return {
+        borrowAmount: BigInt(maxBorrowAmount),
+        txHash,
+      };
     };
 
     export const calculateWithdrawAllAmount = async (params: {
@@ -244,23 +248,75 @@ export namespace LendingMarket {
       });
     };
 
-    export const __withdrawSupplyMIN = async (params: {
+    export type RepayAllDebtParams = {
       nitroWallet: Omit<NitroWallet, "submitTx">;
-      withdrawAmount: number;
-    }): Promise<string> => {
-      const { nitroWallet, withdrawAmount } = params;
-      const withdrawResult = await LiqwidProvider.getWithdrawTransaction({
-        marketId: "MIN",
-        amount: withdrawAmount,
+      networkEnv: NetworkEnvironment;
+      dry?: boolean;
+    };
+    export const repayAllDebt = async (params: RepayAllDebtParams): Promise<string> => {
+      const { nitroWallet, networkEnv, dry } = params;
+      const pubKeyHash = nitroWallet.address.toPubKeyHash()?.keyHash.hex;
+      invariant(pubKeyHash, "Only support PubKeyHash addresses");
+      const loans = await LiqwidProvider.getLoansBorrow({
+        input: {
+          paymentKeys: [pubKeyHash],
+        },
+        networkEnv: NetworkEnvironment.TESTNET_PREVIEW,
+      });
+      const loan = Result.unwrap(loans)[0];
+      const loanCollateral = loan.collaterals[0];
+      const collaterals: LiqwidProvider.RepayCollateral[] = [
+        {
+          id: "Ada.186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0",
+          amount: Math.floor((loanCollateral.amount * 1e6) / loanCollateral.market.exchangeRate),
+        },
+      ];
+      const input: LiqwidProvider.GetRepayTransactionInput = {
+        txId: loan.id,
+        amount: 0,
         address: nitroWallet.address.bech32,
         utxos: nitroWallet.utxos,
+        collaterals,
         networkEnv: NetworkEnvironment.TESTNET_PREVIEW,
-      });
+      };
+      const repayBuildTx = await LiqwidProvider.getRepayTransaction(input);
       return signAndSubmit({
-        txHex: withdrawResult,
+        txHex: repayBuildTx,
         privateKey: nitroWallet.privateKey,
-        networkEnv: NetworkEnvironment.TESTNET_PREVIEW,
+        networkEnv,
+        dry,
       });
+    };
+
+    export const sellLongAsset = async (params: Step1CreateOrderParams) => {
+      const { nitroWallet, priceInAdaResponse, amountIn, networkEnv } = params;
+      const txb = DEXOrderTransaction.createBulkOrdersTx({
+        networkEnv,
+        sender: nitroWallet.address,
+        orderOptions: [
+          {
+            lpAsset: Asset.fromString(priceInAdaResponse.lpAsset),
+            version: DexVersion.DEX_V2,
+            type: OrderV2StepType.SWAP_EXACT_IN,
+            assetIn: Asset.fromString(priceInAdaResponse.assetB),
+            amountIn: amountIn,
+            minimumAmountOut: 1n,
+            direction: OrderV2Direction.B_TO_A,
+            killOnFailed: false,
+            isLimitOrder: false,
+          },
+        ],
+      });
+      const txComplete = await txb.completeUnsafe({
+        changeAddress: nitroWallet.address,
+        walletUtxos: nitroWallet.utxos.map(Utxo.fromHex),
+        coinSelectionAlgorithm: CoinSelectionAlgorithm.MINSWAP,
+        provider: new EmulatorProvider(networkEnv),
+      });
+      const signedTx = txComplete.signWithPrivateKey(PrivateKey.fromHex(nitroWallet.privateKey)).complete();
+
+      const txHash = await nitroWallet.submitTx(signedTx);
+      return txHash;
     };
   }
 }

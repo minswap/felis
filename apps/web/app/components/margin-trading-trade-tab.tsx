@@ -42,7 +42,7 @@ export const TradeTab = () => {
   const setPositions = useSetAtom(setLongPositionAtom);
 
   // Trading parameters
-  const [leverage, setLeverage] = useState<1 | 2>(2);
+  const [leverage, setLeverage] = useState<1 | 1.5>(1.5);
   const [marginMode, _setMarginMode] = useState<"isolated">("isolated");
   const [autoBorrowRepay, setAutoBorrowRepay] = useState(true);
 
@@ -237,7 +237,7 @@ export const TradeTab = () => {
             <Radio disabled={true} value={1}>
               1.00x
             </Radio>
-            <Radio value={2}>2.00x</Radio>
+            <Radio value={1.5}>1.50x</Radio>
           </Radio.Group>
         </Col>
         <Col span={6}>

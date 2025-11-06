@@ -27,11 +27,13 @@ export enum LongPositionStatus {
   STEP_1_BUY_LONG_ASSET = "buy_long_asset",
   STEP_2_SUPPLY_TOKEN = "supply_token",
   STEP_3_BORROW_TOKEN = "borrow_token",
+  STEP_BUY_MORE_LONG_ASSET = "buy_more_long_asset",
   OPENING_POSITION = "opening_position",
   STEP_4_SELL_LONG_ASSET = "sell_long_asset",
   STEP_5_REPAY_ASSET = "repay_asset",
   STEP_6_WITHDRAW_COLLATERAL = "withdraw_collateral",
-  STEP_7_COMPLETED = "completed",
+  STEP_SELL_ALL_LONG_ASSET = "sell_all_long_asset",
+  CLOSED_POSITION = "closed_position",
 }
 export type LongPositionState = {
   positionId: string;
@@ -58,6 +60,8 @@ export type LongPositionState = {
     step: LongPositionStatus;
     txHash: string;
   }[];
+  hasCallback?: number;
+  callbackExtra?: string;
 };
 
 // Base atom that stores all positions from all wallets
