@@ -98,7 +98,7 @@ export const PositionTab = () => {
             address: nitroWallet.walletInfo.address,
             privateKey: nitroWallet.privateKey,
             utxos,
-            submitTx: wallet.api.submitTx.bind(wallet.api),
+            networkEnv: CONFIG.networkEnv,
           },
           minAmount: position.amount.mLongBalance,
           networkEnv: CONFIG.networkEnv,
