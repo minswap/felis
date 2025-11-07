@@ -13,7 +13,7 @@
       "outputs": ["dist/**"]
     },
     "@repo/tx-builder#build": {
-      "dependsOn": ["@repo/ledger-core#build"],
+      "dependsOn": ["@repo/ledger-core#build", "@repo/cip#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
