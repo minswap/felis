@@ -23,16 +23,11 @@
       "outputs": ["dist/**"]
     },
     "@repo/minswap-lending-market#build": {
-      "dependsOn": ["@repo/tx-builder#build"],
+      "dependsOn": ["@repo/tx-builder#build", "@repo/minswap-build-tx#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
-    "@repo/minswap-build-tx": {
-      "dependsOn": ["@repo/tx-builder#build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**"]
-    },
-    "@repo/minswap-lending-market": {
+    "@repo/minswap-build-tx#build": {
       "dependsOn": ["@repo/tx-builder#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
