@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   web:
@@ -6,13 +6,10 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_NETWORK_ENV=TESTNET_PREVIEW
+      NODE_ENV: production
+      NEXT_PUBLIC_NETWORK_ENV: TESTNET_PREVIEW
     restart: unless-stopped
-    healthcheck: {}
-    volumes:
-      - ./logs:/app/logs
-    network_mode: host
 
-volumes:
-  logs:
+networks:
+  dev-network:
+    driver: bridge
