@@ -17,8 +17,8 @@ COPY apps ./apps
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Build all packages and web app
-RUN pnpm build --filter=web
+# Build all packages using Turbo
+RUN pnpm build
 
 # Stage 2: Runtime
 FROM node:22-slim
@@ -29,12 +29,12 @@ RUN npm install -g pnpm
 # Set working directory
 WORKDIR /app
 
-# Copy package.json files
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Copy package.json files and turbo config
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 
-# Copy built app
-COPY --from=builder /app/apps/web ./apps/web
+# Copy built packages and apps from builder
 COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/web ./apps/web
 
 # Install production dependencies only
 RUN pnpm install --prod --frozen-lockfile
