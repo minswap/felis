@@ -1,7 +1,6 @@
 import {
   type CborHex,
   type CSLPlutusData,
-  IsomorphicTextEncodeDecode,
   isValidBase64,
   isValidHex,
   RustModule,
@@ -54,7 +53,6 @@ export class Bytes {
 
   // Convert from an UTF-8 string to Bytes
   static fromString(s: string): Bytes {
-    const TextEncoder = IsomorphicTextEncodeDecode.initializeTextEncoder();
     return new Bytes(new TextEncoder().encode(s));
   }
 
@@ -68,8 +66,7 @@ export class Bytes {
 
   // Convert to an UTF-8 string
   toString(): string {
-    const TextDecoder = IsomorphicTextEncodeDecode.initializeTextDecoder();
-    return new TextDecoder("utf-8").decode(this.bytes);
+    return new TextDecoder().decode(this.bytes).toString();
   }
 
   toJSON(): string {

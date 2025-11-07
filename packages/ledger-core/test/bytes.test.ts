@@ -37,4 +37,11 @@ describe("property-based testing", () => {
       }),
     );
   });
+
+  it("round-trip from/to string", () => {
+    const data = "tony in the air";
+    const bytes = Bytes.fromString(data);
+    const str = bytes.toString();
+    expect(str).toBe(data);
+  });
 });
