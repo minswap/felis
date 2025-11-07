@@ -1,0 +1,6 @@
+dev-3.minswap.org {
+	@long_short path /long-short*
+	reverse_proxy @long_short web:3000
+
+	reverse_proxy * web:3000
+}
