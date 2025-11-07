@@ -1,5 +1,4 @@
-Minswap Lending Market – Long/Short: Milestone 1 Submission (Preview Testnet)
-================================================================================
+# Minswap Lending Market – Long/Short: Milestone 1 Submission (Preview Testnet)
 
 This document provides a reviewer-oriented package for Milestone 1: Off-chain integration enabling Long positions via lending + DEX, including clearly mapped acceptance criteria, evidence artifacts, and how a reviewer can verify end-to-end without local setup.
 
@@ -10,6 +9,7 @@ This document provides a reviewer-oriented package for Milestone 1: Off-chain in
 - Example end-to-end run with verifiable on-chain transactions and UI walkthrough screenshots.
 
 Scope and constraints
+
 - Network: Cardano Preview testnet for POC demonstration.
 - Protocol: Integrated against a Cardano lending protocol supported by the flow (Preview testnet).
 - UI: Demo web app and screenshots included for reviewer verification.
@@ -17,34 +17,41 @@ Scope and constraints
 ## Acceptance criteria mapping (Milestone 1)
 
 AC1. Off-chain integration enables supply → borrow → purchase for Long positions.
+
 - Evidence: Steps 5–8 transactions and screenshots (links below) show buying the long asset, supplying collateral, borrowing, and buying more of the long asset with borrowed funds.
 
 AC2. Seamless integration between DEX and lending protocol.
+
 - Evidence: A single user-initiated flow that spans Minswap swaps and lending protocol calls, coordinated by the off-chain integration and executed by Nitro Wallet without repeated password prompts. Screenshots depict uninterrupted UI experience across steps.
 
 AC3. Transactions optimized for efficiency and minimized fees.
+
 - Evidence: The flow minimizes round-trips by batching logically adjacent actions per step and automating signatures via Nitro Wallet to reduce user interaction cost. Reviewers can assess fee totals per transaction via the linked explorers.
 
 ## Evidence artifacts
 
 Repository (open source)
+
 - https://github.com/minswap/felis (this repository)
 
 Demo (Preview testnet)
-- http://dev-3.tail2feb3.ts.net:3000
+
+- https://dev-3.minswap.org
   - If unreachable due to network policies, use the step-by-step screenshots below.
 
 Step-by-step transaction links (Preview testnet)
-1) Buying asset (enter position):
-  https://preview.cexplorer.io/tx/4a7e55abccad420a07fdd9bfda9346f471cfd629aa21a60e39dd0301fc3b319a?tab=content
-2) Supplying collateral:
-  https://preview.cexplorer.io/tx/4870d7b47df0aa1194a6bcb0a05ec7a17bc4fd2869d4b9c203551689cc2f5d46?tab=content
-3) Borrowing asset:
-  https://preview.cexplorer.io/tx/506761d223bf8087e2c7357a15ef305655903982b425a7e68e39cb04312fcc86?tab=content
-4) Buying more of the long asset (with borrowed funds):
-  https://preview.cexplorer.io/tx/72ae270405f6cfac55663268ebf421a4665c31f112d10b761a4d04675eac6172?tab=content
+
+1. Buying asset (enter position):
+   https://preview.cexplorer.io/tx/4a7e55abccad420a07fdd9bfda9346f471cfd629aa21a60e39dd0301fc3b319a?tab=content
+2. Supplying collateral:
+   https://preview.cexplorer.io/tx/4870d7b47df0aa1194a6bcb0a05ec7a17bc4fd2869d4b9c203551689cc2f5d46?tab=content
+3. Borrowing asset:
+   https://preview.cexplorer.io/tx/506761d223bf8087e2c7357a15ef305655903982b425a7e68e39cb04312fcc86?tab=content
+4. Buying more of the long asset (with borrowed funds):
+   https://preview.cexplorer.io/tx/72ae270405f6cfac55663268ebf421a4665c31f112d10b761a4d04675eac6172?tab=content
 
 Screenshots (in repo)
+
 - images/connect-eternl-wallet.png
 - images/create-nitro-wallet.png
 - images/deposit-fund.png
@@ -62,13 +69,17 @@ Screenshots (in repo)
 ## How reviewers can verify the milestone
 
 Quick review
-1) Open each transaction link above and confirm:
-  - Inputs/outputs align with the described step (swap, supply, borrow, swap).
-  - Fees are present and reasonable for Preview testnet.
-  - Assets and policy IDs are consistent across steps (the supplied and borrowed assets match the flow intent).
-2) Cross-check screenshots in the repo’s images/ directory for the same step numbers and UI states.
+
+1. Open each transaction link above and confirm:
+
+- Inputs/outputs align with the described step (swap, supply, borrow, swap).
+- Fees are present and reasonable for Preview testnet.
+- Assets and policy IDs are consistent across steps (the supplied and borrowed assets match the flow intent).
+
+2. Cross-check screenshots in the repo’s images/ directory for the same step numbers and UI states.
 
 Optional local verification (developer review)
+
 - Code: Off-chain orchestration logic and transaction building live in this monorepo. Relevant packages include:
   - apps/web — Demo Next.js app for the UI flow.
   - packages/tx-builder — High-level transaction composition utilities.
@@ -106,30 +117,33 @@ Note: For Milestone 1 we define the KPIs and provide verifiable transactions; de
 - Add health metrics (LTV, liquidation buffers), more educational UI, and guardrails.
 
 ### Milestone 1: Integration for Long Positions
+
 Milestone Outputs: Off-chain integration enabling long position operations through Minswap and the chosen lending protocol on Cardano (either Liqwid or Lenfi).
 Acceptance criteria:
-  Off-chain integration successfully enables asset supply, borrowing, and purchasing for long positions.
-  Seamless integration between both Minswap and the lending protocol.
-  Transactions are optimized for efficiency and minimized fees.
+Off-chain integration successfully enables asset supply, borrowing, and purchasing for long positions.
+Seamless integration between both Minswap and the lending protocol.
+Transactions are optimized for efficiency and minimized fees.
 Evidence of milestone completion:
 An open-source code repository: https://github.com/minswap/felis
 Documentation explaining how the Long integration works, including the transaction flows, code examples for longing a token using the SDK, and transaction links for each step.
 
 ### Demo POC version for Milestone 1:
-- Testnet Preview Link: http://dev-3.tail2feb3.ts.net:3000
+
+- Testnet Preview Link: https://dev-3.minswap.org
 
 ### Document explaining how the Long integration works:
+
 1. User connect wallet
 2. User create Nitro Wallet
-  Nitro Wallet is passwordless trading wallet.
-  Main feature:
-    + No more signing for every tx
-    + Instant 1-Click Trades
-    + Non-custodial: Private key is stored on user's device
-    + Privacy: No link between current wallet and nitro wallet, it appears like a normal wallet
-    + Password-less: User can make txs without inputting password
-    + Auto-sign multiple txs: Wallet can auto-sign new txs from backend on user's behalf, enabling users to do multiple-steps tx like long/short with Liqwid
-    + No Backend, never send any data to server
+   Nitro Wallet is passwordless trading wallet.
+   Main feature:
+   - No more signing for every tx
+   - Instant 1-Click Trades
+   - Non-custodial: Private key is stored on user's device
+   - Privacy: No link between current wallet and nitro wallet, it appears like a normal wallet
+   - Password-less: User can make txs without inputting password
+   - Auto-sign multiple txs: Wallet can auto-sign new txs from backend on user's behalf, enabling users to do multiple-steps tx like long/short with Liqwid
+   - No Backend, never send any data to server
 3. User Deposit fund to Nitro Wallet to start trading Long/Short
 4. Setup your trading (example: LONG $MIN token with margin 1.5x)
 5. Place Long Position.
@@ -137,40 +151,41 @@ Documentation explaining how the Long integration works, including the transacti
 7. User can close Long Position and capture their profit.
 
 ### Example Work
+
 1. Connect to Eternl Wallet
-![Connect Eternl Wallet](images/connect-eternl-wallet.png)
+   ![Connect Eternl Wallet](images/connect-eternl-wallet.png)
 2. Create Nitro Wallet
-![Create Nitro Wallet](images/create-nitro-wallet.png)
+   ![Create Nitro Wallet](images/create-nitro-wallet.png)
 3. Deposit ADA to Nitro Wallet
-![Deposit Fund](images/deposit-fund.png)
+   ![Deposit Fund](images/deposit-fund.png)
 4. Open Long Position
-![Open Long Position](images/open-long-position.png)
+   ![Open Long Position](images/open-long-position.png)
 5. Buying Asset
-![Buying Asset](images/step1-buying-asset.png)
-Tx: https://preview.cexplorer.io/tx/4a7e55abccad420a07fdd9bfda9346f471cfd629aa21a60e39dd0301fc3b319a?tab=content
+   ![Buying Asset](images/step1-buying-asset.png)
+   Tx: https://preview.cexplorer.io/tx/4a7e55abccad420a07fdd9bfda9346f471cfd629aa21a60e39dd0301fc3b319a?tab=content
 6. Supplying Token
-![Supplying Token](images/step2-supply-token.png)
-Tx: https://preview.cexplorer.io/tx/4870d7b47df0aa1194a6bcb0a05ec7a17bc4fd2869d4b9c203551689cc2f5d46?tab=content
+   ![Supplying Token](images/step2-supply-token.png)
+   Tx: https://preview.cexplorer.io/tx/4870d7b47df0aa1194a6bcb0a05ec7a17bc4fd2869d4b9c203551689cc2f5d46?tab=content
 7. Borrow Token
-![Borrow Token](images/step3-borrow-ada.png)
-Tx: https://preview.cexplorer.io/tx/506761d223bf8087e2c7357a15ef305655903982b425a7e68e39cb04312fcc86?tab=content
+   ![Borrow Token](images/step3-borrow-ada.png)
+   Tx: https://preview.cexplorer.io/tx/506761d223bf8087e2c7357a15ef305655903982b425a7e68e39cb04312fcc86?tab=content
 8. Buy More Long Asset
-![Borrow Token](images/step-4-buy-more-long-asset.png)
-Tx: https://preview.cexplorer.io/tx/72ae270405f6cfac55663268ebf421a4665c31f112d10b761a4d04675eac6172?tab=content
+   ![Borrow Token](images/step-4-buy-more-long-asset.png)
+   Tx: https://preview.cexplorer.io/tx/72ae270405f6cfac55663268ebf421a4665c31f112d10b761a4d04675eac6172?tab=content
 9. Long Position is opening
 10. Phrase 2: Close Position
-User Click Button Close Position
-![Close Position](images/step-10-close-position.png)
+    User Click Button Close Position
+    ![Close Position](images/step-10-close-position.png)
 11. Selling Token
-![Selling Token](images/step-11-selling-token.png)
-Tx: https://preview.cexplorer.io/tx/ebabe1dc70bc921cdc24147844f0f3b26e33711be19baf0bc2ec97142612f76e?tab=content
+    ![Selling Token](images/step-11-selling-token.png)
+    Tx: https://preview.cexplorer.io/tx/ebabe1dc70bc921cdc24147844f0f3b26e33711be19baf0bc2ec97142612f76e?tab=content
 12. Repay Loan
-![Repay Loan](images/step-12-repay.png)
-Tx: https://preview.cexplorer.io/tx/639011d4e36146ccb2a9a327700c09ead581c37b36843a00fbd216729982c757?tab=content
+    ![Repay Loan](images/step-12-repay.png)
+    Tx: https://preview.cexplorer.io/tx/639011d4e36146ccb2a9a327700c09ead581c37b36843a00fbd216729982c757?tab=content
 13. Withdraw Collateral
-![Withdraw Collateral](images/step-13-withdraw-supply.png)
-Tx: https://preview.cexplorer.io/tx/89014e26de320f7ca9ef4bc6cf9fbd6942a972232bafb62452ad27e386a4694e?tab=content
+    ![Withdraw Collateral](images/step-13-withdraw-supply.png)
+    Tx: https://preview.cexplorer.io/tx/89014e26de320f7ca9ef4bc6cf9fbd6942a972232bafb62452ad27e386a4694e?tab=content
 14. Sell All Long Asset
-![Sell All Long Asset](images/step-14-sell-all-long-asset.png)
-Tx: https://preview.cexplorer.io/tx/cb6bd2001f32dd4145ed72f7e3a1ee379401e81aa039996cabff836bbf314cfd?tab=content
-Done.
+    ![Sell All Long Asset](images/step-14-sell-all-long-asset.png)
+    Tx: https://preview.cexplorer.io/tx/cb6bd2001f32dd4145ed72f7e3a1ee379401e81aa039996cabff836bbf314cfd?tab=content
+    Done.
