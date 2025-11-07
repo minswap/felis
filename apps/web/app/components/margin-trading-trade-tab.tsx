@@ -75,10 +75,10 @@ export const TradeTab = () => {
       }
     };
 
-    if (nitroWallet) {
+    if (nitroWallet?.walletInfo?.address?.bech32) {
       fetchMinPrice();
     }
-  }, [nitroWallet?.walletInfo, message.info, message.error, nitroWallet]);
+  }, [nitroWallet?.walletInfo?.address?.bech32, message]);
 
   const maxAdaForLeverage = availableAda * leverage;
 

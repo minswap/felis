@@ -13,7 +13,15 @@ export const walletAtom = atom<WalletData | null>(null);
 export const setWalletAtom = atom(null, (_get, set, update: WalletData | null) => {
   set(walletAtom, update);
 });
-
+export const connectedWalletAtom = createAtomWithStorage<boolean>(
+  LocalStorageKey.CONNECTED_WALLET,
+  false,
+  (value) => value === "true",
+  (value) => String(value),
+);
+export const setConnectedWalletAtom = atom(null, (_get, set, update: boolean) => {
+  set(connectedWalletAtom, update);
+});
 export type NitroWalletData = {
   walletInfo: WalletInfo & { rootAddress: string };
   privateKey: string;

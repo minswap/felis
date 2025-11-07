@@ -2,13 +2,16 @@
 
 import { CopyOutlined, LogoutOutlined } from "@ant-design/icons";
 import { App, Button, Layout, Space, Tooltip } from "antd";
+import { useAtomValue } from "jotai";
 import { useEffect } from "react";
+import { walletAtom } from "../atoms/walletAtom";
 import { useWallet } from "../lib/use-wallet";
 import { Utils } from "../lib/utils";
 
 export const EternlConnector = () => {
   const { message } = App.useApp();
   const wallet = useWallet();
+  const globalWallet = useAtomValue(walletAtom);
 
   const formatBalance = (balance: bigint): string => {
     return (Number(balance) / 1_000_000).toFixed(2);
@@ -30,7 +33,10 @@ export const EternlConnector = () => {
     }
   }, [wallet.error, message]);
 
-  if (wallet.walletInfo) {
+  // Use global wallet atom for display, but still show if walletInfo exists
+  const displayWallet = globalWallet?.walletInfo || wallet.walletInfo;
+
+  if (displayWallet) {
     return (
       <Layout.Header
         style={{
@@ -42,17 +48,17 @@ export const EternlConnector = () => {
         }}
       >
         <Space size="large" style={{ color: "white" }}>
-          {wallet.walletInfo.balance !== undefined && (
-            <span style={{ fontSize: "1rem", fontWeight: 600 }}>{formatBalance(wallet.walletInfo.balance)} ADA</span>
+          {displayWallet.balance !== undefined && (
+            <span style={{ fontSize: "1rem", fontWeight: 600 }}>{formatBalance(displayWallet.balance)} ADA</span>
           )}
-          <Tooltip title={`Click to copy: ${wallet.walletInfo.address.bech32}`}>
+          <Tooltip title={`Click to copy: ${displayWallet.address.bech32}`}>
             <Button
               icon={<CopyOutlined />}
-              onClick={() => handleCopyAddress(wallet.walletInfo?.address.bech32 ?? "")}
+              onClick={() => handleCopyAddress(displayWallet?.address.bech32 ?? "")}
               style={{ color: "white" }}
               type="text"
             >
-              {Utils.shortenAddress(wallet.walletInfo.address.bech32)}
+              {Utils.shortenAddress(displayWallet.address.bech32)}
             </Button>
           </Tooltip>
           <Button icon={<LogoutOutlined />} onClick={wallet.disconnect} style={{ color: "white" }} type="text">

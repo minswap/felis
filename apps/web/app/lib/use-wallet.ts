@@ -1,10 +1,11 @@
 import { useAtom } from "jotai";
 import { useCallback, useState } from "react";
-import { setWalletAtom } from "../atoms/walletAtom";
+import { setConnectedWalletAtom, setWalletAtom } from "../atoms/walletAtom";
 import { type Cip30Api, getAddressInfo, getWalletApi, type WalletInfo } from "./wallet-utils";
 
 export const useWallet = () => {
   const [_, setWallet] = useAtom(setWalletAtom);
+  const [__, setConnectedWallet] = useAtom(setConnectedWalletAtom);
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [api, setApi] = useState<Cip30Api | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,6 +26,7 @@ export const useWallet = () => {
         setWalletInfo(info);
         setApi(eternlApi);
         setWallet({ walletInfo: info, api: eternlApi });
+        setConnectedWallet(true);
       } else {
         setError("Failed to get wallet information.");
       }
@@ -35,13 +37,15 @@ export const useWallet = () => {
     } finally {
       setLoading(false);
     }
-  }, [setWallet]);
+  }, [setWallet, setConnectedWallet]);
 
   const disconnect = useCallback(() => {
     setWalletInfo(null);
     setApi(null);
     setError(null);
-  }, []);
+    setWallet(null);
+    setConnectedWallet(false);
+  }, [setConnectedWallet, setWallet]);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -52,6 +56,7 @@ export const useWallet = () => {
     api,
     setWalletInfo,
     loading,
+    setLoading,
     error,
     connect,
     disconnect,
