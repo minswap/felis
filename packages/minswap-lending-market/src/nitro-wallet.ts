@@ -70,6 +70,25 @@ export namespace NitroWallet {
     });
     return txComplete.complete();
   };
+
+  export type WithdrawOptions = {
+    nitroAddress: Address;
+    rootAddress: Address;
+    amount: bigint;
+    networkEnv: NetworkEnvironment;
+    nitroAddressUtxos: string[];
+  };
+  export const withdrawNitroFunds = async (options: WithdrawOptions): Promise<string> => {
+    const { nitroAddress, rootAddress, amount, networkEnv, nitroAddressUtxos } = options;
+    const txb = new TxBuilder(networkEnv).payTo(new TxOut(rootAddress, new Value().add(ADA, amount)));
+    const txComplete = await txb.completeUnsafe({
+      changeAddress: nitroAddress,
+      walletUtxos: nitroAddressUtxos.map((u) => Utxo.fromHex(u)),
+      coinSelectionAlgorithm: CoinSelectionAlgorithm.MINSWAP,
+      provider: new EmulatorProvider(networkEnv),
+    });
+    return txComplete.complete();
+  };
 }
 
 // const main = async () => {

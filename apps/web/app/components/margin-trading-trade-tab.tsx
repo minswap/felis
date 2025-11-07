@@ -194,7 +194,7 @@ export const TradeTab = () => {
         createdAt: Date.now(),
         updatedAt: Date.now(),
         amount: {
-          iTotalBuy: BigInt(adaAmount) * 1_000_000n,
+          iTotalBuy: BigInt(Math.floor(adaAmount * 1e6)),
           iTotalOperationFee: LendingMarket.OpeningLongPosition.OPERATION_FEE_ADA,
           mTotalPaidFee: 0n,
           mBought: 0n,

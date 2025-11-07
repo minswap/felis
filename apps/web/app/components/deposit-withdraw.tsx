@@ -76,7 +76,7 @@ export const DepositWithdraw = () => {
   };
 
   const handleWithdraw = async (values: { amount: string }) => {
-    if (!rootWallet?.api || !rootWallet?.walletInfo || !nitroWallet?.walletInfo) {
+    if (!rootWallet?.api || !rootWallet?.walletInfo || !nitroWallet?.walletInfo || !nitroWallet?.privateKey) {
       message.error("Missing wallet information");
       return;
     }
@@ -85,18 +85,35 @@ export const DepositWithdraw = () => {
     try {
       const amountInLovelace = BigInt(Math.floor(Number(values.amount) * 1_000_000));
 
-      // Placeholder for transaction building
-      // In a real implementation, you would:
-      // 1. Build a transaction that sends ADA from nitro wallet to root wallet
-      // 2. Sign the transaction with nitro wallet private key
-      // 3. Submit the transaction
+      // Get UTXOs from nitro wallet
+      const utxosRaw = await NitroWallet.fetchRawUtxos(nitroWallet.walletInfo.address.bech32);
+      if (!utxosRaw || utxosRaw.length === 0) {
+        message.error("No UTXOs available in nitro wallet");
+        return;
+      }
 
-      message.info("Withdraw feature coming soon - Transaction building in progress");
-      console.log({
-        from: nitroWallet.walletInfo.address.bech32,
-        to: rootWallet.walletInfo.address.bech32,
-        amount: amountInLovelace.toString(),
+      // Build withdraw transaction using NitroWallet.withdrawNitroFunds
+      const txHex = await NitroWallet.withdrawNitroFunds({
+        nitroAddress: nitroWallet.walletInfo.address,
+        rootAddress: rootWallet.walletInfo.address,
+        amount: amountInLovelace,
+        networkEnv: CONFIG.networkEnv,
+        nitroAddressUtxos: utxosRaw,
       });
+
+      // Sign transaction with nitro wallet private key
+      // Note: Using root wallet API to sign since we need to connect to the signing service
+      const witnessSet = await rootWallet.api.signTx(txHex, true);
+
+      // Using TxComplete to assemble (aka: finalize Tx)
+      const tx = RustModule.getE.Transaction.from_hex(txHex);
+      const txComplete = new TxComplete(tx);
+      txComplete.assemble(witnessSet);
+
+      // Complete Tx
+      const signedTx = txComplete.complete();
+      const txHash = await rootWallet.api.submitTx(signedTx);
+      message.success(`Withdraw successful! Tx: ${txHash}`);
 
       withdrawForm.resetFields();
       setWithdrawModal(false);

@@ -467,8 +467,8 @@ export const PositionTab = () => {
             if (retries < maxRetries) {
               retries++;
               console.error("backoff error", error);
-              console.log(`Retry ${retries}/${maxRetries} for position ${position.positionId.slice(0, 8)} after 8s...`);
-              await Helpers.sleep(8000); // Sleep 8 seconds before retry
+              console.log(`Retry ${retries}/${maxRetries} for position ${position.positionId.slice(0, 8)} after 20s...`);
+              await Helpers.sleep(20000); // Sleep 20 seconds before retry
             } else {
               throw lastError;
             }
