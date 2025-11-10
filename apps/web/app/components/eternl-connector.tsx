@@ -4,18 +4,17 @@ import { CopyOutlined, LogoutOutlined } from "@ant-design/icons";
 import { App, Button, Layout, Space, Tooltip } from "antd";
 import { useAtomValue } from "jotai";
 import { useEffect } from "react";
-import { walletAtom } from "../atoms/walletAtom";
+import { rootBalanceAtom, walletAtom } from "../atoms/walletAtom";
+import { useNitroWallet } from "../lib/use-nitro-wallet";
 import { useWallet } from "../lib/use-wallet";
 import { Utils } from "../lib/utils";
 
 export const EternlConnector = () => {
   const { message } = App.useApp();
   const wallet = useWallet();
+  const nitroWallet = useNitroWallet();
   const globalWallet = useAtomValue(walletAtom);
-
-  const formatBalance = (balance: bigint): string => {
-    return (Number(balance) / 1_000_000).toFixed(2);
-  };
+  const rootBalance = useAtomValue(rootBalanceAtom);
 
   const handleCopyAddress = async (address: string) => {
     try {
@@ -48,8 +47,10 @@ export const EternlConnector = () => {
         }}
       >
         <Space size="large" style={{ color: "white" }}>
-          {displayWallet.balance !== undefined && (
-            <span style={{ fontSize: "1rem", fontWeight: 600 }}>{formatBalance(displayWallet.balance)} ADA</span>
+          {rootBalance !== undefined && (
+            <span style={{ fontSize: "1rem", fontWeight: 600 }}>
+              {rootBalance > 0 ? Utils.formatBalance(rootBalance) : displayWallet.balance} ADA
+            </span>
           )}
           <Tooltip title={`Click to copy: ${displayWallet.address.bech32}`}>
             <Button
@@ -61,7 +62,15 @@ export const EternlConnector = () => {
               {Utils.shortenAddress(displayWallet.address.bech32)}
             </Button>
           </Tooltip>
-          <Button icon={<LogoutOutlined />} onClick={wallet.disconnect} style={{ color: "white" }} type="text">
+          <Button
+            icon={<LogoutOutlined />}
+            onClick={() => {
+              wallet.disconnect();
+              nitroWallet.disconnect();
+            }}
+            style={{ color: "white" }}
+            type="text"
+          >
             Disconnect
           </Button>
         </Space>

@@ -3,11 +3,18 @@
 import { CopyOutlined, LogoutOutlined } from "@ant-design/icons";
 import invariant from "@minswap/tiny-invariant";
 import { Alert, App, Button, Card, Col, Row, Space, Statistic, Tooltip } from "antd";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { Address } from "../../../../packages/ledger-core/dist/address";
 import { NitroWallet } from "../../../../packages/minswap-lending-market/dist/nitro-wallet";
-import { type NitroWalletData, nitroWalletAtom, setNitroWalletAtom, walletAtom } from "../atoms/walletAtom";
+import {
+  type NitroWalletData,
+  nitroBalanceAtom,
+  nitroWalletAtom,
+  setNitroBalanceAtom,
+  setNitroWalletAtom,
+  walletAtom,
+} from "../atoms/walletAtom";
 import { CONFIG } from "../config";
 import { LocalStorageKey } from "../constants/storage";
 import { Utils } from "../lib/utils";
@@ -18,6 +25,8 @@ export const NitroWalletConnector = () => {
   const wallet = useAtomValue(walletAtom);
   const [_, setNitroWallet] = useAtom(setNitroWalletAtom);
   const [loading, setLoading] = useState(false);
+  const nitroBalance = useAtomValue(nitroBalanceAtom);
+  const setNitroBalance = useSetAtom(setNitroBalanceAtom);
 
   /**
    * Fetch balance from the blockchain for a given address
@@ -26,6 +35,7 @@ export const NitroWalletConnector = () => {
     async (address: Address): Promise<bigint> => {
       try {
         const value = await NitroWallet.fetchBalance(address.bech32, CONFIG.networkEnv);
+        setNitroBalance(value.coin());
         return value.coin();
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
@@ -33,7 +43,7 @@ export const NitroWalletConnector = () => {
         return 0n;
       }
     },
-    [message.error],
+    [message.error, setNitroBalance],
   );
 
   const loadFromStorage = useCallback(async () => {
@@ -58,7 +68,6 @@ export const NitroWalletConnector = () => {
 
         // Fetch real-time balance from blockchain
         const balance = await fetchBalance(nitroWallet.walletInfo.address);
-
         // Create updated wallet with fresh balance
         const updatedNitroWallet = {
           ...nitroWallet,
@@ -84,10 +93,6 @@ export const NitroWalletConnector = () => {
       loadFromStorage();
     }
   }, [wallet?.walletInfo, loadFromStorage]);
-
-  const formatBalance = (balance: bigint): string => {
-    return (Number(balance) / 1_000_000).toFixed(2);
-  };
 
   const handleCopyAddress = async (address: string) => {
     try {
@@ -125,13 +130,14 @@ export const NitroWalletConnector = () => {
         networkId: wallet.walletInfo.networkId,
         signData: wallet.api.signData.bind(wallet.api),
       });
-      setNitroWallet(nitroWalletData);
+      const balance = await fetchBalance(nitroWalletData.walletInfo.address);
+      setNitroWallet({ ...nitroWalletData, walletInfo: { ...nitroWalletData.walletInfo, balance } });
       return nitroWalletData;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       throw new Error(`Failed to create new Nitro wallet: ${errorMsg}`);
     }
-  }, [wallet?.walletInfo, setNitroWallet, wallet?.api]);
+  }, [wallet?.walletInfo, setNitroWallet, wallet?.api, fetchBalance]);
 
   const connect = useCallback(async () => {
     setLoading(true);
@@ -189,7 +195,7 @@ export const NitroWalletConnector = () => {
             <Statistic
               suffix="ADA"
               title="Balance"
-              value={formatBalance(walletInfo.balance ?? 0n)}
+              value={Utils.formatBalance(nitroBalance ?? 0n)}
               valueStyle={{ color: "#ffffff" }}
             />
           </Col>

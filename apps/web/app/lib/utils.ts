@@ -6,4 +6,8 @@ export namespace Utils {
     const _decimals = decimals ?? 6;
     return (Number(amount) / 10 ** _decimals).toFixed(2);
   };
+  export const formatBalance = (balance: bigint | undefined): string => {
+    if (!balance) return "0.00";
+    return (Number(balance) / 1_000_000).toFixed(2);
+  };
 }

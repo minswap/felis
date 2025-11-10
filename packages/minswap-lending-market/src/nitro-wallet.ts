@@ -1,5 +1,5 @@
 import { baseWalletFromEntropy } from "@repo/cip";
-import { ADA, type Address, NetworkEnvironment, TxOut, Utxo, Value } from "@repo/ledger-core";
+import { ADA, type Address, NetworkEnvironment, PrivateKey, TxOut, Utxo, Value } from "@repo/ledger-core";
 import { sha3 } from "@repo/ledger-utils";
 import { CoinSelectionAlgorithm, EmulatorProvider, TxBuilder } from "@repo/tx-builder";
 
@@ -36,6 +36,20 @@ export namespace NitroWallet {
     const response = await fetch(path);
     const data: string[] = await response.json();
     return data;
+  };
+
+  export const submitTx = async (txHex: string, networkEnv: NetworkEnvironment): Promise<string> => {
+    const apiEndpoint = NitroWallet.mapApiEndpoint[networkEnv];
+    const path = `${apiEndpoint}/wallet/submitTx`;
+    const response = await fetch(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tx: txHex }),
+    });
+    const txHash: string = await response.text();
+    return txHash;
   };
 
   export const createNitroWallet = async (options: {
@@ -84,9 +98,10 @@ export namespace NitroWallet {
     amount: bigint;
     networkEnv: NetworkEnvironment;
     nitroAddressUtxos: string[];
+    nitroPrivateKey: string;
   };
   export const withdrawNitroFunds = async (options: WithdrawOptions): Promise<string> => {
-    const { nitroAddress, rootAddress, amount, networkEnv, nitroAddressUtxos } = options;
+    const { nitroAddress, rootAddress, amount, networkEnv, nitroAddressUtxos, nitroPrivateKey } = options;
     const txb = new TxBuilder(networkEnv).payTo(new TxOut(rootAddress, new Value().add(ADA, amount)));
     const txComplete = await txb.completeUnsafe({
       changeAddress: nitroAddress,
@@ -94,6 +109,6 @@ export namespace NitroWallet {
       coinSelectionAlgorithm: CoinSelectionAlgorithm.MINSWAP,
       provider: new EmulatorProvider(networkEnv),
     });
-    return txComplete.complete();
+    return txComplete.signWithPrivateKey(PrivateKey.fromHex(nitroPrivateKey)).complete();
   };
 }

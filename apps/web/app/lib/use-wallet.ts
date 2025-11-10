@@ -1,6 +1,6 @@
-import { useAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useState } from "react";
-import { setConnectedWalletAtom, setWalletAtom } from "../atoms/walletAtom";
+import { setConnectedWalletAtom, setRootBalanceAtom, setWalletAtom } from "../atoms/walletAtom";
 import { type Cip30Api, getAddressInfo, getWalletApi, type WalletInfo } from "./wallet-utils";
 
 export const useWallet = () => {
@@ -10,6 +10,7 @@ export const useWallet = () => {
   const [api, setApi] = useState<Cip30Api | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const setRootBalance = useSetAtom(setRootBalanceAtom);
 
   const connect = useCallback(async () => {
     setLoading(true);
@@ -45,7 +46,8 @@ export const useWallet = () => {
     setError(null);
     setWallet(null);
     setConnectedWallet(false);
-  }, [setConnectedWallet, setWallet]);
+    setRootBalance(0n);
+  }, [setConnectedWallet, setWallet, setRootBalance]);
 
   const clearError = useCallback(() => {
     setError(null);

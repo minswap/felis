@@ -2,7 +2,9 @@ import { baseWalletFromEntropy } from "@repo/cip";
 import { Address } from "@repo/ledger-core";
 import { sha3 } from "@repo/ledger-utils";
 import { NitroWallet } from "@repo/minswap-lending-market";
+import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
+import { setNitroBalanceAtom, setNitroWalletAtom } from "../atoms/walletAtom";
 import { CONFIG } from "../config";
 import { useWallet } from "./use-wallet";
 import type { WalletInfo } from "./wallet-utils";
@@ -19,6 +21,8 @@ export const useNitroWallet = () => {
   const [walletData, setWalletData] = useState<NitroWalletData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const setNitroBalance = useSetAtom(setNitroBalanceAtom);
+  const [_, setNitroWallet] = useAtom(setNitroWalletAtom);
 
   /**
    * Fetch balance from the blockchain for a given address
@@ -176,12 +180,14 @@ export const useNitroWallet = () => {
       localStorage.removeItem(NITRO_WALLET_STORAGE_KEY);
       setWalletData(null);
       setError(null);
+      setNitroBalance(0n);
+      setNitroWallet(null);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setError(`Failed to disconnect: ${errorMsg}`);
       console.error("Disconnect error:", err);
     }
-  }, []);
+  }, [setNitroBalance, setNitroWallet]);
 
   const clearError = useCallback(() => {
     setError(null);

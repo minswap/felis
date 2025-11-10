@@ -120,3 +120,14 @@ export const setLongPositionAtom = atom(
     set(allLongPositionsAtom, updatedAllPositions);
   },
 );
+
+// Balance atoms
+export const rootBalanceAtom = atom<bigint>(0n);
+export const setRootBalanceAtom = atom(null, (_get, set, update: bigint) => {
+  set(rootBalanceAtom, update);
+});
+
+export const nitroBalanceAtom = atom<bigint>(0n);
+export const setNitroBalanceAtom = atom(null, (_get, set, update: bigint) => {
+  set(nitroBalanceAtom, update);
+});

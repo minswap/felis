@@ -5,16 +5,28 @@ import { RustModule } from "@repo/ledger-utils";
 import { NitroWallet } from "@repo/minswap-lending-market";
 import { TxComplete } from "@repo/tx-builder";
 import { Alert, App, Button, Card, Col, Form, Input, Modal, Row, Space, Statistic } from "antd";
-import { useAtomValue } from "jotai";
-import { useState } from "react";
-import { nitroWalletAtom, walletAtom } from "../atoms/walletAtom";
+import { useAtomValue, useSetAtom } from "jotai";
+import { useEffect, useState } from "react";
+import {
+  nitroBalanceAtom,
+  nitroWalletAtom,
+  rootBalanceAtom,
+  setNitroBalanceAtom,
+  setRootBalanceAtom,
+  walletAtom,
+} from "../atoms/walletAtom";
 import { CONFIG } from "../config";
+import { Helpers } from "../lib/helpers";
 import { Utils } from "../lib/utils";
 
 export const DepositWithdraw = () => {
   const { message } = App.useApp();
   const nitroWallet = useAtomValue(nitroWalletAtom);
   const rootWallet = useAtomValue(walletAtom);
+  const rootBalance = useAtomValue(rootBalanceAtom);
+  const nitroBalance = useAtomValue(nitroBalanceAtom);
+  const setRootBalance = useSetAtom(setRootBalanceAtom);
+  const setNitroBalance = useSetAtom(setNitroBalanceAtom);
   const [depositModal, setDepositModal] = useState(false);
   const [withdrawModal, setWithdrawModal] = useState(false);
   const [depositLoading, setDepositLoading] = useState(false);
@@ -22,10 +34,36 @@ export const DepositWithdraw = () => {
   const [depositForm] = Form.useForm();
   const [withdrawForm] = Form.useForm();
 
-  const formatBalance = (balance: bigint | undefined): string => {
-    if (!balance) return "0.00";
-    return (Number(balance) / 1_000_000).toFixed(2);
-  };
+  // Initialize balances from wallet info
+  useEffect(() => {
+    if (rootWallet?.walletInfo?.balance) {
+      setRootBalance(rootWallet.walletInfo.balance);
+    }
+    if (nitroWallet?.walletInfo?.balance) {
+      setNitroBalance(nitroWallet.walletInfo.balance);
+    }
+  }, [rootWallet?.walletInfo?.balance, nitroWallet?.walletInfo?.balance, setRootBalance, setNitroBalance]);
+
+  // Poll balances every 10 seconds
+  useEffect(() => {
+    if (!rootWallet?.walletInfo || !nitroWallet?.walletInfo) return;
+
+    const pollBalances = async () => {
+      try {
+        const [rootBal, nitroBal] = await Promise.all([
+          Helpers.fetchBalance(rootWallet.walletInfo.address.bech32),
+          Helpers.fetchBalance(nitroWallet.walletInfo.address.bech32),
+        ]);
+        setRootBalance(rootBal);
+        setNitroBalance(nitroBal);
+      } catch (err) {
+        console.error("Failed to poll balances:", err);
+      }
+    };
+
+    const interval = setInterval(pollBalances, 10000); // 10 seconds
+    return () => clearInterval(interval);
+  }, [rootWallet?.walletInfo, nitroWallet?.walletInfo, setRootBalance, setNitroBalance]);
 
   const handleDeposit = async (values: { amount: string }) => {
     if (!rootWallet?.api || !rootWallet?.walletInfo || !nitroWallet?.walletInfo) {
@@ -93,26 +131,15 @@ export const DepositWithdraw = () => {
       }
 
       // Build withdraw transaction using NitroWallet.withdrawNitroFunds
-      const txHex = await NitroWallet.withdrawNitroFunds({
+      const signedTx = await NitroWallet.withdrawNitroFunds({
         nitroAddress: nitroWallet.walletInfo.address,
         rootAddress: rootWallet.walletInfo.address,
         amount: amountInLovelace,
         networkEnv: CONFIG.networkEnv,
         nitroAddressUtxos: utxosRaw,
+        nitroPrivateKey: nitroWallet.privateKey,
       });
-
-      // Sign transaction with nitro wallet private key
-      // Note: Using root wallet API to sign since we need to connect to the signing service
-      const witnessSet = await rootWallet.api.signTx(txHex, true);
-
-      // Using TxComplete to assemble (aka: finalize Tx)
-      const tx = RustModule.getE.Transaction.from_hex(txHex);
-      const txComplete = new TxComplete(tx);
-      txComplete.assemble(witnessSet);
-
-      // Complete Tx
-      const signedTx = txComplete.complete();
-      const txHash = await rootWallet.api.submitTx(signedTx);
+      const txHash = await NitroWallet.submitTx(signedTx, CONFIG.networkEnv);
       message.success(`Withdraw successful! Tx: ${txHash}`);
 
       withdrawForm.resetFields();
@@ -126,9 +153,6 @@ export const DepositWithdraw = () => {
     }
   };
 
-  const rootBalance = rootWallet?.walletInfo?.balance ?? 0n;
-  const nitroBalance = nitroWallet?.walletInfo?.balance ?? 0n;
-
   const isReadyForDeposit = rootWallet?.walletInfo && nitroWallet?.walletInfo && rootBalance > 0n;
 
   const isReadyForWithdraw = rootWallet?.walletInfo && nitroWallet?.walletInfo && nitroBalance > 0n;
@@ -138,12 +162,12 @@ export const DepositWithdraw = () => {
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={12}>
           <Card style={{ background: "#f5f5f5" }}>
-            <Statistic suffix="ADA" title="Root Wallet Balance" value={formatBalance(rootBalance)} />
+            <Statistic suffix="ADA" title="Root Wallet Balance" value={Utils.formatBalance(rootBalance)} />
           </Card>
         </Col>
         <Col span={12}>
           <Card style={{ background: "#f5f5f5" }}>
-            <Statistic suffix="ADA" title="Nitro Wallet Balance" value={formatBalance(nitroBalance)} />
+            <Statistic suffix="ADA" title="Nitro Wallet Balance" value={Utils.formatBalance(nitroBalance)} />
           </Card>
         </Col>
       </Row>
