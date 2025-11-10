@@ -13,7 +13,11 @@ export namespace LendingMarket {
     [NetworkEnvironment.TESTNET_PREPROD]: "16c2dc8ae937e8d3790c7fd7168d7b994621ba14ca11415f39fed72.4d494e",
     [NetworkEnvironment.TESTNET_PREVIEW]: "919d4c2c9455016289341b1a14dedf697687af31751170d56a31466e.744d494e",
   };
-  const apiEndpoint = "https://dev-3.minswap.org";
+  export const mapApiEndpoint = {
+    [NetworkEnvironment.MAINNET]: "todo",
+    [NetworkEnvironment.TESTNET_PREPROD]: "todo",
+    [NetworkEnvironment.TESTNET_PREVIEW]: "https://api.dev-3.minswap.org",
+  };
 
   export type SignAndSubmitParams = {
     privateKey: string;
@@ -66,6 +70,7 @@ export namespace LendingMarket {
 
   // 1 lovelace = ? MIN
   export const fetchAdaMinPrice = async (networkEnv: NetworkEnvironment): Promise<PriceInAdaResponse> => {
+    const apiEndpoint = LendingMarket.mapApiEndpoint[networkEnv];
     const path = `${apiEndpoint}/wallet/price-in-ada?asset=${LendingMarket.mapMINToken[networkEnv]}`;
     const response = await fetch(path);
     const data = (await response.json()) as PriceInAdaResponse;
