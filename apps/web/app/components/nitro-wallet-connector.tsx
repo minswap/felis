@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Address } from "../../../../packages/ledger-core/dist/address";
 import { NitroWallet } from "../../../../packages/minswap-lending-market/dist/nitro-wallet";
 import { type NitroWalletData, nitroWalletAtom, setNitroWalletAtom, walletAtom } from "../atoms/walletAtom";
+import { CONFIG } from "../config";
 import { LocalStorageKey } from "../constants/storage";
 import { Utils } from "../lib/utils";
 
@@ -24,7 +25,7 @@ export const NitroWalletConnector = () => {
   const fetchBalance = useCallback(
     async (address: Address): Promise<bigint> => {
       try {
-        const value = await NitroWallet.fetchBalance(address.bech32);
+        const value = await NitroWallet.fetchBalance(address.bech32, CONFIG.networkEnv);
         return value.coin();
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);

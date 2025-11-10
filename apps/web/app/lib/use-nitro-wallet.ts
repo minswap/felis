@@ -3,6 +3,7 @@ import { Address } from "@repo/ledger-core";
 import { sha3 } from "@repo/ledger-utils";
 import { NitroWallet } from "@repo/minswap-lending-market";
 import { useCallback, useEffect, useState } from "react";
+import { CONFIG } from "../config";
 import { useWallet } from "./use-wallet";
 import type { WalletInfo } from "./wallet-utils";
 
@@ -24,7 +25,7 @@ export const useNitroWallet = () => {
    */
   const fetchBalance = useCallback(async (address: Address): Promise<bigint> => {
     try {
-      const value = await NitroWallet.fetchBalance(address.bech32);
+      const value = await NitroWallet.fetchBalance(address.bech32, CONFIG.networkEnv);
       return value.coin();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -38,7 +39,7 @@ export const useNitroWallet = () => {
    */
   const fetchUtxos = useCallback(async (address: Address) => {
     try {
-      const utxos = await NitroWallet.fetchUtxos(address.bech32);
+      const utxos = await NitroWallet.fetchUtxos(address.bech32, CONFIG.networkEnv);
       return utxos;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);

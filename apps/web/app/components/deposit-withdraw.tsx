@@ -86,7 +86,7 @@ export const DepositWithdraw = () => {
       const amountInLovelace = BigInt(Math.floor(Number(values.amount) * 1_000_000));
 
       // Get UTXOs from nitro wallet
-      const utxosRaw = await NitroWallet.fetchRawUtxos(nitroWallet.walletInfo.address.bech32);
+      const utxosRaw = await NitroWallet.fetchRawUtxos(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
       if (!utxosRaw || utxosRaw.length === 0) {
         message.error("No UTXOs available in nitro wallet");
         return;

@@ -76,7 +76,7 @@ describe("Minswap Lending Market - Nitro Wallet", () => {
 
   it("build tx repay close loan", async () => {
     const wallet = mockData.wallet;
-    const utxos = await NitroWallet.fetchRawUtxos(wallet.address.bech32);
+    const utxos = await NitroWallet.fetchRawUtxos(wallet.address.bech32, NetworkEnvironment.TESTNET_PREVIEW);
     const paymentKey = mockData.wallet.address.toPubKeyHash()?.keyHash.hex;
     invariant(paymentKey);
     const loans = await LiqwidProvider.getLoansBorrow({
@@ -108,7 +108,7 @@ describe("Minswap Lending Market - Nitro Wallet", () => {
 
   it.skip("supply MIN", async () => {
     const wallet = mockData.wallet;
-    const utxos = await NitroWallet.fetchRawUtxos(wallet.address.bech32);
+    const utxos = await NitroWallet.fetchRawUtxos(wallet.address.bech32, NetworkEnvironment.TESTNET_PREVIEW);
     const supplyTx = await LiqwidProvider.getSupplyTransaction({
       marketId: "MIN",
       amount: 3000000000,
@@ -141,7 +141,7 @@ describe("Minswap Lending Market - Nitro Wallet", () => {
   }, 5000);
 
   it.skip("withdraw all supply", async () => {
-    const utxos = await NitroWallet.fetchUtxos(mockData.nitroAddress.bech32);
+    const utxos = await NitroWallet.fetchUtxos(mockData.nitroAddress.bech32, NetworkEnvironment.TESTNET_PREVIEW);
     const supplyAmount = Utxo.sumValue(utxos).get(mockData.qMinAsset);
     const withdrawAllAmount = await LendingMarket.OpeningLongPosition.calculateWithdrawAllAmount({
       networkEnv: NetworkEnvironment.TESTNET_PREVIEW,
@@ -167,7 +167,7 @@ describe("Minswap Lending Market - Nitro Wallet", () => {
   }, 10000);
 
   it.skip("test loan calculation", async () => {
-    const utxos = await NitroWallet.fetchUtxos(mockData.wallet.address.bech32);
+    const utxos = await NitroWallet.fetchUtxos(mockData.wallet.address.bech32, NetworkEnvironment.TESTNET_PREVIEW);
     const qMinAmount = Utxo.sumValue(utxos).get(mockData.qMinAsset);
     const collateralAmount = await LendingMarket.OpeningLongPosition.calculateWithdrawAllAmount({
       networkEnv: NetworkEnvironment.TESTNET_PREVIEW,
@@ -194,7 +194,7 @@ describe("Minswap Lending Market - Nitro Wallet", () => {
   }, 5000);
 
   it.skip("borrow ADA by MIN", async () => {
-    const utxos = await NitroWallet.fetchUtxos(mockData.wallet.address.bech32);
+    const utxos = await NitroWallet.fetchUtxos(mockData.wallet.address.bech32, NetworkEnvironment.TESTNET_PREVIEW);
     const qMinAmount = Utxo.sumValue(utxos).get(mockData.qMinAsset);
     const collateralAmount = await LendingMarket.OpeningLongPosition.calculateWithdrawAllAmount({
       networkEnv: NetworkEnvironment.TESTNET_PREVIEW,

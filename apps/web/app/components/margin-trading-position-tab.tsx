@@ -123,7 +123,7 @@ type HandlePositionInput = {
 const handleStep1: InnerHandleFn = async ({ position, wallet, nitroWallet, extra }) => {
   if (position.hasCallback) {
     await Helpers.sleep(10000);
-    const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32);
+    const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
     console.log("step 1 callback", XJSON.stringify(balance, 2));
     const minToken = Asset.fromString(LendingMarket.mapMINToken[CONFIG.networkEnv]);
     if (balance.has(minToken)) {
@@ -148,7 +148,7 @@ const handleStep1: InnerHandleFn = async ({ position, wallet, nitroWallet, extra
     }
   }
   const [utxos, priceData] = await Promise.all([
-    NitroWallet.fetchRawUtxos(nitroWallet.walletInfo.address.bech32),
+    NitroWallet.fetchRawUtxos(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv),
     LendingMarket.fetchAdaMinPrice(CONFIG.networkEnv),
   ]);
   invariant(nitroWallet.walletInfo.balance, "Nitro wallet balance is undefined");
@@ -189,7 +189,7 @@ const handleStep1: InnerHandleFn = async ({ position, wallet, nitroWallet, extra
 const handleStep2: InnerHandleFn = async ({ position, nitroWallet }) => {
   if (position.hasCallback) {
     await Helpers.sleep(10000);
-    const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32);
+    const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
     console.log("step 2 callback", XJSON.stringify(balance, 2));
     const qMinToken = Asset.fromString("186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0");
     if (balance.has(qMinToken)) {
@@ -234,7 +234,7 @@ const handleStep2: InnerHandleFn = async ({ position, nitroWallet }) => {
 const handleStep3: InnerHandleFn = async ({ position, nitroWallet }) => {
   if (position.hasCallback) {
     await Helpers.sleep(10000);
-    const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32);
+    const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
     console.log("step 3 callback", XJSON.stringify(balance, 2));
     const qMinToken = Asset.fromString("186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0");
     if (!balance.has(qMinToken)) {
@@ -300,7 +300,7 @@ const handleStep3: InnerHandleFn = async ({ position, nitroWallet }) => {
 const handleStep4: InnerHandleFn = async ({ position, nitroWallet, wallet, extra }) => {
   if (position.hasCallback) {
     await Helpers.sleep(10000);
-    const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32);
+    const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
     console.log("step 4 callback", XJSON.stringify(balance, 2));
     const minToken = Asset.fromString(LendingMarket.mapMINToken[CONFIG.networkEnv]);
     if (!balance.has(minToken)) {
@@ -319,7 +319,7 @@ const handleStep4: InnerHandleFn = async ({ position, nitroWallet, wallet, extra
     }
   }
   const [utxos, priceData] = await Promise.all([
-    NitroWallet.fetchRawUtxos(nitroWallet.walletInfo.address.bech32),
+    NitroWallet.fetchRawUtxos(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv),
     LendingMarket.fetchAdaMinPrice(CONFIG.networkEnv),
   ]);
   const balance = Utxo.sumValue(utxos.map(Utxo.fromHex));
@@ -354,7 +354,7 @@ const handleStep4: InnerHandleFn = async ({ position, nitroWallet, wallet, extra
 const handleStep5: InnerHandleFn = async ({ position, nitroWallet }) => {
   if (position.hasCallback) {
     await Helpers.sleep(10000);
-    const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32);
+    const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
     console.log("step 5 callback", XJSON.stringify(balance, 2));
     const qMinToken = Asset.fromString("186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0");
     if (balance.has(qMinToken)) {
@@ -387,7 +387,7 @@ const handleStep5: InnerHandleFn = async ({ position, nitroWallet }) => {
 const handleStep6: InnerHandleFn = async ({ position, nitroWallet }) => {
   if (position.hasCallback) {
     await Helpers.sleep(10000);
-    const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32);
+    const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
     console.log("step 6 callback", XJSON.stringify(balance, 2));
     const minToken = Asset.fromString(LendingMarket.mapMINToken[CONFIG.networkEnv]);
     if (balance.has(minToken)) {

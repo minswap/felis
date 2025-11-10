@@ -1,7 +1,7 @@
 import { baseWalletFromEntropy } from "@repo/cip";
-import { ADA, type Address, type NetworkEnvironment, TxOut, Utxo, Value } from "@repo/ledger-core";
+import { ADA, type Address, NetworkEnvironment, TxOut, Utxo, Value } from "@repo/ledger-core";
+import { sha3 } from "@repo/ledger-utils";
 import { CoinSelectionAlgorithm, EmulatorProvider, TxBuilder } from "@repo/tx-builder";
-import { sha3 } from "../../ledger-utils/dist/hash";
 
 export namespace NitroWallet {
   export type NitroWallet = {
@@ -9,22 +9,29 @@ export namespace NitroWallet {
     privateKey: string;
     rootAddress: string;
   };
-  const apiEndpoint = "https://dev-3.minswap.org";
-  export const fetchBalance = async (address: string): Promise<Value> => {
+  export const mapApiEndpoint = {
+    [NetworkEnvironment.MAINNET]: "todo",
+    [NetworkEnvironment.TESTNET_PREPROD]: "todo",
+    [NetworkEnvironment.TESTNET_PREVIEW]: "https://api.dev-3.minswap.org",
+  };
+  export const fetchBalance = async (address: string, networkEnv: NetworkEnvironment): Promise<Value> => {
+    const apiEndpoint = NitroWallet.mapApiEndpoint[networkEnv];
     const path = `${apiEndpoint}/wallet/balance/address?address=${address}`;
     const response = await fetch(path);
     const data: string = await response.text();
     return Value.fromHex(data);
   };
 
-  export const fetchUtxos = async (address: string): Promise<Utxo[]> => {
+  export const fetchUtxos = async (address: string, networkEnv: NetworkEnvironment): Promise<Utxo[]> => {
+    const apiEndpoint = NitroWallet.mapApiEndpoint[networkEnv];
     const path = `${apiEndpoint}/wallet/utxo/address?address=${address}`;
     const response = await fetch(path);
     const data: string[] = await response.json();
     return data.map(Utxo.fromHex);
   };
 
-  export const fetchRawUtxos = async (address: string): Promise<string[]> => {
+  export const fetchRawUtxos = async (address: string, networkEnv: NetworkEnvironment): Promise<string[]> => {
+    const apiEndpoint = NitroWallet.mapApiEndpoint[networkEnv];
     const path = `${apiEndpoint}/wallet/utxo/address?address=${address}`;
     const response = await fetch(path);
     const data: string[] = await response.json();
@@ -90,11 +97,3 @@ export namespace NitroWallet {
     return txComplete.complete();
   };
 }
-
-// const main = async () => {
-//   await RustModule.load();
-//   const value = await NitroWallet.fetchBalance("addr_test1qp2t43hr6aktanylcpqngr98a3l2a8mpwt566r0yxtujj255cyxmu3jfgktsagvgyggy759khn808gxsaacaj0kmszkqw47mas");
-//   console.log(value.toJSON())
-// };
-
-// main();
