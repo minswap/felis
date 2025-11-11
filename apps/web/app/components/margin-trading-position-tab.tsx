@@ -126,8 +126,8 @@ const handleStep1: InnerHandleFn = async ({ position, wallet, nitroWallet, extra
     const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
     console.log("step 1 callback", XJSON.stringify(balance, 2));
     const minToken = Asset.fromString(LendingMarket.mapMINToken[CONFIG.networkEnv]);
-    const txHash = position.transactions[position.transactions.length - 1]?.txHash;
     let ok = balance.has(minToken);
+    const txHash = position.transactions[position.transactions.length - 1]?.txHash;
     if (txHash) {
       const txConfirmed = await Helpers.checkTxConfirmed(txHash);
       console.log({ txConfirmed, txHash });
@@ -199,7 +199,14 @@ const handleStep2: InnerHandleFn = async ({ position, nitroWallet }) => {
     const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
     console.log("step 2 callback", XJSON.stringify(balance, 2));
     const qMinToken = Asset.fromString("186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0");
-    if (balance.has(qMinToken)) {
+    let ok = balance.has(qMinToken);
+    const txHash = position.transactions[position.transactions.length - 1]?.txHash;
+    if (txHash) {
+      const txConfirmed = await Helpers.checkTxConfirmed(txHash);
+      console.log({ txConfirmed, txHash });
+      ok = ok && txConfirmed;
+    }
+    if (ok) {
       return {
         ...position,
         status: LongPositionStatus.STEP_3_BORROW_TOKEN,
@@ -244,7 +251,14 @@ const handleStep3: InnerHandleFn = async ({ position, nitroWallet }) => {
     const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
     console.log("step 3 callback", XJSON.stringify(balance, 2));
     const qMinToken = Asset.fromString("186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0");
-    if (!balance.has(qMinToken)) {
+    let ok = !balance.has(qMinToken);
+    const txHash = position.transactions[position.transactions.length - 1]?.txHash;
+    if (txHash) {
+      const txConfirmed = await Helpers.checkTxConfirmed(txHash);
+      console.log({ txConfirmed, txHash });
+      ok = ok && txConfirmed;
+    }
+    if (ok) {
       return {
         ...position,
         status: LongPositionStatus.STEP_BUY_MORE_LONG_ASSET,
@@ -289,6 +303,7 @@ const handleStep3: InnerHandleFn = async ({ position, nitroWallet }) => {
     collaterals,
     buildTxCollaterals,
     networkEnv: CONFIG.networkEnv,
+    forceBorrowAmount: Number(position.amount.iTotalBorrow),
   });
   console.log("Step 3 tx hash:", txHash, borrowAmount);
   return {
@@ -364,7 +379,14 @@ const handleStep5: InnerHandleFn = async ({ position, nitroWallet }) => {
     const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
     console.log("step 5 callback", XJSON.stringify(balance, 2));
     const qMinToken = Asset.fromString("186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0");
-    if (balance.has(qMinToken)) {
+    let ok = balance.has(qMinToken);
+    const txHash = position.transactions[position.transactions.length - 1]?.txHash;
+    if (txHash) {
+      const txConfirmed = await Helpers.checkTxConfirmed(txHash);
+      console.log({ txConfirmed, txHash });
+      ok = ok && txConfirmed;
+    }
+    if (ok) {
       return {
         ...position,
         status: LongPositionStatus.STEP_6_WITHDRAW_COLLATERAL,
@@ -397,7 +419,14 @@ const handleStep6: InnerHandleFn = async ({ position, nitroWallet }) => {
     const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
     console.log("step 6 callback", XJSON.stringify(balance, 2));
     const minToken = Asset.fromString(LendingMarket.mapMINToken[CONFIG.networkEnv]);
-    if (balance.has(minToken)) {
+    let ok = balance.has(minToken);
+    const txHash = position.transactions[position.transactions.length - 1]?.txHash;
+    if (txHash) {
+      const txConfirmed = await Helpers.checkTxConfirmed(txHash);
+      console.log({ txConfirmed, txHash });
+      ok = ok && txConfirmed;
+    }
+    if (ok) {
       return {
         ...position,
         status: LongPositionStatus.STEP_SELL_ALL_LONG_ASSET,

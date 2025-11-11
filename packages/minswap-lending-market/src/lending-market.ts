@@ -152,10 +152,11 @@ export namespace LendingMarket {
       currentDebt: number;
       collaterals: LiqwidProvider.LoanCalculationInput["collaterals"];
       buildTxCollaterals: LiqwidProvider.BorrowCollateral[];
+      forceBorrowAmount?: number;
       dry?: boolean;
     };
     export const borrowAda = async (params: BorrowAdaParams): Promise<{ borrowAmount: bigint; txHash: string }> => {
-      const { nitroWallet, networkEnv, borrowMarketId, currentDebt, collaterals, buildTxCollaterals } = params;
+      const { nitroWallet, networkEnv, borrowMarketId, currentDebt, collaterals, buildTxCollaterals, forceBorrowAmount } = params;
       const loanResult = await LiqwidProvider.loanCalculation({
         networkEnv,
         input: {
@@ -168,7 +169,7 @@ export namespace LendingMarket {
         throw new Error(`Failed to get loan calculation: ${loanResult.error.message}`);
       }
       // buffer 5%
-      const maxBorrowAmount = Math.floor((loanResult.value.maxBorrow * 1e6 * 95) / 100);
+      const maxBorrowAmount = forceBorrowAmount ?? Math.floor((loanResult.value.maxBorrow * 1e6 * 95) / 100);
       const borrowBuildTx = await LiqwidProvider.getBorrowTransaction({
         marketId: borrowMarketId,
         amount: maxBorrowAmount,
