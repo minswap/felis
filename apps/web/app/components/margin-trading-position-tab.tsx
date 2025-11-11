@@ -127,6 +127,10 @@ const handleStep1: InnerHandleFn = async ({ position, wallet, nitroWallet, extra
     console.log("step 1 callback", XJSON.stringify(balance, 2));
     const minToken = Asset.fromString(LendingMarket.mapMINToken[CONFIG.networkEnv]);
     if (balance.has(minToken)) {
+      const transactions = [...position.transactions];
+      if (position.callbackExtra) {
+        transactions.push(JSON.parse(position.callbackExtra));
+      }
       return {
         ...position,
         amount: {
@@ -139,6 +143,7 @@ const handleStep1: InnerHandleFn = async ({ position, wallet, nitroWallet, extra
           extra && extra.extraStatus === ExtraStatus.EXTRA_STEP_BUY_MORE
             ? extra.nextStatus
             : LongPositionStatus.STEP_2_SUPPLY_TOKEN,
+        transactions,
         hasCallback: undefined,
         callbackExtra: undefined,
       };
@@ -181,8 +186,9 @@ const handleStep1: InnerHandleFn = async ({ position, wallet, nitroWallet, extra
       mBought: position.amount.mBought + mBought,
     },
     updatedAt: Date.now(),
-    transactions: [...position.transactions, { txHash, step: logStep }],
+    transactions: [...position.transactions],
     hasCallback: 1,
+    callbackExtra: JSON.stringify({ txHash, step: logStep }),
   };
 };
 
@@ -193,6 +199,10 @@ const handleStep2: InnerHandleFn = async ({ position, nitroWallet }) => {
     console.log("step 2 callback", XJSON.stringify(balance, 2));
     const qMinToken = Asset.fromString("186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0");
     if (balance.has(qMinToken)) {
+      const transactions = [...position.transactions];
+      if (position.callbackExtra) {
+        transactions.push(JSON.parse(position.callbackExtra));
+      }
       return {
         ...position,
         status: LongPositionStatus.STEP_3_BORROW_TOKEN,
@@ -200,6 +210,7 @@ const handleStep2: InnerHandleFn = async ({ position, nitroWallet }) => {
           ...position.amount,
           mSupplied: position.amount.mSupplied + balance.get(qMinToken),
         },
+        transactions,
         hasCallback: undefined,
         callbackExtra: undefined,
       };
@@ -226,8 +237,9 @@ const handleStep2: InnerHandleFn = async ({ position, nitroWallet }) => {
       ...position.amount,
       mLongBalance: 0n,
     },
-    transactions: [...position.transactions, { txHash, step: LongPositionStatus.STEP_2_SUPPLY_TOKEN }],
+    transactions: [...position.transactions],
     hasCallback: 1,
+    callbackExtra: JSON.stringify({ txHash, step: LongPositionStatus.STEP_2_SUPPLY_TOKEN }),
   };
 };
 
@@ -238,9 +250,14 @@ const handleStep3: InnerHandleFn = async ({ position, nitroWallet }) => {
     console.log("step 3 callback", XJSON.stringify(balance, 2));
     const qMinToken = Asset.fromString("186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0");
     if (!balance.has(qMinToken)) {
+      const transactions = [...position.transactions];
+      if (position.callbackExtra) {
+        transactions.push(JSON.parse(position.callbackExtra));
+      }
       return {
         ...position,
         status: LongPositionStatus.STEP_BUY_MORE_LONG_ASSET,
+        transactions,
         hasCallback: undefined,
         callbackExtra: undefined,
       };
@@ -292,8 +309,9 @@ const handleStep3: InnerHandleFn = async ({ position, nitroWallet }) => {
       mSupplied: 0n,
       mBorrowed: position.amount.mBorrowed + borrowAmount,
     },
-    transactions: [...position.transactions, { txHash, step: LongPositionStatus.STEP_3_BORROW_TOKEN }],
+    transactions: [...position.transactions],
     hasCallback: 1,
+    callbackExtra: JSON.stringify({ txHash, step: LongPositionStatus.STEP_3_BORROW_TOKEN }),
   };
 };
 
@@ -304,12 +322,17 @@ const handleStep4: InnerHandleFn = async ({ position, nitroWallet, wallet, extra
     console.log("step 4 callback", XJSON.stringify(balance, 2));
     const minToken = Asset.fromString(LendingMarket.mapMINToken[CONFIG.networkEnv]);
     if (!balance.has(minToken)) {
+      const transactions = [...position.transactions];
+      if (position.callbackExtra) {
+        transactions.push(JSON.parse(position.callbackExtra));
+      }
       return {
         ...position,
         status:
           extra && extra.extraStatus === ExtraStatus.EXTRA_STEP_SELL_ALL
             ? extra.nextStatus
             : LongPositionStatus.STEP_5_REPAY_ASSET,
+        transactions,
         hasCallback: undefined,
         callbackExtra: undefined,
       };
@@ -345,8 +368,9 @@ const handleStep4: InnerHandleFn = async ({ position, nitroWallet, wallet, extra
   return {
     ...position,
     updatedAt: Date.now(),
-    transactions: [...position.transactions, { txHash, step: logStatus }],
+    transactions: [...position.transactions],
     hasCallback: 1,
+    callbackExtra: JSON.stringify({ txHash, step: logStatus }),
   };
 };
 
@@ -358,12 +382,20 @@ const handleStep5: InnerHandleFn = async ({ position, nitroWallet }) => {
     console.log("step 5 callback", XJSON.stringify(balance, 2));
     const qMinToken = Asset.fromString("186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0");
     if (balance.has(qMinToken)) {
+      const transactions = [...position.transactions];
+      if (position.callbackExtra) {
+        transactions.push(JSON.parse(position.callbackExtra));
+      }
       return {
         ...position,
         status: LongPositionStatus.STEP_6_WITHDRAW_COLLATERAL,
+        transactions,
         hasCallback: undefined,
         callbackExtra: undefined,
       };
+    } else {
+      // continue callback
+      return { ...position, hasCallback: position.hasCallback + 1 };
     }
   }
   const utxos = await Helpers.fetchRawUtxos(nitroWallet.walletInfo.address);
@@ -378,8 +410,9 @@ const handleStep5: InnerHandleFn = async ({ position, nitroWallet }) => {
   return {
     ...position,
     updatedAt: Date.now(),
-    transactions: [...position.transactions, { txHash, step: LongPositionStatus.STEP_5_REPAY_ASSET }],
+    transactions: [...position.transactions],
     hasCallback: 1,
+    callbackExtra: JSON.stringify({ txHash, step: LongPositionStatus.STEP_5_REPAY_ASSET }),
   };
 };
 
@@ -391,9 +424,14 @@ const handleStep6: InnerHandleFn = async ({ position, nitroWallet }) => {
     console.log("step 6 callback", XJSON.stringify(balance, 2));
     const minToken = Asset.fromString(LendingMarket.mapMINToken[CONFIG.networkEnv]);
     if (balance.has(minToken)) {
+      const transactions = [...position.transactions];
+      if (position.callbackExtra) {
+        transactions.push(JSON.parse(position.callbackExtra));
+      }
       return {
         ...position,
         status: LongPositionStatus.STEP_SELL_ALL_LONG_ASSET,
+        transactions,
         hasCallback: undefined,
         callbackExtra: undefined,
       };
@@ -424,8 +462,9 @@ const handleStep6: InnerHandleFn = async ({ position, nitroWallet }) => {
       ...position.amount,
       mSupplied: 0n,
     },
-    transactions: [...position.transactions, { txHash, step: LongPositionStatus.STEP_6_WITHDRAW_COLLATERAL }],
+    transactions: [...position.transactions],
     hasCallback: 1,
+    callbackExtra: JSON.stringify({ txHash, step: LongPositionStatus.STEP_6_WITHDRAW_COLLATERAL }),
   };
 };
 
@@ -469,11 +508,15 @@ export const PositionTab = () => {
               retries++;
               console.error("backoff error", error);
               console.log(
-                `Retry ${retries}/${maxRetries} for position ${position.positionId.slice(0, 8)} after 40s...`,
+                `Retry ${retries}/${maxRetries} for position ${position.positionId.slice(0, 8)} after 10s...`,
               );
-              await Helpers.sleep(40000); // Sleep 40 seconds before retry
+              await Helpers.sleep(10000); // Sleep 10 seconds before retry
             } else {
-              throw lastError;
+              console.error("max retries reached for position:", position.positionId, lastError);
+              setTimeout(() => {
+                window.location.reload();
+              }, 5000);
+              // throw lastError;
             }
           }
         }
