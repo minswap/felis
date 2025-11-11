@@ -163,7 +163,8 @@ const handleStep1: InnerHandleFn = async ({ position, wallet, nitroWallet, extra
   if (extra && extra.extraStatus === ExtraStatus.EXTRA_STEP_BUY_MORE) {
     mBought = extra.buyMoreAmount;
   } else {
-    mBought = nitroWallet.walletInfo.balance - LendingMarket.OpeningLongPosition.OPERATION_FEE_ADA;
+    mBought = 300_000_000n;
+    // mBought = nitroWallet.walletInfo.balance - LendingMarket.OpeningLongPosition.OPERATION_FEE_ADA;
   }
   const txHash = await LendingMarket.OpeningLongPosition.step1CreateOrder({
     nitroWallet: {
