@@ -528,16 +528,20 @@ export const PositionTab = () => {
               );
               await Helpers.sleep(10000); // Sleep 10 seconds before retry
             } else {
-              // if (error instanceof Error && error.message.includes("Liqwid GraphQL error")) {
-              //   const txHash = position.transactions[position.transactions.length - 1]?.txHash;
-              //   if (txHash) {
-              //     const txConfirmed = await Helpers.checkTxConfirmed(txHash);
-              //     if (!txConfirmed) {
-              //       console.error("Transaction not confirmed yet, will retry later:", txHash);
-
-              //     }
-              //   }
-              // }
+              const txHash = position.transactions[position.transactions.length - 1]?.txHash;
+              if (txHash) {
+                const txConfirmed = await Helpers.checkTxConfirmed(txHash);
+                if (!txConfirmed) {
+                  const prevStep = position.transactions[position.transactions.length - 2]?.step;
+                  const lastStep = position.transactions[position.transactions.length - 1]?.step;
+                  if (prevStep && lastStep && prevStep === lastStep) {
+                    const transactions = [...position.transactions];
+                    transactions.pop(); // remove last failed tx
+                    const newPosition = {...position, hasCallback: 1, transactions };
+                    setPositions((prev) => prev.map((p) => (p.positionId === position.positionId ? newPosition : p)));
+                  }
+                }
+              }
               console.error("max retries reached for position:", position.positionId, lastError);
               setTimeout(() => {
                 window.location.reload();
