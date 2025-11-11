@@ -66,19 +66,14 @@ Demo Interface
   → As a result, It will minimize time processing and achieve the lowest possible fees for users
 - Minswap Order on Lending Market will apply Minswap Instant Batching Mode (will implement at Milestone 3).
 
-## This POC Version `DOES NOT SUPPORT`:
-- Ready-Production UI & UX for users; the POC version aim to show up idea and given a simple flow of how it work.
-- Some fields on UI are hard-coded (or incorrect number); I will fix them at Milestone 3 when I have final design for production.
-- Liqwid currently does not support Oracle to update Token Price on https://dev.liqwid.finance => I omit Liquidation flow on Milestone 1, waiting Liqwid team to support and support it at Milestone 3.
-- Many use-cases will be ommited at milestone 1 and I will complete them at Milestone 3.
-
 ## POC Version Limitations (Milestone 1)
-- This Milestone 1 POC is built purely to prove the core concept works end-to-end and to deliver the "How Long Position work?".
+- This Milestone 1 POC is built purely to prove the core concept works end-to-end and to deliver the "How Long Position work?". It is not Ready-Production for users.
 - What it does NOT include yet (all planned for Milestone 3 – Frontend Interface):
   - Polished production UI/UX (current interface is minimal & intentional)
   - Some numbers/values are hard-coded or placeholder (will be fixed with final design)
   - Liquidation Flow (waiting for Liqwid to ship on-chain price oracles on Testnet Preview)
   - Advanced use-cases, edge cases, and full error handling
+  - Liqwid currently does not support Oracle to update Token Price on https://dev.liqwid.finance => I omit Liquidation flow on Milestone 1, waiting Liqwid team to  support and support it at Milestone 3.
 
 - _Milestone 1 = "It works, it's live, real users are already trading with leverage."_
 - _Milestone 3 = "Pixel-perfect, bulletproof, ready for millions."Everything else will be shipped in the next phase. Thanks for understanding!_
