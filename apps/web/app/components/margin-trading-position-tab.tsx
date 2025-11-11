@@ -469,11 +469,15 @@ export const PositionTab = () => {
               retries++;
               console.error("backoff error", error);
               console.log(
-                `Retry ${retries}/${maxRetries} for position ${position.positionId.slice(0, 8)} after 40s...`,
+                `Retry ${retries}/${maxRetries} for position ${position.positionId.slice(0, 8)} after 10s...`,
               );
-              await Helpers.sleep(40000); // Sleep 40 seconds before retry
+              await Helpers.sleep(10000); // Sleep 10 seconds before retry
             } else {
-              throw lastError;
+              console.error("max retries reached for position:", position.positionId, lastError);
+              setTimeout(() => {
+                window.location.reload();
+              }, 5000);
+              // throw lastError;
             }
           }
         }

@@ -106,6 +106,8 @@ Demo Interface
 7. User can close Long Position and capture their profit.
 
 ## Example Work
+#### 0. Clear History & Reset
+- When you want to clear all Position and test again, please click on `Clear History & Reset` Button.
 #### 1. Connect to Eternl Wallet
 - ![Connect Eternl Wallet](images/connect-eternl-wallet.png)
 
