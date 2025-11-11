@@ -166,6 +166,15 @@ const handleStep1: InnerHandleFn = async ({ position, wallet, nitroWallet, extra
     mBought = 300_000_000n;
     // mBought = nitroWallet.walletInfo.balance - LendingMarket.OpeningLongPosition.OPERATION_FEE_ADA;
   }
+  if (mBought <= 0n) {
+    return {
+      ...position,
+      status:
+        extra && extra.extraStatus === ExtraStatus.EXTRA_STEP_BUY_MORE
+          ? extra.nextStatus
+          : LongPositionStatus.STEP_2_SUPPLY_TOKEN,
+    };
+  }
   const txHash = await LendingMarket.OpeningLongPosition.step1CreateOrder({
     nitroWallet: {
       address: nitroWallet.walletInfo.address,
@@ -349,6 +358,15 @@ const handleStep4: InnerHandleFn = async ({ position, nitroWallet, wallet, extra
   console.log("step 4 balance", XJSON.stringify(balance, 2));
   const minToken = Asset.fromString(LendingMarket.mapMINToken[CONFIG.networkEnv]);
   console.log("sell", balance.get(minToken));
+  if (balance.get(minToken) <= 0n) {
+    return {
+      ...position,
+      status:
+        extra && extra.extraStatus === ExtraStatus.EXTRA_STEP_SELL_ALL
+          ? extra.nextStatus
+          : LongPositionStatus.STEP_5_REPAY_ASSET,
+    };
+  }
   const txHash = await LendingMarket.OpeningLongPosition.sellLongAsset({
     nitroWallet: {
       address: nitroWallet.walletInfo.address,

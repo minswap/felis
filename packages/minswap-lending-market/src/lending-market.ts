@@ -156,7 +156,15 @@ export namespace LendingMarket {
       dry?: boolean;
     };
     export const borrowAda = async (params: BorrowAdaParams): Promise<{ borrowAmount: bigint; txHash: string }> => {
-      const { nitroWallet, networkEnv, borrowMarketId, currentDebt, collaterals, buildTxCollaterals, forceBorrowAmount } = params;
+      const {
+        nitroWallet,
+        networkEnv,
+        borrowMarketId,
+        currentDebt,
+        collaterals,
+        buildTxCollaterals,
+        forceBorrowAmount,
+      } = params;
       const loanResult = await LiqwidProvider.loanCalculation({
         networkEnv,
         input: {
