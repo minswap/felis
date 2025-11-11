@@ -169,7 +169,6 @@ export namespace LendingMarket {
       }
       // buffer 5%
       const maxBorrowAmount = Math.floor((loanResult.value.maxBorrow * 1e6 * 95) / 100);
-      console.warn("debug", maxBorrowAmount / 1e6);
       const borrowBuildTx = await LiqwidProvider.getBorrowTransaction({
         marketId: borrowMarketId,
         amount: maxBorrowAmount,

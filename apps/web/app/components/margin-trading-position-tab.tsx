@@ -126,7 +126,14 @@ const handleStep1: InnerHandleFn = async ({ position, wallet, nitroWallet, extra
     const balance = await NitroWallet.fetchBalance(nitroWallet.walletInfo.address.bech32, CONFIG.networkEnv);
     console.log("step 1 callback", XJSON.stringify(balance, 2));
     const minToken = Asset.fromString(LendingMarket.mapMINToken[CONFIG.networkEnv]);
-    if (balance.has(minToken)) {
+    const txHash = position.transactions[position.transactions.length - 1]?.txHash;
+    let ok = balance.has(minToken);
+    if (txHash) {
+      const txConfirmed = await Helpers.checkTxConfirmed(txHash);
+      console.log({ txConfirmed, txHash });
+      ok = ok && txConfirmed;
+    }
+    if (ok) {
       return {
         ...position,
         amount: {
@@ -473,6 +480,16 @@ export const PositionTab = () => {
               );
               await Helpers.sleep(10000); // Sleep 10 seconds before retry
             } else {
+              // if (error instanceof Error && error.message.includes("Liqwid GraphQL error")) {
+              //   const txHash = position.transactions[position.transactions.length - 1]?.txHash;
+              //   if (txHash) {
+              //     const txConfirmed = await Helpers.checkTxConfirmed(txHash);
+              //     if (!txConfirmed) {
+              //       console.error("Transaction not confirmed yet, will retry later:", txHash);
+
+              //     }
+              //   }
+              // }
               console.error("max retries reached for position:", position.positionId, lastError);
               setTimeout(() => {
                 window.location.reload();
