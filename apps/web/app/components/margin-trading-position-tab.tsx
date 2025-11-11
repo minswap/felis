@@ -524,9 +524,9 @@ export const PositionTab = () => {
               retries++;
               console.error("backoff error", error);
               console.log(
-                `Retry ${retries}/${maxRetries} for position ${position.positionId.slice(0, 8)} after 10s...`,
+                `Retry ${retries}/${maxRetries} for position ${position.positionId.slice(0, 8)} after 30s...`,
               );
-              await Helpers.sleep(10000); // Sleep 10 seconds before retry
+              await Helpers.sleep(30000); // Sleep 30 seconds before retry
             } else {
               const txHash = position.transactions[position.transactions.length - 1]?.txHash;
               if (txHash) {
