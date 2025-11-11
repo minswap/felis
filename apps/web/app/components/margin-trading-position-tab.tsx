@@ -429,6 +429,7 @@ const handleStep6: InnerHandleFn = async ({ position, nitroWallet }) => {
   };
 };
 
+// MARK: Position Tab
 export const PositionTab = () => {
   const { message } = App.useApp();
   const wallet = useAtomValue(walletAtom);
@@ -621,8 +622,29 @@ export const PositionTab = () => {
     );
   }
 
+  const isPositionInProgress = ![LongPositionStatus.OPENING_POSITION, LongPositionStatus.CLOSED_POSITION].includes(
+    positions[0]?.status ?? LongPositionStatus.STEP_1_BUY_LONG_ASSET,
+  );
+
   return (
     <div style={{ padding: "16px" }}>
+      <Space direction="vertical" size="large" style={{ width: "100%", marginBottom: "24px" }}>
+        {isPositionInProgress && (
+          <Alert
+            description="The long position is currently processing. Please keep the tab open and should refresh the page if error happened until the position reaches the OPENING or CLOSED status."
+            message="⚠️ Position in Progress"
+            showIcon
+            type="warning"
+          />
+        )}
+        <Alert
+          description="This is a POC (Proof of Concept) version. Some fields are hardcoded or may display incorrect numbers. All issues will be fixed in Milestone 3."
+          message="⚠️ POC Version - Limited Accuracy"
+          showIcon
+          type="warning"
+        />
+      </Space>
+
       <Space direction="vertical" size="large" style={{ width: "100%" }}>
         {positions.map((position) => {
           const { pnl, pnlPercent } = calculatePnL(position);

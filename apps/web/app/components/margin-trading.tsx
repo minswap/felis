@@ -9,6 +9,7 @@ import { TradeTab } from "./margin-trading-trade-tab";
 export const MarginTrading = () => {
   const nitroWallet = useAtomValue(nitroWalletAtom);
   const positions = useAtomValue(longPositionAtom);
+  const hasActivePositions = (positions ?? []).length > 0;
 
   return (
     <Card
@@ -22,14 +23,18 @@ export const MarginTrading = () => {
 
       <Tabs
         items={[
-          {
-            key: "trade",
-            label: "Trade",
-            children: <TradeTab />,
-          },
+          ...(hasActivePositions
+            ? []
+            : [
+                {
+                  key: "trade",
+                  label: "Trade",
+                  children: <TradeTab />,
+                },
+              ]),
           {
             key: "position",
-            label: `Position${(positions ?? []).length > 0 ? ` (${(positions ?? []).length})` : ""}`,
+            label: `Position${hasActivePositions ? ` (${(positions ?? []).length})` : ""}`,
             children: <PositionTab />,
           },
         ]}

@@ -1,4 +1,5 @@
 import { XJSON } from "@repo/ledger-core";
+import type { LendingMarket } from "@repo/minswap-lending-market";
 import { atom } from "jotai";
 import type { Asset } from "../../../../packages/ledger-core/dist/asset";
 import { LocalStorageKey } from "../constants/storage";
@@ -53,6 +54,7 @@ export type LongPositionState = {
   createdAt: number;
   updatedAt: number;
   amount: {
+    iTotalBorrow: bigint; // ada
     iTotalBuy: bigint; // ada
     iTotalOperationFee: bigint; // ada
     mTotalPaidFee: bigint; // ada
@@ -130,4 +132,9 @@ export const setRootBalanceAtom = atom(null, (_get, set, update: bigint) => {
 export const nitroBalanceAtom = atom<bigint>(0n);
 export const setNitroBalanceAtom = atom(null, (_get, set, update: bigint) => {
   set(nitroBalanceAtom, update);
+});
+
+export const minAdaPriceAtom = atom<LendingMarket.PriceInAdaResponse | null>(null);
+export const setMinAdaPriceAtom = atom(null, (_get, set, update: LendingMarket.PriceInAdaResponse | null) => {
+  set(minAdaPriceAtom, update);
 });

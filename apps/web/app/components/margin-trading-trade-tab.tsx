@@ -23,16 +23,23 @@ import {
   Tooltip,
 } from "antd";
 import { useAtomValue, useSetAtom } from "jotai";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   type LongPositionState,
   LongPositionStatus,
   longPositionAtom,
+  minAdaPriceAtom,
+  nitroBalanceAtom,
   nitroWalletAtom,
   setLongPositionAtom,
   walletAtom,
 } from "../atoms/walletAtom";
 import { CONFIG } from "../config";
+
+// POC Configuration
+const MIN_REQUIRED_ADA = 312_000_000n;
+const HARDCODED_TOTAL_ADA = 450;
+const HARDCODED_LEVERAGE = 1.5;
 
 export const TradeTab = () => {
   const { message } = App.useApp();
@@ -40,125 +47,92 @@ export const TradeTab = () => {
   const wallet = useAtomValue(walletAtom);
   const positions = useAtomValue(longPositionAtom);
   const setPositions = useSetAtom(setLongPositionAtom);
+  const nitroBalance = useAtomValue(nitroBalanceAtom);
 
   // Trading parameters
-  const [leverage, setLeverage] = useState<1 | 1.5>(1.5);
+  const [leverage, setLeverage] = useState<1 | 1.5>(HARDCODED_LEVERAGE as 1.5);
   const [marginMode, _setMarginMode] = useState<"isolated">("isolated");
   const [autoBorrowRepay, setAutoBorrowRepay] = useState(true);
 
   // Input values
-  const [adaAmount, setAdaAmount] = useState<number>(0);
+  const [adaAmount, setAdaAmount] = useState<number>(HARDCODED_TOTAL_ADA);
   const [minAmount, setMinAmount] = useState<number>(0);
-  const [minPrice, setMinPrice] = useState<number>(0);
-  const [sliderValue, setSliderValue] = useState<number>(0);
-  const [priceResponse, setPriceResponse] = useState<LendingMarket.PriceInAdaResponse | null>(null);
+  const [sliderValue, setSliderValue] = useState<number>(100);
+  const minAdaPrice = useAtomValue(minAdaPriceAtom);
 
   // Loading states
   const [loading, setLoading] = useState(false);
-  const [priceLoading, setPriceLoading] = useState(false);
-
-  const availableAda = nitroWallet ? Number(nitroWallet.walletInfo.balance) / 1_000_000 : 0;
-
-  // Fetch MIN price
-  useEffect(() => {
-    const fetchMinPrice = async () => {
-      setPriceLoading(true);
-      try {
-        const priceData = await LendingMarket.fetchAdaMinPrice(CONFIG.networkEnv);
-        setPriceResponse(priceData);
-        setMinPrice(Number(priceData.price));
-        message.info(`MIN price fetched: ${priceData.price} ADA per MIN`);
-      } catch (_err) {
-        message.error("Failed to fetch MIN price");
-      } finally {
-        setPriceLoading(false);
-      }
-    };
-
-    if (nitroWallet?.walletInfo?.address?.bech32) {
-      fetchMinPrice();
-    }
-  }, [nitroWallet?.walletInfo?.address?.bech32, message]);
-
-  const maxAdaForLeverage = availableAda * leverage;
+  // const _hasEnoughBalance = nitroBalance >= MIN_REQUIRED_ADA;
 
   const handleAmountChange = (value: number | null) => {
     if (value === null) return;
     setMinAmount(value);
   };
 
-  const handleAdaAmountChange = (value: number | null) => {
-    if (value === null) return;
-    setAdaAmount(value);
+  const handleAdaAmountChange = useCallback(
+    (value: number | null) => {
+      if (value === null) return;
+      // const percentage = (value / Number(MIN_REQUIRED_ADA)) * 100;
+      setSliderValue(100);
 
-    const percentage = (value / maxAdaForLeverage) * 100;
-    setSliderValue(Math.min(percentage, 100));
+      if (minAdaPrice) {
+        try {
+          const amountInLovelace = BigInt(Math.floor(value * 1_000_000));
+          const result = DexV2Calculation.calculateSwapExactIn({
+            datumReserves: [BigInt(minAdaPrice.datumReserves[0]), BigInt(minAdaPrice.datumReserves[1])],
+            valueReserves: [BigInt(minAdaPrice.valueReserves[0]), BigInt(minAdaPrice.valueReserves[1])],
+            tradingFee: {
+              feeANumerator: BigInt(minAdaPrice.tradingFee.feeANumerator),
+              feeBNumerator: BigInt(minAdaPrice.tradingFee.feeBNumerator),
+            },
+            amountIn: amountInLovelace,
+            direction: OrderV2Direction.A_TO_B,
+            feeSharingNumerator: minAdaPrice.feeSharingNumerator ? BigInt(minAdaPrice.feeSharingNumerator) : null,
+          });
 
-    if (priceResponse) {
-      try {
-        const amountInLovelace = BigInt(Math.floor(value * 1_000_000));
-
-        const result = DexV2Calculation.calculateSwapExactIn({
-          datumReserves: [BigInt(priceResponse.datumReserves[0]), BigInt(priceResponse.datumReserves[1])],
-          valueReserves: [BigInt(priceResponse.valueReserves[0]), BigInt(priceResponse.valueReserves[1])],
-          tradingFee: {
-            feeANumerator: BigInt(priceResponse.tradingFee.feeANumerator),
-            feeBNumerator: BigInt(priceResponse.tradingFee.feeBNumerator),
-          },
-          amountIn: amountInLovelace,
-          direction: OrderV2Direction.B_TO_A,
-          feeSharingNumerator: priceResponse.feeSharingNumerator ? BigInt(priceResponse.feeSharingNumerator) : null,
-        });
-
-        const minAmountReceived = Number(result.amountOut) / 1_000_000;
-        setMinAmount(minAmountReceived);
-      } catch (err) {
-        console.error("Failed to calculate MIN amount:", err);
-        if (minPrice > 0) {
-          setMinAmount(value / minPrice);
+          const minAmountReceived = Number(result.amountOut) / 1_000_000;
+          setMinAmount(minAmountReceived);
+        } catch (err) {
+          console.error("Failed to calculate MIN amount:", err);
         }
       }
-    } else if (minPrice > 0) {
-      setMinAmount(value / minPrice);
+    },
+    [minAdaPrice],
+  );
+
+  useEffect(() => {
+    if (nitroBalance && nitroBalance >= MIN_REQUIRED_ADA) {
+      handleAdaAmountChange(300);
     }
-  };
+  }, [nitroBalance, handleAdaAmountChange]);
 
-  const handleSliderChange = (value: number) => {
-    setSliderValue(value);
+  // const handleSliderChange = (value: number) => {
+  //   setSliderValue(value);
+  //   if (minAdaPrice) {
+  //     try {
+  //       const amountInLovelace = BigInt(Math.floor(totalAda * 1_000_000));
 
-    const totalAda = (value / 100) * maxAdaForLeverage;
-    setAdaAmount(totalAda);
+  //       const result = DexV2Calculation.calculateSwapExactIn({
+  //         datumReserves: [BigInt(minAdaPrice.datumReserves[0]), BigInt(minAdaPrice.datumReserves[1])],
+  //         valueReserves: [BigInt(minAdaPrice.valueReserves[0]), BigInt(minAdaPrice.valueReserves[1])],
+  //         tradingFee: {
+  //           feeANumerator: BigInt(minAdaPrice.tradingFee.feeANumerator),
+  //           feeBNumerator: BigInt(minAdaPrice.tradingFee.feeBNumerator),
+  //         },
+  //         amountIn: amountInLovelace,
+  //         direction: OrderV2Direction.A_TO_B,
+  //         feeSharingNumerator: minAdaPrice.feeSharingNumerator ? BigInt(minAdaPrice.feeSharingNumerator) : null,
+  //       });
 
-    if (priceResponse) {
-      try {
-        const amountInLovelace = BigInt(Math.floor(totalAda * 1_000_000));
+  //       const minAmountReceived = Number(result.amountOut) / 1_000_000;
+  //       setMinAmount(minAmountReceived);
+  //     } catch (err) {
+  //       console.error("Failed to calculate MIN amount:", err);
+  //     }
+  //   }
+  // };
 
-        const result = DexV2Calculation.calculateSwapExactIn({
-          datumReserves: [BigInt(priceResponse.datumReserves[0]), BigInt(priceResponse.datumReserves[1])],
-          valueReserves: [BigInt(priceResponse.valueReserves[0]), BigInt(priceResponse.valueReserves[1])],
-          tradingFee: {
-            feeANumerator: BigInt(priceResponse.tradingFee.feeANumerator),
-            feeBNumerator: BigInt(priceResponse.tradingFee.feeBNumerator),
-          },
-          amountIn: amountInLovelace,
-          direction: OrderV2Direction.A_TO_B,
-          feeSharingNumerator: priceResponse.feeSharingNumerator ? BigInt(priceResponse.feeSharingNumerator) : null,
-        });
-
-        const minAmountReceived = Number(result.amountOut) / 1_000_000;
-        setMinAmount(minAmountReceived);
-      } catch (err) {
-        console.error("Failed to calculate MIN amount:", err);
-        if (minPrice > 0) {
-          setMinAmount(totalAda / minPrice);
-        }
-      }
-    } else if (minPrice > 0) {
-      setMinAmount(totalAda / minPrice);
-    }
-  };
-
-  const borrowAmount = adaAmount - availableAda;
+  const borrowAmount = 150;
   const shouldBorrow = borrowAmount > 0;
   const adaDebt = shouldBorrow ? borrowAmount : 0;
 
@@ -167,7 +141,7 @@ export const TradeTab = () => {
     return adaDebt / minAmount;
   };
 
-  const liquidationPrice = calculateLiquidationPrice();
+  const _liquidationPrice = calculateLiquidationPrice();
 
   const handleBuy = async () => {
     invariant(wallet && nitroWallet);
@@ -176,7 +150,7 @@ export const TradeTab = () => {
       return;
     }
 
-    if (!priceResponse) {
+    if (!minAdaPrice) {
       message.error("Price data not available");
       return;
     }
@@ -195,6 +169,7 @@ export const TradeTab = () => {
         updatedAt: Date.now(),
         amount: {
           iTotalBuy: BigInt(Math.floor(adaAmount * 1e6)),
+          iTotalBorrow: 150_000_000n,
           iTotalOperationFee: LendingMarket.OpeningLongPosition.OPERATION_FEE_ADA,
           mTotalPaidFee: 0n,
           mBought: 0n,
@@ -223,6 +198,25 @@ export const TradeTab = () => {
 
   return (
     <Space direction="vertical" size="large" style={{ width: "100%" }}>
+      {/* POC Version Warning */}
+      {nitroWallet?.walletInfo && nitroBalance >= MIN_REQUIRED_ADA ? (
+        <Alert
+          description={`This is a proof-of-concept version. Long position is hardcoded to 450 ADA (1.5x leverage). Minimum Nitro wallet balance required: 312 ADA. Current balance: ${(Number(nitroBalance) / 1_000_000).toFixed(2)} ADA`}
+          message="⚠️ POC Version"
+          showIcon
+          type="warning"
+        />
+      ) : null}
+
+      {nitroWallet?.walletInfo && nitroBalance < MIN_REQUIRED_ADA ? (
+        <Alert
+          description={`Your Nitro wallet balance is insufficient. Minimum required: 312 ADA. Current: ${(Number(nitroBalance) / 1_000_000).toFixed(2)} ADA`}
+          message="Insufficient Balance"
+          showIcon
+          type="error"
+        />
+      ) : null}
+
       {/* Mode Selection */}
       <Row gutter={16}>
         <Col span={6}>
@@ -267,10 +261,19 @@ export const TradeTab = () => {
       <Card style={{ background: "#fafafa" }}>
         <Row gutter={16}>
           <Col span={12}>
-            <Statistic loading={priceLoading} suffix="ADA/MIN" title="Market Price" value={minPrice} />
+            <Statistic
+              loading={minAdaPrice === null}
+              suffix="ADA/MIN"
+              title="Market Price"
+              value={Number(minAdaPrice?.price) ?? 0}
+            />
           </Col>
           <Col span={12}>
-            <Statistic suffix="ADA" title="Your Available" value={availableAda.toFixed(2)} />
+            <Statistic
+              suffix="ADA"
+              title="Your Available"
+              value={((Number(nitroBalance) ?? 0) / 1_000_000).toFixed(2)}
+            />
           </Col>
         </Row>
       </Card>
@@ -283,7 +286,7 @@ export const TradeTab = () => {
           <Col span={12}>
             <Form.Item label="Total (ADA)" style={{ marginBottom: 0 }}>
               <InputNumber
-                disabled={!nitroWallet}
+                disabled={true}
                 min={0}
                 onChange={handleAdaAmountChange}
                 placeholder="0.00"
@@ -319,10 +322,10 @@ export const TradeTab = () => {
           <span style={{ color: "#666" }}>{sliderValue.toFixed(0)}%</span>
         </div>
         <Slider
-          disabled={!nitroWallet}
+          disabled={true}
           marks={{ 0: "0%", 50: "50%", 100: "100%" }}
           max={100}
-          onChange={handleSliderChange}
+          onChange={() => {}}
           value={sliderValue}
         />
       </div>
@@ -331,7 +334,7 @@ export const TradeTab = () => {
 
       {/* Trading Info */}
       <Row gutter={16}>
-        <Col span={8}>
+        <Col span={12}>
           <Card style={{ background: "#f0f5ff" }}>
             <Statistic
               suffix="ADA"
@@ -340,12 +343,12 @@ export const TradeTab = () => {
                   Avbl <InfoCircleOutlined />
                 </Tooltip>
               }
-              value={availableAda.toFixed(2)}
+              value={((Number(nitroBalance) ?? 0) / 1_000_000).toFixed(2)}
               valueStyle={{ fontSize: 14 }}
             />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col span={12}>
           <Card style={{ background: "#f0f5ff" }}>
             <Statistic
               suffix="ADA"
@@ -354,12 +357,12 @@ export const TradeTab = () => {
                   Max <InfoCircleOutlined />
                 </Tooltip>
               }
-              value={(availableAda * leverage).toFixed(2)}
+              value={(((Number(nitroBalance) ?? 0) / 1_000_000) * leverage).toFixed(2)}
               valueStyle={{ fontSize: 14 }}
             />
           </Card>
         </Col>
-        <Col span={8}>
+        {/* <Col span={8}>
           <Card style={{ background: "#f0f5ff" }}>
             <Statistic
               suffix="ADA"
@@ -372,7 +375,7 @@ export const TradeTab = () => {
               valueStyle={{ fontSize: 14 }}
             />
           </Card>
-        </Col>
+        </Col> */}
       </Row>
 
       {/* Borrow/Repay Info */}
