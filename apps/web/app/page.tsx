@@ -1,7 +1,7 @@
 "use client";
 
 import { LendingMarket } from "@repo/minswap-lending-market";
-import { App, Button, Layout } from "antd";
+import { App, Button, Layout, Space } from "antd";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
 import { connectedWalletAtom, setMinAdaPriceAtom, walletAtom } from "./atoms/walletAtom";
@@ -9,6 +9,7 @@ import { DepositWithdraw } from "./components/deposit-withdraw";
 import { EternlConnector } from "./components/eternl-connector";
 import { MarginTrading } from "./components/margin-trading";
 import { NitroWalletConnector } from "./components/nitro-wallet-connector";
+import { ShortMarginTrading } from "./components/short-trading";
 import { CONFIG } from "./config";
 import { useWallet } from "./lib/use-wallet";
 
@@ -19,6 +20,7 @@ export default function Home() {
   const walletHook = useWallet();
   const setMinAdaPrice = useSetAtom(setMinAdaPriceAtom);
   const [isClearingHistory, setIsClearingHistory] = useState(false);
+  const [positionType, setPositionType] = useState<"short" | "long">("short");
 
   const clearHistory = async () => {
     setIsClearingHistory(true);
@@ -69,10 +71,20 @@ export default function Home() {
             Clear History & Reset
           </Button>
         </div>
+        <div style={{ marginBottom: "24px", textAlign: "center" }}>
+          <Space.Compact>
+            <Button onClick={() => setPositionType("short")} type={positionType === "short" ? "primary" : "default"}>
+              Short Position
+            </Button>
+            <Button onClick={() => setPositionType("long")} type={positionType === "long" ? "primary" : "default"}>
+              Long Position
+            </Button>
+          </Space.Compact>
+        </div>
         <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
           <NitroWalletConnector />
           <DepositWithdraw />
-          <MarginTrading />
+          {positionType === "long" ? <MarginTrading /> : <ShortMarginTrading />}
         </div>
       </Layout.Content>
     </Layout>

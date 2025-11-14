@@ -74,6 +74,46 @@ export type LongPositionState = {
   callbackExtra?: string;
 };
 
+export enum ShortPositionStatus {
+  STEP_1_SUPPLY_TOKEN = "step_1_supply_token",
+  STEP_2_BORROW_TOKEN = "step_2_borrow_token",
+  STEP_3_SHORT_TOKEN = "step_3_short_token",
+  OPENING_POSITION = "opening_position",
+  STEP_4_BUY_BACK_TOKEN = "step_4_buy_back_token",
+  STEP_5_REPAY_ASSET = "step_5_repay_asset",
+  STEP_6_WITHDRAW_COLLATERAL = "step_6_withdraw_collateral",
+  CLOSED_POSITION = "closed_position",
+}
+
+export type ShortPositionState = {
+  positionId: string;
+  status: ShortPositionStatus;
+  nitroWalletAddress: string;
+  shortAsset: Asset;
+  createdAt: number;
+  updatedAt: number;
+  amount: {
+    iTotalSupplyL: bigint;
+    iBorrowAmountL: bigint;
+    iLiquidationPrice: number;
+    mSuppliedL: bigint;
+    mShortedL: bigint;
+    mShortedEstimateAda: bigint;
+    mBorrowedL: bigint;
+    mTradingPrice: number;
+    mClosedPrice: number;
+    mClosedAda: bigint; // ada required to buy back Short Token
+    mRepaidL: bigint; // same with borrow token
+    mWithdrawnL: bigint; // same with supply token
+  };
+  transactions: {
+    step: ShortPositionStatus;
+    txHash: string;
+  }[];
+  hasCallback?: number;
+  callbackExtra?: string;
+};
+
 // Base atom that stores all positions from all wallets
 const allLongPositionsAtom = createAtomWithStorage<LongPositionState[]>(
   LocalStorageKey.LONG_POSITIONS,
@@ -120,6 +160,56 @@ export const setLongPositionAtom = atom(
     const updatedAllPositions = [...otherWalletsPositions, ...newPositions];
 
     set(allLongPositionsAtom, updatedAllPositions);
+  },
+);
+
+// Base atom that stores all short positions from all wallets
+const allShortPositionsAtom = createAtomWithStorage<ShortPositionState[]>(
+  LocalStorageKey.SHORT_POSITIONS,
+  [],
+  (value) => XJSON.parse(value) as ShortPositionState[],
+  (value) => XJSON.stringify(value),
+);
+
+// Derived atom that filters short positions for the current nitro wallet
+export const shortPositionAtom = atom((get) => {
+  const nitroWallet = get(nitroWalletAtom);
+  const allPositions = get(allShortPositionsAtom) || [];
+
+  // If no nitro wallet connected, return empty array
+  if (!nitroWallet?.walletInfo?.address?.bech32) {
+    return [];
+  }
+
+  // Filter positions for current nitro wallet address
+  return allPositions.filter((position) => position.nitroWalletAddress === nitroWallet.walletInfo.address.bech32);
+});
+
+// Write atom to add/update short positions
+export const setShortPositionAtom = atom(
+  null,
+  (get, set, update: ShortPositionState[] | ((prev: ShortPositionState[]) => ShortPositionState[])) => {
+    const nitroWallet = get(nitroWalletAtom);
+
+    // If no nitro wallet connected, don't update anything
+    if (!nitroWallet?.walletInfo?.address?.bech32) {
+      return;
+    }
+
+    const allPositions = get(allShortPositionsAtom) || [];
+    const currentWalletAddress = nitroWallet.walletInfo.address.bech32;
+
+    // Get new positions (either array or function result)
+    const newPositions =
+      typeof update === "function"
+        ? update(allPositions.filter((p) => p.nitroWalletAddress === currentWalletAddress))
+        : update;
+
+    // Remove old positions for current wallet and add new ones
+    const otherWalletsPositions = allPositions.filter((p) => p.nitroWalletAddress !== currentWalletAddress);
+    const updatedAllPositions = [...otherWalletsPositions, ...newPositions];
+
+    set(allShortPositionsAtom, updatedAllPositions);
   },
 );
 

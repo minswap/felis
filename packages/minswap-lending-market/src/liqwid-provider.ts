@@ -3,9 +3,23 @@ import { blake2b256, Result, RustModule } from "@repo/ledger-utils";
 import * as cbor from "cbor";
 
 export namespace LiqwidProvider {
-  export type MarketId = "MIN";
-  export type CollateralMarket = "Ada.186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0";
-  export type BorrowMarket = "Ada";
+  export type MarketId = "MIN" | "Ada";
+  export type CollateralMarket =
+    | "Ada.186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0"
+    | "MIN.50e015ec8204db83a4f57aa9ee40ce6ea157e3b7335a149fafe3f370";
+  export type BorrowMarket = "Ada" | "MIN";
+
+  export const mapQAdaToken: Record<NetworkEnvironment, string> = {
+    [NetworkEnvironment.MAINNET]: "",
+    [NetworkEnvironment.TESTNET_PREPROD]: "",
+    [NetworkEnvironment.TESTNET_PREVIEW]: "50e015ec8204db83a4f57aa9ee40ce6ea157e3b7335a149fafe3f370",
+  };
+
+  export const mapQMinToken: Record<NetworkEnvironment, string> = {
+    [NetworkEnvironment.MAINNET]: "",
+    [NetworkEnvironment.TESTNET_PREPROD]: "",
+    [NetworkEnvironment.TESTNET_PREVIEW]: "186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0",
+  };
 
   export const getApiUrl = (networkEnv: NetworkEnvironment, clientEndpoint: string) => {
     const mapApiUrl: Record<NetworkEnvironment, string> = {
@@ -105,8 +119,8 @@ export namespace LiqwidProvider {
   };
 
   export const getWithdrawTransaction = async (options: {
-    marketId: "MIN";
-    amount: number;
+    marketId: MarketId;
+    amountL: number;
     address: string;
     utxos: string[];
     networkEnv: NetworkEnvironment;
@@ -128,7 +142,7 @@ export namespace LiqwidProvider {
     const variables = {
       input: {
         marketId: options.marketId,
-        amount: options.amount,
+        amount: options.amountL,
         address: options.address,
         changeAddress: options.address,
         otherAddresses: [options.address],
@@ -154,7 +168,8 @@ export namespace LiqwidProvider {
   };
 
   // id: qMIN, amount: raw number(lovelace)
-  export type BorrowCollateral = { id: "qMIN"; amount: number };
+  // id: qAda, qMIn, ... qToken
+  export type BorrowCollateral = { id: string; amount: number };
   export const getBorrowTransaction = async (options: {
     marketId: BorrowMarket;
     amount: number; // raw number (e.g lovelace)
@@ -337,6 +352,21 @@ export namespace LiqwidProvider {
     totalSupply: number;
   };
 
+  export type YieldEarnedInput = {
+    addresses: string[];
+  };
+
+  export type YieldEarnedMarket = {
+    id: string;
+    amount: number;
+    amountInCurrency: number;
+  };
+
+  export type YieldEarnedResult = {
+    totalYieldEarned: number;
+    markets: YieldEarnedMarket[];
+  };
+
   export type MarketAsset = {
     id: string;
     priceInCurrency: number;
@@ -464,6 +494,55 @@ export namespace LiqwidProvider {
     }
   };
 
+  export const getYieldEarned = async (options: {
+    input: YieldEarnedInput;
+    currency?: string;
+    networkEnv: NetworkEnvironment;
+  }): Promise<Result<YieldEarnedResult, Error>> => {
+    const query = `
+      query GetYieldEarned($input: YieldEarnedInput!, $currencyInput: InCurrencyInput) {
+        historical {
+          yieldEarned(input: $input) {
+            totalYieldEarned(input: $currencyInput)
+            markets {
+              id
+              amount
+              amountInCurrency(input: $currencyInput)
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+      }
+    `;
+
+    const variables = {
+      input: {
+        addresses: options.input.addresses,
+      },
+      currencyInput: { currency: options.currency || "USD" },
+    };
+
+    const data = await callApi({
+      clientEndpoint: "/api/liqwid/graphql",
+      networkEnv: options.networkEnv,
+      operationName: "GetYieldEarned",
+      variables,
+      query,
+    });
+
+    if (data.type === "ok") {
+      const result: YieldEarnedResult | undefined = data.value.historical?.yieldEarned;
+      if (!result) {
+        return Result.err(new Error("No yield earned result returned from Liqwid API"));
+      }
+      return Result.ok(result);
+    } else {
+      return data;
+    }
+  };
+
   export type GetMarketsBalanceParams = {
     input?: MarketsInput;
     currency?: string;
@@ -565,6 +644,9 @@ export namespace LiqwidProvider {
 
   export type LoanBorrow = {
     id: string;
+    marketId: string;
+    interest: number;
+    APY: number;
     amount: number;
     amountInCurrency: number;
     collaterals: LoanCollateral[];
@@ -588,6 +670,9 @@ export namespace LiqwidProvider {
             loans(input: $input) {
               results {
                 id
+                marketId
+                interest
+                APY
                 amount
                 amountInCurrency: amount(input: $currencyInput)
                 collaterals {

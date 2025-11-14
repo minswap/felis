@@ -537,7 +537,7 @@ export const PositionTab = () => {
                   if (prevStep && lastStep && prevStep === lastStep) {
                     const transactions = [...position.transactions];
                     transactions.pop(); // remove last failed tx
-                    const newPosition = {...position, hasCallback: 1, transactions };
+                    const newPosition = { ...position, hasCallback: 1, transactions };
                     setPositions((prev) => prev.map((p) => (p.positionId === position.positionId ? newPosition : p)));
                   }
                 }

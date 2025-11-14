@@ -41,6 +41,7 @@ const MIN_REQUIRED_ADA = 312_000_000n;
 const HARDCODED_TOTAL_ADA = 450;
 const HARDCODED_LEVERAGE = 1.5;
 
+// MARK: Trade Tab
 export const TradeTab = () => {
   const { message } = App.useApp();
   const nitroWallet = useAtomValue(nitroWalletAtom);

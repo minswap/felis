@@ -1,13 +1,14 @@
 import invariant from "@minswap/tiny-invariant";
-import { type Address, Asset, NetworkEnvironment, PrivateKey, Utxo } from "@repo/ledger-core";
+import { type Address, Asset, NetworkEnvironment, PrivateKey, Utxo, type Value, XJSON } from "@repo/ledger-core";
 import { Result } from "@repo/ledger-utils";
 import { DEXOrderTransaction } from "@repo/minswap-build-tx";
 import { DexVersion, OrderV2Direction, OrderV2StepType } from "@repo/minswap-dex-v2";
 import { CoinSelectionAlgorithm, EmulatorProvider } from "@repo/tx-builder";
 import { LiqwidProvider } from "./liqwid-provider";
+import type { NitroWallet } from "./nitro-wallet";
 
 export namespace LendingMarket {
-  export type MarketId = "MIN";
+  export type MarketId = "MIN" | "Ada";
   export const mapMINToken = {
     [NetworkEnvironment.MAINNET]: "29d222ce763455e3d7a09a665ce554f00ac89d2e99a1a83d267170c6.4d494e",
     [NetworkEnvironment.TESTNET_PREPROD]: "16c2dc8ae937e8d3790c7fd7168d7b994621ba14ca11415f39fed72.4d494e",
@@ -18,7 +19,6 @@ export namespace LendingMarket {
     [NetworkEnvironment.TESTNET_PREPROD]: "todo",
     [NetworkEnvironment.TESTNET_PREVIEW]: "https://api.dev-3.minswap.org",
   };
-
   export type SignAndSubmitParams = {
     privateKey: string;
     networkEnv: NetworkEnvironment;
@@ -77,6 +77,293 @@ export namespace LendingMarket {
     return data;
   };
 
+  export type GetBuildTxParams = {
+    nitroWallet: NitroWallet.Wallet;
+    networkEnv: NetworkEnvironment;
+    dry?: boolean;
+  };
+
+  export type SupplyTokensParams = GetBuildTxParams & {
+    marketId: MarketId;
+    amount: bigint; // lovelace style
+  };
+  export const supplyTokens = async (params: SupplyTokensParams): Promise<string> => {
+    const { nitroWallet, marketId, amount, networkEnv, dry } = params;
+    const buildTx = await LiqwidProvider.getSupplyTransaction({
+      marketId,
+      amount: Number(amount),
+      address: nitroWallet.address.bech32,
+      utxos: nitroWallet.utxos,
+      networkEnv,
+    });
+    return signAndSubmit({
+      txHex: buildTx,
+      privateKey: nitroWallet.privateKey,
+      networkEnv,
+      dry,
+    });
+  };
+
+  export type CalculateMaxBorrowAmountParams = {
+    networkEnv: NetworkEnvironment;
+    borrowMarketId: LiqwidProvider.BorrowMarket;
+    currentDebt: number;
+    collaterals: LiqwidProvider.LoanCalculationInput["collaterals"];
+  };
+  // return lovelace style
+  export const calculateMaxBorrowAmount = async (params: CalculateMaxBorrowAmountParams): Promise<number> => {
+    const { networkEnv, borrowMarketId, currentDebt, collaterals } = params;
+    const loanResult = await LiqwidProvider.loanCalculation({
+      networkEnv,
+      input: {
+        market: borrowMarketId,
+        debt: currentDebt,
+        collaterals,
+      },
+    });
+    if (loanResult.type === "err") {
+      throw new Error(`Failed to get loan calculation: ${loanResult.error.message}`);
+    }
+    const maxBorrowAmount = Math.floor(loanResult.value.maxBorrow * 1e6);
+    return maxBorrowAmount;
+  };
+
+  export type BorrowTokensParams = GetBuildTxParams & {
+    borrowMarketId: LiqwidProvider.BorrowMarket;
+    currentDebt: number;
+    collaterals: LiqwidProvider.LoanCalculationInput["collaterals"];
+    buildTxCollaterals: LiqwidProvider.BorrowCollateral[];
+    borrowAmountL?: number; // lovelace style, if not provided, borrow max amount
+  };
+  export const borrowTokens = async (
+    params: BorrowTokensParams,
+  ): Promise<{ borrowAmountL: number; txHash: string }> => {
+    const { nitroWallet, networkEnv, dry, borrowMarketId, currentDebt, collaterals, buildTxCollaterals } = params;
+    const maxBorrowAmountL = await calculateMaxBorrowAmount({
+      networkEnv,
+      borrowMarketId,
+      currentDebt,
+      collaterals,
+    });
+    const borrowAmountL = params.borrowAmountL ? Math.min(maxBorrowAmountL, params.borrowAmountL) : maxBorrowAmountL;
+    const borrowOptions = {
+      marketId: borrowMarketId,
+      amount: borrowAmountL,
+      address: nitroWallet.address.bech32,
+      utxos: nitroWallet.utxos,
+      collaterals: buildTxCollaterals,
+      networkEnv,
+    };
+    const borrowBuildTx = await LiqwidProvider.getBorrowTransaction(borrowOptions);
+    const txHash = await signAndSubmit({
+      txHex: borrowBuildTx,
+      privateKey: nitroWallet.privateKey,
+      networkEnv,
+      dry,
+    });
+    return {
+      borrowAmountL,
+      txHash,
+    };
+  };
+
+  export const calculateRepayAllAmountL = async (params: {
+    networkEnv: NetworkEnvironment;
+    address: Address;
+    loanTxHash: string;
+  }): Promise<bigint> => {
+    const pubKeyHash = params.address.toPubKeyHash()?.keyHash.hex;
+    invariant(pubKeyHash, "Only support PubKeyHash addresses");
+    const loans = Result.unwrap(
+      await LiqwidProvider.getLoansBorrow({
+        input: {
+          paymentKeys: [pubKeyHash],
+        },
+        networkEnv: params.networkEnv,
+      }),
+    );
+    const loan = loans.find((e) => e.id.includes(params.loanTxHash));
+    invariant(loan, `Loan with tx hash ${params.loanTxHash} not found`);
+    return BigInt(loan.amount * 1e6);
+  };
+
+  export const calculateWithdrawAllAmountL = async (params: {
+    networkEnv: NetworkEnvironment;
+    address: Address;
+    marketId: LiqwidProvider.MarketId;
+    qTokenAmountA: number;
+  }): Promise<number> => {
+    const { networkEnv, address, marketId, qTokenAmountA } = params;
+    const tokenPriceResult = await LiqwidProvider.getMarketPriceInCurrency({
+      networkEnv,
+      marketId,
+    });
+    if (tokenPriceResult.type === "err") {
+      throw new Error(`Failed to get market price: ${tokenPriceResult.error.message}`);
+    }
+    const tokenPrice = tokenPriceResult.value;
+    const pubKeyHash = address.toPubKeyHash()?.keyHash.hex;
+    invariant(pubKeyHash, "Only support PubKeyHash addresses");
+    const apyResult = await LiqwidProvider.getNetApy({
+      input: {
+        paymentKeys: [pubKeyHash],
+        supplies: [{ marketId, amount: qTokenAmountA }],
+      },
+      networkEnv,
+    });
+    if (apyResult.type === "err") {
+      throw new Error(`Failed to get net APY: ${apyResult.error.message}`);
+    }
+    const totalSupply = apyResult.value.totalSupply;
+    const withdrawAllAmountL = (totalSupply * 1e6) / tokenPrice;
+    return Math.floor(withdrawAllAmountL);
+  };
+
+  export enum CollateralMode {
+    ISOLATED_MARGIN = "ISOLATED_MARGIN",
+    CROSS_MARGIN = "CROSS_MARGIN",
+  }
+  export type CollateralIsolatedMargin = {
+    mode: CollateralMode.ISOLATED_MARGIN;
+    borrowMarketId: LiqwidProvider.BorrowMarket;
+    supplyMarketId: LiqwidProvider.MarketId;
+  };
+  export type CollateralCrossMargin = {
+    mode: CollateralMode.CROSS_MARGIN;
+  };
+  export type CollateralMarginType = CollateralIsolatedMargin | CollateralCrossMargin;
+  export type GetCollateralResponse = {
+    collaterals: LiqwidProvider.LoanCalculationInput["collaterals"];
+    buildTxCollaterals: LiqwidProvider.BorrowCollateral[];
+  };
+  export type GetCollateralParams = {
+    balance: Value;
+    networkEnv: NetworkEnvironment;
+    address: Address;
+    collateralMode: CollateralMarginType;
+  };
+  export const getCollaterals = async (params: GetCollateralParams): Promise<GetCollateralResponse> => {
+    const { balance, networkEnv, address, collateralMode } = params;
+    const qAdaToken = Asset.fromString(LiqwidProvider.mapQAdaToken[networkEnv]);
+    const qMinToken = Asset.fromString(LiqwidProvider.mapQMinToken[networkEnv]);
+    const mapMarket: Record<LiqwidProvider.MarketId, Asset> = {
+      Ada: qAdaToken,
+      MIN: qMinToken,
+    };
+    const collaterals: LiqwidProvider.LoanCalculationInput["collaterals"] = [];
+    const buildTxCollaterals: LiqwidProvider.BorrowCollateral[] = [];
+    if (collateralMode.mode === CollateralMode.ISOLATED_MARGIN) {
+      const { supplyMarketId, borrowMarketId } = collateralMode;
+      const qToken = mapMarket[supplyMarketId];
+      invariant(qToken, `Unsupported supply market id: ${supplyMarketId}`);
+      const qTokenAmount = balance.get(qToken);
+      if (qTokenAmount > 0n) {
+        const collateralAmount = await LendingMarket.OpeningLongPosition.calculateWithdrawAllAmount({
+          networkEnv,
+          address,
+          marketId: supplyMarketId,
+          qTokenAmount: Number(qTokenAmount),
+        });
+        collaterals.push({
+          id: `${borrowMarketId}.${qToken.toString()}` as LiqwidProvider.CollateralMarket,
+          amount: Number(collateralAmount / 1e6),
+        });
+        buildTxCollaterals.push({
+          id: `q${supplyMarketId}`,
+          amount: Number(qTokenAmount),
+        });
+      }
+    } else if (collateralMode.mode === CollateralMode.CROSS_MARGIN) {
+      throw new Error("CROSS_MARGIN mode is not supported yet");
+    }
+
+    return {
+      collaterals,
+      buildTxCollaterals,
+    };
+  };
+
+  export const repayAllDebt = async (
+    params: GetBuildTxParams & { loanTxHash: string },
+  ): Promise<{ repayAmountL: bigint; txHash: string }> => {
+    const { nitroWallet, networkEnv, dry } = params;
+    const pubKeyHash = nitroWallet.address.toPubKeyHash()?.keyHash.hex;
+    invariant(pubKeyHash, "Only support PubKeyHash addresses");
+    const loans = Result.unwrap(
+      await LiqwidProvider.getLoansBorrow({
+        input: {
+          paymentKeys: [pubKeyHash],
+        },
+        networkEnv,
+      }),
+    );
+    const loan = loans.find((e) => e.id.includes(params.loanTxHash));
+    invariant(loan, `Loan with tx hash ${params.loanTxHash} not found`);
+    const loanCollateral = loan.collaterals[0];
+    const collateralId = `${loan.marketId}.${loanCollateral.id}` as LiqwidProvider.CollateralMarket;
+    const collaterals: LiqwidProvider.RepayCollateral[] = [
+      {
+        id: collateralId,
+        amount: Math.floor((loanCollateral.amount * 1e6) / loanCollateral.market.exchangeRate),
+      },
+    ];
+    const repayAmountL = BigInt(loan.amount * 1e6);
+    const input: LiqwidProvider.GetRepayTransactionInput = {
+      txId: loan.id,
+      amount: 0,
+      address: nitroWallet.address.bech32,
+      utxos: nitroWallet.utxos,
+      collaterals,
+      networkEnv,
+    };
+    console.warn("debug repay All", XJSON.stringify(input, 2));
+    const repayBuildTx = await LiqwidProvider.getRepayTransaction(input);
+    const txHash = await signAndSubmit({
+      txHex: repayBuildTx,
+      privateKey: nitroWallet.privateKey,
+      networkEnv,
+      dry,
+    });
+    return {
+      repayAmountL,
+      txHash,
+    };
+  };
+  export type WithdrawAllSupplyParams = GetBuildTxParams & {
+    marketId: LiqwidProvider.MarketId;
+    supplyQTokenAmountA: number;
+    dry?: boolean;
+  };
+  export const withdrawAllSupply = async (
+    params: WithdrawAllSupplyParams,
+  ): Promise<{ withdrawAllAmountL: bigint; txHash: string }> => {
+    const { nitroWallet, marketId, networkEnv, supplyQTokenAmountA } = params;
+    const withdrawAllAmountL = await calculateWithdrawAllAmountL({
+      networkEnv,
+      address: nitroWallet.address,
+      marketId,
+      qTokenAmountA: supplyQTokenAmountA,
+    });
+    const withdrawResult = await LiqwidProvider.getWithdrawTransaction({
+      marketId: marketId,
+      amountL: withdrawAllAmountL,
+      address: nitroWallet.address.bech32,
+      utxos: nitroWallet.utxos,
+      networkEnv,
+    });
+    const txHash = await signAndSubmit({
+      txHex: withdrawResult,
+      privateKey: nitroWallet.privateKey,
+      networkEnv,
+      dry: params.dry,
+    });
+    return {
+      withdrawAllAmountL: BigInt(withdrawAllAmountL),
+      txHash,
+    };
+  };
+
+  // MARK: Long Position
   export namespace OpeningLongPosition {
     export const OPERATION_FEE_ADA = 12_000_000n; // 12 ADA
     export type NitroWallet = {
@@ -248,7 +535,7 @@ export namespace LendingMarket {
       withdrawAllAmount = Math.floor(withdrawAllAmount);
       const withdrawResult = await LiqwidProvider.getWithdrawTransaction({
         marketId: marketId,
-        amount: withdrawAllAmount,
+        amountL: withdrawAllAmount,
         address: nitroWallet.address.bech32,
         utxos: nitroWallet.utxos,
         networkEnv,
@@ -270,13 +557,16 @@ export namespace LendingMarket {
       const { nitroWallet, networkEnv, dry } = params;
       const pubKeyHash = nitroWallet.address.toPubKeyHash()?.keyHash.hex;
       invariant(pubKeyHash, "Only support PubKeyHash addresses");
-      const loans = await LiqwidProvider.getLoansBorrow({
-        input: {
-          paymentKeys: [pubKeyHash],
-        },
-        networkEnv: NetworkEnvironment.TESTNET_PREVIEW,
-      });
-      const loan = Result.unwrap(loans)[0];
+      const loans = Result.unwrap(
+        await LiqwidProvider.getLoansBorrow({
+          input: {
+            paymentKeys: [pubKeyHash],
+          },
+          networkEnv: NetworkEnvironment.TESTNET_PREVIEW,
+        }),
+      );
+      // we only support last loan for now
+      const loan = loans[loans.length - 1];
       const loanCollateral = loan.collaterals[0];
       const collaterals: LiqwidProvider.RepayCollateral[] = [
         {
@@ -330,6 +620,12 @@ export namespace LendingMarket {
 
       const txHash = await nitroWallet.submitTx(signedTx);
       return txHash;
+    };
+  }
+
+  export namespace ShortPosition {
+    export type SupplyAdaParams = {
+      nitroWallet: NitroWallet.Wallet;
     };
   }
 }

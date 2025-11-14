@@ -4,10 +4,10 @@ import { sha3 } from "@repo/ledger-utils";
 import { CoinSelectionAlgorithm, EmulatorProvider, TxBuilder } from "@repo/tx-builder";
 
 export namespace NitroWallet {
-  export type NitroWallet = {
+  export type Wallet = {
     address: Address;
     privateKey: string;
-    rootAddress: string;
+    utxos: string[];
   };
   export const mapApiEndpoint = {
     [NetworkEnvironment.MAINNET]: "todo",
