@@ -214,6 +214,21 @@ export const ShortPositionTab = () => {
           successMessage: "Successfully Supplied asset for position",
           positionType: "short",
           innerFn: async (input) => {
+            if (input.position.hasCallback && input.position.hasCallback >= 10) {
+              const transactions = [...input.position.transactions];
+              transactions.pop();
+              return {
+                ...input.position,
+                amount: {
+                  ...position.amount,
+                  mSuppliedL: 0n,
+                },
+                transactions,
+                status: ShortPositionStatusEnum.STEP_1_SUPPLY_TOKEN,
+                hasCallback: undefined,
+                callbackExtra: undefined,
+              } as ShortPositionState;
+            }
             return shortHandleStep1({
               ...input,
               extra: {
