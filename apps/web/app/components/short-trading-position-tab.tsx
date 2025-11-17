@@ -403,7 +403,13 @@ export const ShortPositionTab = () => {
       <Space direction="vertical" size="large" style={{ width: "100%" }}>
         {positions.map((position) => {
           let pnlA = 0;
-          if ([ShortPositionStatusEnum.STEP_1_SUPPLY_TOKEN, ShortPositionStatus.STEP_2_BORROW_TOKEN, ShortPositionStatusEnum.STEP_3_SHORT_TOKEN].includes(position.status)) {
+          if (
+            [
+              ShortPositionStatusEnum.STEP_1_SUPPLY_TOKEN,
+              ShortPositionStatus.STEP_2_BORROW_TOKEN,
+              ShortPositionStatusEnum.STEP_3_SHORT_TOKEN,
+            ].includes(position.status)
+          ) {
             pnlA = 0;
           } else {
             pnlA = calculatePnlA({
