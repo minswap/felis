@@ -7,7 +7,7 @@ import { DexV2Calculation, OrderV2Direction } from "@repo/minswap-dex-v2";
 import { LendingMarket, LiqwidProvider } from "@repo/minswap-lending-market";
 import { Alert, App, Button, Card, Col, Divider, Progress, Row, Space, Statistic, Tag } from "antd";
 import { useAtomValue, useSetAtom } from "jotai";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   minAdaPriceAtom,
   nitroWalletAtom,
@@ -125,6 +125,7 @@ export const ShortPositionTab = () => {
   const [borrowApy, setBorrowApy] = useState<number>(0);
   const [borrowInterest, setBorrowInterest] = useState<number>(0);
   const [supplyInterest, setSupplyInterest] = useState<number>(0);
+  // const [liquidationCall, setLiquidationCall] = useState<boolean>(false);
 
   const minAdaPrice = useAtomValue(minAdaPriceAtom);
 
@@ -337,6 +338,50 @@ export const ShortPositionTab = () => {
     }
   }, [positions, positionHandler]); // IMPORTANT: Don't add more
 
+  const handleClosePosition = useCallback(
+    (positionId: string, liquidationCall?: boolean) => {
+      try {
+        setShortPositions((prev) =>
+          prev.map((p) =>
+            p.positionId === positionId
+              ? {
+                  ...p,
+                  status: ShortPositionStatusEnum.STEP_4_BUY_BACK_TOKEN,
+                  updatedAt: Date.now(),
+                  liquidationCall: liquidationCall,
+                }
+              : p,
+          ),
+        );
+        message.success("Position closing initiated");
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        message.error(`Failed to close position: ${errorMsg}`);
+      }
+    },
+    [setShortPositions, message],
+  );
+
+  // liquidation notice and POC notice
+  useEffect(() => {
+    const lastPrice = minAdaPrice?.price;
+    if (!lastPrice) {
+      return;
+    }
+    for (const position of positions) {
+      const liqPrice = position.amount.iLiquidationPrice;
+      if (Number(lastPrice) >= liqPrice && position.liquidationCall !== true) {
+        handleClosePosition(position.positionId, true);
+        message.warning(
+          `Position #${position.positionId.slice(
+            0,
+            8,
+          )} has been liquidated as the market price reached the liquidation price of ${liqPrice} ADA/MIN.`,
+        );
+      }
+    }
+  }, [minAdaPrice, positions, handleClosePosition, message]);
+
   if (positions.length === 0) {
     return (
       <Alert
@@ -354,25 +399,20 @@ export const ShortPositionTab = () => {
       [ShortPositionStatusEnum.OPENING_POSITION, ShortPositionStatusEnum.CLOSED_POSITION].includes(p.status) === false,
   );
 
-  const handleClosePosition = async (positionId: string) => {
-    try {
-      setShortPositions((prev) =>
-        prev.map((p) =>
-          p.positionId === positionId
-            ? {
-                ...p,
-                status: ShortPositionStatusEnum.STEP_4_BUY_BACK_TOKEN,
-                updatedAt: Date.now(),
-              }
-            : p,
-        ),
-      );
-      message.success("Position closing initiated");
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      message.error(`Failed to close position: ${errorMsg}`);
-    }
-  };
+  // const adhoc = (positionId: string) => {
+  //   setShortPositions((prev) =>
+  //     prev.map((p) =>
+  //       p.positionId === positionId
+  //         ? {
+  //             ...p,
+  //             status: ShortPositionStatusEnum.STEP_6_WITHDRAW_COLLATERAL,
+  //             hasCallback: 0,
+  //             callbackExtra: undefined,
+  //           }
+  //         : p,
+  //     ),
+  //   );
+  // };
 
   return (
     <div style={{ padding: "16px" }}>
@@ -449,6 +489,16 @@ export const ShortPositionTab = () => {
                 </Space>
               }
             >
+              {/* <Button onClick={() => adhoc(position.positionId)}/> */}
+              {position.liquidationCall && (
+                <Alert
+                  description="Your position is being liquidated. The system is automatically closing your position."
+                  message="🔴 Position Liquidating"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                  type="error"
+                />
+              )}
               {/* Progress Bar */}
               <Progress
                 percent={Number(getProgressPercent(position).toFixed(2))}
@@ -571,31 +621,40 @@ export const ShortPositionTab = () => {
               </Row>
               {/* Price */}
               <Row gutter={16} style={{ marginBottom: 20 }}>
-                <Col span={8}>
+                <Col span={6}>
                   <Statistic
-                    precision={6}
+                    precision={3}
                     suffix="ADA/MIN"
                     title="Trading Price"
                     value={Number(position.amount.mTradingPrice) ?? 0}
                     valueStyle={{ fontSize: "14px" }}
                   />
                 </Col>
-                <Col span={8}>
+                <Col span={6}>
                   <Statistic
                     loading={minAdaPrice === null}
-                    precision={6}
+                    precision={3}
                     suffix="ADA/MIN"
                     title="Current Market Price"
                     value={Number(minAdaPrice?.price) ?? 0}
                     valueStyle={{ fontSize: "14px" }}
                   />
                 </Col>
-                <Col span={8}>
+                <Col span={6}>
                   <Statistic
-                    precision={6}
+                    precision={3}
                     suffix="ADA/MIN"
                     title="Liquidation Price"
                     value={(Number(position.amount.mTradingPrice) ?? 0) * 1.1}
+                    valueStyle={{ fontSize: "14px" }}
+                  />
+                </Col>
+                <Col span={6}>
+                  <Statistic
+                    precision={3}
+                    suffix="ADA/MIN"
+                    title="Closed Price"
+                    value={Number(position.amount.mClosedPrice) ?? 0}
                     valueStyle={{ fontSize: "14px" }}
                   />
                 </Col>

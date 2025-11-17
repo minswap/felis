@@ -112,6 +112,7 @@ export type ShortPositionState = {
   }[];
   hasCallback?: number;
   callbackExtra?: string;
+  liquidationCall?: boolean;
 };
 
 // Base atom that stores all positions from all wallets
