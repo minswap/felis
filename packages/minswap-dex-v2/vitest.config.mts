@@ -17,6 +17,8 @@ export default defineConfig({
       "@minswap/cardano-serialization-lib-browser": "@minswap/cardano-serialization-lib-nodejs",
       "@emurgo/cardano-serialization-lib-browser": "@emurgo/cardano-serialization-lib-nodejs",
       "@repo/uplc-web": "@repo/uplc-node",
+      "@repo/ledger-core": "@repo/ledger-core/src/index.ts",
+      "@repo/ledger-utils": "@repo/ledger-utils/src/index.ts",
     },
   },
 });
