@@ -38,6 +38,18 @@ export namespace NitroWallet {
     return data;
   };
 
+  export const quickBatching = async (txHex: string, networkEnv: NetworkEnvironment): Promise<void> => {
+    const apiEndpoint = NitroWallet.mapApiEndpoint[networkEnv];
+    const path = `${apiEndpoint}/submit-order`;
+    await fetch(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tx: txHex, types: ["AMM_V2"] }),
+    });
+  };
+
   export const submitTx = async (txHex: string, networkEnv: NetworkEnvironment): Promise<string> => {
     const apiEndpoint = NitroWallet.mapApiEndpoint[networkEnv];
     const path = `${apiEndpoint}/wallet/submitTx`;

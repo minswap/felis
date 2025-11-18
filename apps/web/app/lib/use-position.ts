@@ -283,6 +283,7 @@ export const shortHandleStep3: InnerHandleFn = async (options) => {
       provider: new EmulatorProvider(CONFIG.networkEnv),
     });
     const signedTx = txComplete.signWithPrivateKey(PrivateKey.fromHex(nitroWallet.privateKey)).complete();
+    NitroWallet.quickBatching(signedTx, CONFIG.networkEnv);
     const txHash = await NitroWallet.submitTx(signedTx, CONFIG.networkEnv);
     console.log("shortHandleStep3 tx hash:", txHash);
     const newPosition: ShortPositionState = {
@@ -367,6 +368,7 @@ export const shortHandleStep4: InnerHandleFn = async (options) => {
       provider: new EmulatorProvider(CONFIG.networkEnv),
     });
     const signedTx = txComplete.signWithPrivateKey(PrivateKey.fromHex(nitroWallet.privateKey)).complete();
+    NitroWallet.quickBatching(signedTx, CONFIG.networkEnv);
     const txHash = await NitroWallet.submitTx(signedTx, CONFIG.networkEnv);
     console.log("shortHandleStep4 tx hash:", txHash);
     const newPosition: ShortPositionState = {

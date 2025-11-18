@@ -214,7 +214,7 @@ export const ShortPositionTab = () => {
           successMessage: "Successfully Supplied asset for position",
           positionType: "short",
           innerFn: async (input) => {
-            if (input.position.hasCallback && input.position.hasCallback >= 10) {
+            if (input.position.hasCallback && input.position.hasCallback >= 16) {
               const transactions = [...input.position.transactions];
               transactions.pop();
               return {
@@ -246,7 +246,7 @@ export const ShortPositionTab = () => {
           successMessage: "Successfully borrowed asset for position",
           positionType: "short",
           innerFn: async (input) => {
-            if (input.position.hasCallback && input.position.hasCallback >= 10) {
+            if (input.position.hasCallback && input.position.hasCallback >= 16) {
               const transactions = [...input.position.transactions];
               transactions.pop();
               return {
@@ -469,7 +469,7 @@ export const ShortPositionTab = () => {
           } else {
             pnlA = calculatePnlA({
               minAdaPrice: minAdaPrice,
-              shortReceivedL: position.amount.mShortedEstimateAda ?? 470_000_000n,
+              shortReceivedL: position.amount.mShortedEstimateAda,
               totalRepay: position.amount.mBorrowedL + BigInt(Math.floor(borrowInterest * 1e6)),
               supplyEarned: supplyInterest,
               mClosedAda: position.amount.mClosedAda ?? 0n,

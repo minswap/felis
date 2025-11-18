@@ -1,6 +1,5 @@
-# Minswap Lending Market – Long/Short: Milestone 1 Submission (Testnet Preview)
-
-This document provides a reviewer-oriented package for Milestone 1: Off-chain integration enabling Long positions via Minswap + Liqwid, including clearly mapped acceptance criteria, evidence artifacts, and how a reviewer can verify end-to-end without local setup.
+# Minswap Lending Market – Long/Short: Milestone 1, 2 Submission (Testnet Preview)
+This document provides a reviewer-oriented package for Milestone 1,2 : Off-chain integration enabling Long/Short positions via Minswap + Liqwid, including clearly mapped acceptance criteria, evidence artifacts, and how a reviewer can verify end-to-end without local setup.
 
 ## Evidence artifacts
 Repository (open source)
@@ -78,6 +77,29 @@ Demo Interface
 - _Milestone 1 = "It works, it's live, real users are already trading with leverage."_
 - _Milestone 3 = "Pixel-perfect, bulletproof, ready for millions."Everything else will be shipped in the next phase. Thanks for understanding!_
 
+## "A tour" of what I accomplished in Milestone 2
+### Milestone Outputs
+#### _Off-chain integration enabling short position operations through Minswap and the chosen lending protocol integration on Cardano (if Liqwid is not possible, we use LenFi)._
+- <b>User can open-close short position (Isolated Margin Short $MIN) through Minswap Dex V2 + Liqwid V2 via a simple POC Interface.</b>
+- Multi-steps Transactions flow were executed seamlessly via password-less Nitro Wallet, reducing user signing many transactions while preserving non-custodial control on-device, also save user time to wait many transactions confirmed and adhoc tasks on interface.
+- Minswap x Liqwid Integration SDK is fully functional.
+- The POC includes `interest calculations` and `liquidation scenarios`.
+
+### Acceptance criteria
+#### _Off-chain integration successfully facilitate asset supply, borrowing, selling, and repurchasing for short positions._
+- With ADA only, user can short $tMIN with leverage margin 0.5x. For example, Alice has 1000 ADA, she can short 20k %tMIN (~= 500 ADA) and expecting $tMIN price go down and capture her profit.
+
+### _Integration handles the complexities of short positions, including interest calculations and liquidation scenarios._
+- <b>Interest Calculations</b>:
+  - Add some new functions for Liqwid Provider SDK to query `Supply, Borrow Interest Data` (e.g. Supply APY, Borrow APY, Supply Interest, Borrow Interest, ...)
+  - Support calculate Estimate PnL
+- <b>Liquidation Scenarios</b>:
+  - _In Testnet-Preview, Liqwid has not supported price Oracle yet. Therefore, the POC Liquidation Scenario is auto-trigger when SHORT Token price go up 10%. For example, if you open SHORT tMIN at price 0.22 ADA/MIN, the Liquidation will be triggered when price reach 0.242 ADA/MIN._
+  - To test the liquidation scenario, I manipulated the ADA-MIN price to increase by 10% or more, successfully triggering the liquidation process. This simulation helps verify that the protection mechanism works correctly and prevents real liquidations for users on Liqwid Platform.
+
+### _Integration with both Minswap and the possible lending protocol is seamless and efficient._
+- Work similar to Milestone 1.
+
 ## Nitro Wallet (password-less) summary
 
 - Non-custodial: private key persists on the user’s device.
@@ -100,7 +122,16 @@ Demo Interface
 6. Nitro Wallet auto handle opening Long position.
 7. User can close Long Position and capture their profit.
 
-## Example Work
+## Document explaining how the Short integration works:
+1. User connect wallet
+2. User create Nitro Wallet
+3. User Deposit fund to Nitro Wallet to start trading Long/Short
+4. Setup your trading (example: SHORT $MIN token with total supply 1000 ADA and leverage margin is 0.5x)
+5. Place Short Position.
+6. Nitro Wallet auto handle opening Short position.
+7. User can close Short Position and capture their profit.
+
+## Example Work Isolated Margin Long ADA-MIN
 #### 0. Clear History & Reset
 - When you want to clear all Position and test again, please click on `Clear History & Reset` Button.
 #### 1. Connect to Eternl Wallet
@@ -145,3 +176,49 @@ Demo Interface
 
 #### 14. Sell All Long Asset [TxReference](https://preview.cexplorer.io/tx/cb6bd2001f32dd4145ed72f7e3a1ee379401e81aa039996cabff836bbf314cfd?tab=content)
 - ![Sell All Long Asset](images/step-14-sell-all-long-asset.png)
+
+## Example Work Isolated Margin Short ADA-MIN
+### Basic Short Flow
+#### 0. Clear History & Reset
+- When you want to clear all Position and test again, please click on `Clear History & Reset` Button.
+#### 1. Connect to Eternl Wallet
+- ![Connect Eternl Wallet](images/connect-eternl-wallet.png)
+
+#### 2. Create Nitro Wallet
+- ![Create Nitro Wallet](images/create-nitro-wallet.png)
+
+#### 3. Deposit ADA to Nitro Wallet
+- ![Deposit Fund](images/deposit-fund.png)
+
+#### 4. Open Short Position
+- ![Open Short Position](images/open-short.png)
+
+#### 5. Supplying ADA [TxReference](https://preview.cexplorer.io/tx/e606b944c76d5969afe19d7c02f5ea8b2043f019eef058a9b06a0d5cb483ea89?tab=content)
+- ![Supplying ADA](images/short-supply.png)
+
+#### 6. Borrowing $tMIN [TxReference](https://preview.cexplorer.io/tx/1d03b3c64084a04dfa5fa59d8d7ce4443e157f31d704cb2fa6dfbfce8671a18c?tab=content)
+- ![Borrowing $tMIN](images/short-borrow.png)
+
+#### 7. Short $tMIN [TxReference](https://preview.cexplorer.io/tx/06f89de2a2d675fd154792ca9ceefa4c73a195b0210b91b3a81ff2ad151bd8ff?tab=content)
+- ![Short $tMIN](images/short-sell.png)
+
+#### 8. Short Position is opening
+
+#### 10. Phrase 2: Close Position
+- User Click Button Close Position
+
+- ![Close Position](images/short-opening.png)
+
+#### 11. Buy Back Token [TxReference](https://preview.cexplorer.io/tx/ebabe1dc70bc921cdc24147844f0f3b26e33711be19baf0bc2ec97142612f76e?tab=content)
+- ![Buy Back Token](images/short-buyback.png)
+
+#### 12. Repay Loan [TxReference](https://preview.cexplorer.io/tx/24429ac86cf21e751fed45666323bcc20cf6d0d147665ccbc05ccef826322d9d?tab=content)
+- ![Repay Loan](images/short-repay-withdraw.png)
+
+#### 13. Withdraw Collateral [TxReference](https://preview.cexplorer.io/tx/634f4f013d0052b11124b06aa8b60eb16f08c0edc7d0688962787d4c38d432ea?tab=content)
+- ![Withdraw Collateral](images/short-repay-withdraw.png)
+
+### Short Liquidation Flow
+- In Testnet-Preview, Liqwid has not supported price Oracle yet. Therefore, the POC Liquidation Scenario is auto-trigger when SHORT Token price go up 10%. For example, if you open SHORT tMIN at price 0.22 ADA/MIN, the Liquidation will be triggered when price reach 0.242 ADA/MIN.
+- So for testing, after `position is opening`, I manipulate `ADA-MIN` price go up that trigger Liquidation Process:
+- ![Short Liquidation](images/short-liquidation.png)
