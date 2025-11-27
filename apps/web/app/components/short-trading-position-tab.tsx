@@ -527,7 +527,7 @@ export const ShortPositionTab = () => {
                   <Statistic
                     prefix={<DollarOutlined />}
                     title="Leverage"
-                    value={`${0.7}x`}
+                    value={`${0.5}x`}
                     valueStyle={{ color: "#1890ff", fontWeight: "bold" }}
                   />
                 </Col>
