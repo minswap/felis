@@ -262,8 +262,18 @@ export const ShortTradeTab = () => {
         </Col>
       </Row>
 
-      <Button block disabled={!nitroWallet || positions.length > 0} onClick={handleShort} size="large" type="primary">
-        {positions.length > 0 ? "Close existing position first" : "Open Short Position"}
+      <Button
+        block
+        disabled={!nitroWallet || positions.length > 0 || nitroBalance < MIN_REQUIRED_ADA}
+        onClick={handleShort}
+        size="large"
+        type="primary"
+      >
+        {positions.length > 0
+          ? "Close existing position first"
+          : nitroBalance < MIN_REQUIRED_ADA
+            ? "Insufficient balance"
+            : "Open Short Position"}
       </Button>
     </Space>
   );
