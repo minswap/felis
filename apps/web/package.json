@@ -23,7 +23,7 @@
     "@repo/minswap-dex-v2": "workspace:*",
     "@repo/minswap-build-tx": "workspace:*",
     "antd": "^5.27.6",
-    "next": "^15.4.2",
+    "next": "^16.0.7",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "jotai": "^2.10.2"
