@@ -23,17 +23,17 @@
     "@repo/minswap-dex-v2": "workspace:*",
     "@repo/minswap-build-tx": "workspace:*",
     "antd": "^5.27.6",
-    "next": "^16.0.7",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "next": "^16.0.10",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
     "jotai": "^2.10.2"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
     "eslint": "^9.31.0",
     "typescript": "5.8.2"
   }
