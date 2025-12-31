@@ -27,6 +27,7 @@
     "@repo/ledger-utils": "workspace:*",
     "@repo/tx-builder": "workspace:*",
     "@repo/minswap-dex-v2": "workspace:*",
-    "@minswap/tiny-invariant": "^1.2.0"
+    "@minswap/tiny-invariant": "^1.2.0",
+    "bignumber.js": "^9.1.2"
   }
 }
