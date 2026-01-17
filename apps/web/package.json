@@ -1,0 +1,40 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port 3001",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint --max-warnings 0",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ant-design/icons": "5.x",
+    "@ant-design/nextjs-registry": "^1.1.0",
+    "@minswap/tiny-invariant": "^1.2.0",
+    "@repo/ledger-core": "workspace:*",
+    "@repo/ledger-utils": "workspace:*",
+    "@repo/tx-builder": "workspace:*",
+    "@repo/cip": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@repo/minswap-lending-market": "workspace:*",
+    "@repo/minswap-dex-v2": "workspace:*",
+    "@repo/minswap-build-tx": "workspace:*",
+    "antd": "^5.27.6",
+    "next": "^16.0.10",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "jotai": "^2.10.2"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.31.0",
+    "typescript": "5.8.2"
+  }
+}

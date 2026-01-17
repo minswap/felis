@@ -301,6 +301,17 @@ export namespace DatumSource {
   export function fromMaybeDatumHash(mdh: Maybe<Bytes>): Maybe<DatumSource> {
     return Maybe.map(mdh, newDatumHash);
   }
+
+  export function getDatumData(ds: Maybe<DatumSource>): Maybe<Bytes> {
+    if (Maybe.isJust(ds)) {
+      if (ds.type === DatumSourceType.DATUM_HASH) {
+        return null;
+      }
+      return ds.data;
+    }
+
+    return null;
+  }
 }
 
 export class TxOut {

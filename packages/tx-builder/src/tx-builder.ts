@@ -499,7 +499,7 @@ export class TxBuilder {
    * txb.addMessageMetadata("msg", ["bob"])
    * => txb.txDraft.metadata["674"]["msg"] === ["bob"]
    */
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  // biome-ignore lint/suspicious/noExplicitAny: legacy
   addMessageMetadata(key: StandardMessageMetadataKey, data: any): this {
     this.tasks.push((txb) => {
       if (data !== undefined && data !== null) {

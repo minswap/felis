@@ -122,7 +122,7 @@ export namespace CIP68 {
   ];
 
   export function checksum(byteArr: Uint8Array): number {
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    // biome-ignore lint/suspicious/noExplicitAny: legacy
     let c: any;
     for (let i = 0; i < byteArr.length; i++) {
       const byte = byteArr[i];
@@ -165,7 +165,7 @@ export namespace CIP68 {
     const metadataJson = data.fields[0];
     safeFreeRustObjects(plutusData);
 
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    // biome-ignore lint/suspicious/noExplicitAny: legacy
     const unwrapString = (key: string, json: any): string | undefined => {
       if (!(key in json)) {
         return undefined;
@@ -179,7 +179,7 @@ export namespace CIP68 {
         return undefined;
       }
     };
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    // biome-ignore lint/suspicious/noExplicitAny: legacy
     const unwrapNumber = (key: string, json: any): number | undefined => {
       if (!(key in json)) {
         return undefined;

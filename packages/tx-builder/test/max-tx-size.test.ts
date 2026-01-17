@@ -1,7 +1,7 @@
-import { beforeAll, expect, test } from "vitest";
-import { RustModule } from "@repo/ledger-utils";
 import { ADA, Address, Bytes, NetworkEnvironment, TxOut, Utxo, Value } from "@repo/ledger-core";
-import { TxBuilder, CoinSelectionAlgorithm, EmulatorProvider } from "../src";
+import { RustModule } from "@repo/ledger-utils";
+import { beforeAll, expect, test } from "vitest";
+import { CoinSelectionAlgorithm, EmulatorProvider, TxBuilder } from "../src";
 
 beforeAll(async () => {
   await RustModule.load();

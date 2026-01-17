@@ -13,7 +13,22 @@
       "outputs": ["dist/**"]
     },
     "@repo/tx-builder#build": {
+      "dependsOn": ["@repo/ledger-core#build", "@repo/cip#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@repo/cip#build": {
       "dependsOn": ["@repo/ledger-core#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@repo/minswap-lending-market#build": {
+      "dependsOn": ["@repo/tx-builder#build", "@repo/minswap-build-tx#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@repo/minswap-build-tx#build": {
+      "dependsOn": ["@repo/tx-builder#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },

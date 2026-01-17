@@ -70,6 +70,43 @@ export function enterpriseAddressWalletFromSeed(
   };
 }
 
+export function baseWalletFromEntropy(entropyHex: string, networkId: number): BaseAddressWallet {
+  const entropy = Bytes.fromHex(entropyHex);
+  invariant(entropy.bytes.length === 32, "Entropy must be 32 bytes");
+
+  const CSL = RustModule.get;
+  const rootKey = CSL.Bip32PrivateKey.from_bip39_entropy(entropy.bytes, new Uint8Array());
+
+  const accountKey = rootKey
+    .derive(harden(1852)) // purpose
+    .derive(harden(1815)) // coin type
+    .derive(harden(0));
+
+  const paymentKey = accountKey.derive(0).derive(0).to_raw_key();
+  const paymentKeyHash = paymentKey.to_public().hash();
+
+  const stakeKey = accountKey.derive(2).derive(0).to_raw_key();
+  const stakeKeyHash = stakeKey.to_public().hash();
+
+  const address = CSL.BaseAddress.new(
+    networkId,
+    CSL.StakeCredential.from_keyhash(paymentKeyHash),
+    CSL.StakeCredential.from_keyhash(stakeKeyHash),
+  )
+    .to_address()
+    .to_bech32(undefined);
+  const rewardAddress = CSL.RewardAddress.new(networkId, CSL.StakeCredential.from_keyhash(stakeKeyHash))
+    .to_address()
+    .to_bech32(undefined);
+
+  return {
+    address: Address.fromBech32(address),
+    rewardAddress: RewardAddress.fromBech32(rewardAddress),
+    paymentKey: PrivateKey.fromCSL(CSL.PrivateKey.from_bech32(paymentKey.to_bech32())),
+    stakeKey: PrivateKey.fromCSL(CSL.PrivateKey.from_bech32(stakeKey.to_bech32())),
+  };
+}
+
 function walletFromSeed(
   seed: string,
   addressType: AddressType.BASE_ADDRESS | AddressType.ENTERPRISE_ADDRESS,

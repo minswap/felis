@@ -3,7 +3,6 @@ export * from "./duration";
 export * from "./errors";
 export * from "./hash";
 export * from "./hex-utils";
-export * from "./isomorphic-text-encoder";
 export * from "./loader";
 export * from "./maybe";
 export * from "./number";
