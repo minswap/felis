@@ -1,4 +1,5 @@
 export type {
+  Language as ECSLLanguage,
   PrivateKey as ECSLPrivateKey,
   Transaction as ECSLTransaction,
   TransactionBody as ECSLTransactionBody,

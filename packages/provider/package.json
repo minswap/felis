@@ -1,0 +1,32 @@
+{
+  "name": "@repo/provider",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsc --watch --preserveWatchOutput",
+    "build": "tsc",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "check-circular-imports": "dpdm --no-warning --no-tree src"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/json-bigint": "^1.0.4",
+    "@types/node": "^22.15.3",
+    "dpdm": "^3.14.0",
+    "eslint": "^9.31.0",
+    "typescript": "5.8.2",
+    "vitest": "^3.2.4",
+    "@repo/minswap-dex-v2": "workspace:*"
+  },
+  "dependencies": {
+    "@minswap/tiny-invariant": "^1.2.0",
+    "@repo/ledger-core": "workspace:*",
+    "@repo/ledger-utils": "workspace:*",
+    "remeda": "^2.19.2"
+  }
+}
