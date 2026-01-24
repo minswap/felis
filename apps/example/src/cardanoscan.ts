@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { RustModule } from "@repo/ledger-utils";
-import { MinswapV1Syncer, MinswapV2Syncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction, WingridersV1Syncer, WingridersV2Syncer } from "@repo/syncer";
+import { MinswapV1Syncer, MinswapV2Syncer, SplashSyncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction, WingridersV1Syncer, WingridersV2Syncer } from "@repo/syncer";
 import socketIO from "socket.io-client";
 import { NetworkEnvironment } from "../../../packages/ledger-core/dist/network-id";
 import { Bytes } from "@repo/ledger-core";
@@ -63,6 +63,11 @@ const main = async () => {
       networkEnv: NetworkEnvironment.MAINNET,
     });
 
+    const splashTx = SplashSyncer.parseTx({
+      tx: wrapTx,
+      networkEnv: NetworkEnvironment.MAINNET,
+    });
+
     if (minswapV1Tx) {
       console.log(JSON.stringify(minswapV1Tx, null, 2));
     } else if (minswapV2Tx) {
@@ -75,6 +80,8 @@ const main = async () => {
       console.log(JSON.stringify(wingridersV1Tx, null, 2));
     } else if (wingridersV2Tx) {
       console.log(JSON.stringify(wingridersV2Tx, null, 2));
+    } else if (splashTx) {
+      console.log(JSON.stringify(splashTx, null, 2));
     }
   });
 
