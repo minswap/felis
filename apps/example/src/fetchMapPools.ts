@@ -1,12 +1,11 @@
 import fs from "node:fs";
-import { NetworkEnvironment } from "@repo/ledger-core";
+import { Bytes, NetworkEnvironment, Utxo, XJSON } from "@repo/ledger-core";
 import { getDexV2Configs, PoolV2 } from "@repo/minswap-dex-v2";
 import { KupoService } from "@repo/provider";
-import { MinswapV2Syncer } from "@repo/syncer";
+import { MinswapV2Syncer, SundaeSwapV1Syncer } from "@repo/syncer";
+import { SundaeSwapV1 } from "@repo/sundaeswap-v1";
 
-const main = async () => {
-  const kupo = new KupoService("http://mainnet-staging.ts.minswap.org:1442");
-  const networkEnv = NetworkEnvironment.MAINNET;
+const fetchMinswapV2Pools = async (kupo: KupoService, networkEnv: NetworkEnvironment) => {
   const minswapDexV2Configs = getDexV2Configs(networkEnv);
   const poolScriptHash = minswapDexV2Configs.poolEnterpriseAddress.payment.payload;
   const poolAuthenAsset = minswapDexV2Configs.poolAuthenAsset;
@@ -27,7 +26,42 @@ const main = async () => {
   }
 
   fs.writeFileSync("data/minswap-dex-v2-map-pool.json", JSON.stringify(mapPool, null, 2));
-  console.log("Done fetching map pool");
+  console.log("Minswap V2 | Done fetching map pool");
+};
+
+const fetchSundaeswapV1Pools = async (kupo: KupoService, networkEnv: NetworkEnvironment) => {
+  const sundaeswapV1Utxos = await kupo.utxoAtScriptHashWithPolicyId(Bytes.fromHex(SundaeSwapV1.POOL_SCRIPT_HASH), Bytes.fromHex(SundaeSwapV1.AUTHEN_POLICY_ID));
+  console.log("Fetched sundaeswap v1 Utxos:", sundaeswapV1Utxos.length);
+  const mapPool: SundaeSwapV1Syncer.MapPool = JSON.parse(fs.readFileSync("data/sundaeswap-v1-map-pool.json", "utf-8"));
+  for (const utxo of sundaeswapV1Utxos) {
+    const outlineDatum = utxo.output.getOutlineDatum();
+    if (outlineDatum.type === "err") {
+      console.error("Utxo missing datum:", outlineDatum.error);
+      continue;
+    }
+    const rawDatum = outlineDatum.value.hex;
+    const pool = SundaeSwapV1.Pool.fromUtxo(utxo, rawDatum, networkEnv);
+    if (pool.type === "ok") {
+      const ident = pool.value.datum.ident.hex;
+      const assetA = pool.value.assetA.toString();
+      const assetB = pool.value.assetB.toString();
+      if (!mapPool[ident]) {
+        mapPool[ident] = { assetA, assetB };
+      }
+    } else {
+      console.error(`${utxo.input.txId.hex} Error parsing pool from utxo:`, pool.error);
+    }
+  }
+  console.log("Total SundaeSwap V1 Pools found:", Object.keys(mapPool).length);
+  fs.writeFileSync("data/sundaeswap-v1-map-pool.json", JSON.stringify(mapPool, null, 2));
+  console.log("SundaeSwap V1 | Done fetching map pool");
+};
+
+const main = async () => {
+  const kupo = new KupoService("http://mainnet-staging.ts.minswap.org:1442");
+  const networkEnv = NetworkEnvironment.MAINNET;
+  // await fetchMinswapV2Pools(kupo, networkEnv);
+  await fetchSundaeswapV1Pools(kupo, networkEnv);
 };
 
 main();

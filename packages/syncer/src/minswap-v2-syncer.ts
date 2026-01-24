@@ -24,7 +24,6 @@ export namespace MinswapV2Syncer {
       assetIn: WrapAsset;
       amountIn: WrapNum;
       assetOut: WrapAsset;
-      amountOut: WrapNum;
       minimumReceive: WrapNum;
       dexFee: WrapNum;
       deposit: WrapNum;
@@ -159,7 +158,6 @@ export namespace MinswapV2Syncer {
         assetIn: orderInfo.swapAsset.toString(),
         amountIn: orderInfo.swapAmount.toString(),
         assetOut: orderInfo.toAsset.toString(),
-        amountOut: minimumReceive.toString(),
         minimumReceive: minimumReceive.toString(),
         dexFee: order.datum.maxBatcherFee.toString(),
         deposit: orderInfo.depositAda.toString(),

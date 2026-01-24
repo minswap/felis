@@ -28,6 +28,7 @@
     "@repo/ledger-utils": "workspace:*",
     "@repo/minswap-dex-v1": "workspace:*",
     "@repo/minswap-dex-v2": "workspace:*",
+    "@repo/sundaeswap-v1": "workspace:*",
     "@repo/tx-builder": "workspace:*"
   }
 }

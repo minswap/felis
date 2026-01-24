@@ -359,4 +359,10 @@ export class KupoService {
     const utxos: KupoUtxo[] = await this.getUtxosByMatches(matches);
     return await this.parseUtxo(utxos);
   }
+
+  async utxoAtScriptHashWithPolicyId(scriptHash: Bytes, policyId: Bytes): Promise<Utxo[]> {
+    const matches = `${scriptHash.hex}/*?unspent&policy_id=${policyId.hex}`;
+    const utxos: KupoUtxo[] = await this.getUtxosByMatches(matches);
+    return await this.parseUtxo(utxos);
+  }
 }
