@@ -4,4 +4,5 @@ export { MinswapV2Syncer } from "./minswap-v2-syncer";
 export { SundaeSwapV1Syncer } from "./sundaeswap-v1-syncer";
 export { SundaeSwapV3Syncer } from "./sundaeswap-v3-syncer";
 export { WingridersV1Syncer } from "./wingriders-v1-syncer";
+export { WingridersV2Syncer } from "./wingriders-v2-syncer";
 export * from "./transaction";
