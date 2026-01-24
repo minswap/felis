@@ -3,7 +3,7 @@ import * as Ogmios from "@cardano-ogmios/client";
 import invariant from "@minswap/tiny-invariant";
 import { NetworkEnvironment } from "@repo/ledger-core";
 import { RustModule } from "@repo/ledger-utils";
-import { MinswapV1Syncer, MinswapV2Syncer, SundaeSwapV1Syncer, Transaction } from "@repo/syncer";
+import { MinswapV1Syncer, MinswapV2Syncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction } from "@repo/syncer";
 
 const main = async () => {
   await RustModule.load();
@@ -23,6 +23,7 @@ const main = async () => {
 
   const minswapV2MapPool: MinswapV2Syncer.MapPool = JSON.parse(fs.readFileSync("data/minswap-dex-v2-map-pool.json", "utf-8"));
   const sundaeSwapV1MapPool: SundaeSwapV1Syncer.MapPool = JSON.parse(fs.readFileSync("data/sundaeswap-v1-map-pool.json", "utf-8"));
+  const sundaeSwapV3MapPool: SundaeSwapV3Syncer.MapPool = JSON.parse(fs.readFileSync("data/sundaeswap-v3-map-pool.json", "utf-8"));
 
   const client = await Ogmios.createChainSynchronizationClient(
     context,
@@ -58,6 +59,12 @@ const main = async () => {
               mapPool: sundaeSwapV1MapPool,
             });
 
+            const sundaeSwapV3Tx = SundaeSwapV3Syncer.parseTx({
+              tx: wrapTx,
+              networkEnv,
+              mapPool: sundaeSwapV3MapPool,
+            });
+
             // handle your business logic here
             if (minswapV1Tx) {
               console.log(JSON.stringify(minswapV1Tx, null, 2));
@@ -65,6 +72,8 @@ const main = async () => {
               console.log(JSON.stringify(minswapV2Tx, null, 2));
             } else if (sundaeSwapV1Tx) {
               console.log(JSON.stringify(sundaeSwapV1Tx, null, 2));
+            } else if (sundaeSwapV3Tx) {
+              console.log(JSON.stringify(sundaeSwapV3Tx, null, 2));
             }
 
             // update @mapPool when a new pool is created
@@ -76,6 +85,11 @@ const main = async () => {
             if (sundaeSwapV1Tx?.type === SundaeSwapV1Syncer.TxType.CREATE_POOL) {
               const { poolIdent, assetA, assetB } = sundaeSwapV1Tx;
               sundaeSwapV1MapPool[poolIdent] = { assetA, assetB };
+            }
+
+            if (sundaeSwapV3Tx?.type === SundaeSwapV3Syncer.TxType.CREATE_POOL) {
+              const { poolIdent, assetA, assetB } = sundaeSwapV3Tx;
+              sundaeSwapV3MapPool[poolIdent] = { assetA, assetB };
             }
           }
         }

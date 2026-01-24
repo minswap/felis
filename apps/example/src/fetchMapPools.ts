@@ -2,8 +2,9 @@ import fs from "node:fs";
 import { Bytes, NetworkEnvironment, Utxo, XJSON } from "@repo/ledger-core";
 import { getDexV2Configs, PoolV2 } from "@repo/minswap-dex-v2";
 import { KupoService } from "@repo/provider";
-import { MinswapV2Syncer, SundaeSwapV1Syncer } from "@repo/syncer";
+import { MinswapV2Syncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer } from "@repo/syncer";
 import { SundaeSwapV1 } from "@repo/sundaeswap-v1";
+import { SundaeSwapV3 } from "@repo/sundaeswap-v3";
 
 const fetchMinswapV2Pools = async (kupo: KupoService, networkEnv: NetworkEnvironment) => {
   const minswapDexV2Configs = getDexV2Configs(networkEnv);
@@ -57,11 +58,47 @@ const fetchSundaeswapV1Pools = async (kupo: KupoService, networkEnv: NetworkEnvi
   console.log("SundaeSwap V1 | Done fetching map pool");
 };
 
+const fetchSundaeswapV3Pools = async (kupo: KupoService, networkEnv: NetworkEnvironment) => {
+  const sundaeswapV3Utxos = await kupo.utxoAtScriptHashWithPolicyId(
+    Bytes.fromHex(SundaeSwapV3.POOL_SCRIPT_HASH),
+    Bytes.fromHex(SundaeSwapV3.NFT_POLICY_ID),
+  );
+  console.log("Fetched sundaeswap v3 Utxos:", sundaeswapV3Utxos.length);
+
+  const mapPool: SundaeSwapV3Syncer.MapPool = JSON.parse(fs.readFileSync("data/sundaeswap-v3-map-pool.json", "utf-8"));
+
+  for (const utxo of sundaeswapV3Utxos) {
+    // V3 uses inline datums
+    const inlineDatum = utxo.output.getInlineDatum();
+    if (inlineDatum.type === "err") {
+      console.error("Utxo missing inline datum:", inlineDatum.error);
+      continue;
+    }
+    const rawDatum = inlineDatum.value.hex;
+    const pool = SundaeSwapV3.Pool.fromUtxo(utxo, rawDatum, networkEnv);
+    if (pool.type === "ok") {
+      const ident = pool.value.ident.hex;
+      const assetA = pool.value.assetA.toString();
+      const assetB = pool.value.assetB.toString();
+      if (!mapPool[ident]) {
+        mapPool[ident] = { assetA, assetB };
+      }
+    } else {
+      console.error(`${utxo.input.txId.hex} Error parsing pool from utxo:`, pool.error);
+    }
+  }
+
+  console.log("Total SundaeSwap V3 Pools found:", Object.keys(mapPool).length);
+  fs.writeFileSync("data/sundaeswap-v3-map-pool.json", JSON.stringify(mapPool, null, 2));
+  console.log("SundaeSwap V3 | Done fetching map pool");
+};
+
 const main = async () => {
   const kupo = new KupoService("http://mainnet-staging.ts.minswap.org:1442");
   const networkEnv = NetworkEnvironment.MAINNET;
   // await fetchMinswapV2Pools(kupo, networkEnv);
-  await fetchSundaeswapV1Pools(kupo, networkEnv);
+  // await fetchSundaeswapV1Pools(kupo, networkEnv);
+  await fetchSundaeswapV3Pools(kupo, networkEnv);
 };
 
 main();

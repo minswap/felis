@@ -1,12 +1,11 @@
 {
-  "name": "@apps/example",
+  "name": "@repo/sundaeswap-v3",
   "version": "0.0.1",
   "private": true,
   "exports": {
     ".": "./dist/index.js"
   },
   "scripts": {
-    "syncer": "pnpm tsx src/syncer.ts",
     "dev": "tsc --watch --preserveWatchOutput",
     "build": "tsc",
     "test": "vitest",
@@ -16,24 +15,16 @@
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@types/json-bigint": "^1.0.4",
     "@types/node": "^22.15.3",
-    "dpdm": "^3.14.0",
     "eslint": "^9.31.0",
     "typescript": "5.8.2",
+    "@types/json-bigint": "^1.0.4",
+    "dpdm": "^3.14.0",
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@cardano-ogmios/client": "^6.11.0",
-    "@minswap/tiny-invariant": "^1.2.0",
     "@repo/ledger-core": "workspace:*",
     "@repo/ledger-utils": "workspace:*",
-    "@repo/minswap-dex-v2": "workspace:*",
-    "@repo/sundaeswap-v1": "workspace:*",
-    "@repo/sundaeswap-v3": "workspace:*",
-    "@repo/syncer": "workspace:*",
-    "@repo/provider": "workspace:*",
-    "@repo/tx-builder": "workspace:*",
-    "socket.io-client": "^4.8.3"
+    "@minswap/tiny-invariant": "^1.2.0"
   }
 }
