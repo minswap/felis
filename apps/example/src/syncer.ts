@@ -3,7 +3,7 @@ import * as Ogmios from "@cardano-ogmios/client";
 import invariant from "@minswap/tiny-invariant";
 import { NetworkEnvironment } from "@repo/ledger-core";
 import { RustModule } from "@repo/ledger-utils";
-import { MinswapV1Syncer, MinswapV2Syncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction } from "@repo/syncer";
+import { MinswapV1Syncer, MinswapV2Syncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction, WingridersV1Syncer } from "@repo/syncer";
 
 const main = async () => {
   await RustModule.load();
@@ -65,6 +65,11 @@ const main = async () => {
               mapPool: sundaeSwapV3MapPool,
             });
 
+            const wingridersV1Tx = WingridersV1Syncer.parseTx({
+              tx: wrapTx,
+              networkEnv: NetworkEnvironment.MAINNET,
+            });
+
             // handle your business logic here
             if (minswapV1Tx) {
               console.log(JSON.stringify(minswapV1Tx, null, 2));
@@ -74,6 +79,8 @@ const main = async () => {
               console.log(JSON.stringify(sundaeSwapV1Tx, null, 2));
             } else if (sundaeSwapV3Tx) {
               console.log(JSON.stringify(sundaeSwapV3Tx, null, 2));
+            } else if (wingridersV1Tx) {
+              console.log(JSON.stringify(wingridersV1Tx, null, 2));
             }
 
             // update @mapPool when a new pool is created

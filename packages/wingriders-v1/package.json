@@ -1,5 +1,5 @@
 {
-  "name": "@repo/syncer",
+  "name": "@repo/wingriders-v1",
   "version": "0.0.1",
   "private": true,
   "exports": {
@@ -23,14 +23,8 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@minswap/tiny-invariant": "^1.2.0",
     "@repo/ledger-core": "workspace:*",
     "@repo/ledger-utils": "workspace:*",
-    "@repo/minswap-dex-v1": "workspace:*",
-    "@repo/minswap-dex-v2": "workspace:*",
-    "@repo/sundaeswap-v1": "workspace:*",
-    "@repo/sundaeswap-v3": "workspace:*",
-    "@repo/wingriders-v1": "workspace:*",
-    "@repo/tx-builder": "workspace:*"
+    "@minswap/tiny-invariant": "^1.2.0"
   }
 }
