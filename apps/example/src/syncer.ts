@@ -3,7 +3,7 @@ import * as Ogmios from "@cardano-ogmios/client";
 import invariant from "@minswap/tiny-invariant";
 import { NetworkEnvironment } from "@repo/ledger-core";
 import { RustModule } from "@repo/ledger-utils";
-import { MinswapV1Syncer, MinswapV2Syncer, SplashSyncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction, WingridersV1Syncer, WingridersV2Syncer } from "@repo/syncer";
+import { MinswapStableswapSyncer, MinswapV1Syncer, MinswapV2Syncer, SplashSyncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction, WingridersV1Syncer, WingridersV2Syncer } from "@repo/syncer";
 
 const main = async () => {
   await RustModule.load();
@@ -53,6 +53,11 @@ const main = async () => {
               networkEnv,
             });
 
+            const minswapStableswapTx = MinswapStableswapSyncer.parseTx({
+              tx: wrapTx,
+              networkEnv: NetworkEnvironment.MAINNET,
+            });
+
             const sundaeSwapV1Tx = SundaeSwapV1Syncer.parseTx({
               tx: wrapTx,
               networkEnv,
@@ -95,6 +100,8 @@ const main = async () => {
               console.log(JSON.stringify(wingridersV2Tx, null, 2));
             } else if (splashTx) {
               console.log(JSON.stringify(splashTx, null, 2));
+            } else if (minswapStableswapTx) {
+              console.log(JSON.stringify(minswapStableswapTx, null, 2));
             }
 
             // update @mapPool when a new pool is created
