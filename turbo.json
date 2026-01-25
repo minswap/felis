@@ -43,7 +43,7 @@
       "outputs": ["dist/**"]
     },
     "@repo/minswap-stableswap#build": {
-      "dependsOn": ["@repo/minswap-dex-v2#build"],
+      "dependsOn": ["@repo/minswap-dex-v2#build", "@repo/minswap-build-tx#build", "@repo/tx-builder#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
