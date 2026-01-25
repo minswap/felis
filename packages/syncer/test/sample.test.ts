@@ -204,7 +204,7 @@ describe("Transaction.fromECSL", () => {
       tx,
       networkEnv: NetworkEnvironment.MAINNET,
     });
-    console.log(JSON.stringify(t, null, 2));
+    // console.log(JSON.stringify(t, null, 2));
     expect(t?.type).toBe(S.MinswapStableswapSyncer.TxType.CREATE_ORDER);
   });
 });

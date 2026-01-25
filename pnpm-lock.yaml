@@ -75,9 +75,6 @@ importers:
       typescript:
         specifier: 5.8.2
         version: 5.8.2
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.15.3)(tsx@4.20.3)
 
   apps/web:
     dependencies:
@@ -417,9 +414,6 @@ importers:
       typescript:
         specifier: 5.8.2
         version: 5.8.2
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.15.3)(tsx@4.20.3)
 
   packages/minswap-dex-v2:
     dependencies:
@@ -515,9 +509,6 @@ importers:
       typescript:
         specifier: 5.8.2
         version: 5.8.2
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.15.3)(tsx@4.20.3)
 
   packages/minswap-stableswap:
     dependencies:
@@ -616,9 +607,6 @@ importers:
       typescript:
         specifier: 5.8.2
         version: 5.8.2
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.15.3)(tsx@4.20.3)
 
   packages/splash:
     dependencies:
@@ -656,9 +644,6 @@ importers:
       typescript:
         specifier: 5.8.2
         version: 5.8.2
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.15.3)(tsx@4.20.3)
 
   packages/sundaeswap-v1:
     dependencies:
@@ -730,9 +715,6 @@ importers:
       typescript:
         specifier: 5.8.2
         version: 5.8.2
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.15.3)(tsx@4.20.3)
 
   packages/syncer:
     dependencies:
@@ -843,9 +825,6 @@ importers:
       typescript:
         specifier: 5.8.2
         version: 5.8.2
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.15.3)(tsx@4.20.3)
 
   packages/typescript-config: {}
 
@@ -917,9 +896,6 @@ importers:
       typescript:
         specifier: 5.8.2
         version: 5.8.2
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.15.3)(tsx@4.20.3)
 
   packages/wingriders-v2:
     dependencies:
@@ -957,9 +933,6 @@ importers:
       typescript:
         specifier: 5.8.2
         version: 5.8.2
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.15.3)(tsx@4.20.3)
 
 packages:
 

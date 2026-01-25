@@ -9,8 +9,6 @@
     "syncer": "pnpm tsx src/syncer.ts",
     "dev": "tsc --watch --preserveWatchOutput",
     "build": "tsc",
-    "test": "vitest",
-    "test:watch": "vitest --watch",
     "check-circular-imports": "dpdm --no-warning --no-tree src"
   },
   "devDependencies": {
@@ -20,8 +18,7 @@
     "@types/node": "^22.15.3",
     "dpdm": "^3.14.0",
     "eslint": "^9.31.0",
-    "typescript": "5.8.2",
-    "vitest": "^3.2.4"
+    "typescript": "5.8.2"
   },
   "dependencies": {
     "@cardano-ogmios/client": "^6.11.0",
