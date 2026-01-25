@@ -32,6 +32,26 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
+    "@repo/minswap-dex-v1#build": {
+      "dependsOn": ["@repo/ledger-core#build", "@repo/ledger-utils#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@repo/minswap-dex-v2#build": {
+      "dependsOn": ["@repo/ledger-core#build", "@repo/ledger-utils#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@repo/minswap-stableswap#build": {
+      "dependsOn": ["@repo/minswap-dex-v2#build", "@repo/minswap-build-tx#build", "@repo/tx-builder#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@repo/syncer#build": {
+      "dependsOn": ["@repo/minswap-dex-v1#build", "@repo/minswap-dex-v2#build", "@repo/minswap-stableswap#build", "@repo/tx-builder#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
     "lint": {
       "dependsOn": ["^lint"]
     },

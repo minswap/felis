@@ -11,7 +11,7 @@ import {
 import * as cbor from "cbor";
 import { Bytes } from "./bytes";
 import type { NativeScript } from "./native-script";
-import type { PlutusData } from "./plutus-json";
+import { PlutusData } from "./plutus-json";
 
 export class PrivateKey {
   readonly key: Bytes;
@@ -123,6 +123,11 @@ export class PublicKeyHash {
     return {
       bytes: this.keyHash.hex,
     };
+  }
+
+  static fromPlutusJson(plutusJson: PlutusData): PublicKeyHash {
+    invariant(PlutusData.isPlutusBytes(plutusJson), "PublicKeyHash.fromPlutusJson: must be PlutusBytes");
+    return new PublicKeyHash(Bytes.fromHex(plutusJson.bytes));
   }
 }
 

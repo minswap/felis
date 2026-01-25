@@ -1,4 +1,4 @@
-import { type CSLLanguage, RustModule } from "@repo/ledger-utils";
+import { type CSLLanguage, type ECSLLanguage, RustModule } from "@repo/ledger-utils";
 import type { Bytes } from "./bytes";
 
 export enum PlutusVersion {
@@ -9,6 +9,24 @@ export enum PlutusVersion {
 
 export namespace PlutusVersion {
   export function fromCSL(language: CSLLanguage): PlutusVersion {
+    const kind = language.kind();
+    switch (kind) {
+      case 0: {
+        return PlutusVersion.V1;
+      }
+      case 1: {
+        return PlutusVersion.V2;
+      }
+      case 2: {
+        return PlutusVersion.V3;
+      }
+      default: {
+        throw new Error(`Unsupported Plutus version: ${kind}`);
+      }
+    }
+  }
+
+  export function fromECSL(language: ECSLLanguage): PlutusVersion {
     const kind = language.kind();
     switch (kind) {
       case 0: {
