@@ -1,10 +1,11 @@
-import { ADA, Asset, DatumSourceType, type NetworkEnvironment } from "@repo/ledger-core";
+import { ADA, type Asset, DatumSourceType, type NetworkEnvironment } from "@repo/ledger-core";
 import { Maybe } from "@repo/ledger-utils";
 import {
   getStableswapPoolConfigByNFTAsset,
   getStableswapPoolConfigs,
   StableswapOrderDatum,
   StableswapPoolDatum,
+  type StableswapPoolConfig,
   StableswapStepType,
 } from "@repo/minswap-stableswap";
 import type { Transaction } from "./transaction";
@@ -62,8 +63,8 @@ export namespace MinswapStableswapSyncer {
     }
 
     // Find the pool config that matches this order address
-    let matchedConfig: (typeof allConfigs)[string] | null = null;
-    for (const config of Object.values(allConfigs)) {
+    let matchedConfig: StableswapPoolConfig | null = null;
+    for (const config of Object.values(allConfigs) as StableswapPoolConfig[]) {
       const configScriptHash = config.orderAddress.toScriptHash();
       if (configScriptHash && configScriptHash.hex === scriptHash.hex) {
         matchedConfig = config;
@@ -147,7 +148,7 @@ export namespace MinswapStableswapSyncer {
     const allConfigs = getStableswapPoolConfigs(networkEnv);
 
     let mintedNftAsset: Asset | null = null;
-    for (const config of Object.values(allConfigs)) {
+    for (const config of Object.values(allConfigs) as StableswapPoolConfig[]) {
       if (tx.body.mint.get(config.nftAsset) > 0n) {
         mintedNftAsset = config.nftAsset;
         break;
