@@ -1,7 +1,6 @@
-import invariant from "@minswap/tiny-invariant";
-
 import { ADA, type Address, type NetworkEnvironment, TxOut, Utxo, Value } from "@minswap/felis-ledger-core";
 import { Result } from "@minswap/felis-ledger-utils";
+import invariant from "@minswap/tiny-invariant";
 import { LEFT_OVER_ADA_SPLIT_THRESHOLD } from "./constants";
 import { selectUtxos, splitChangeOut } from "./select-utxos";
 import {

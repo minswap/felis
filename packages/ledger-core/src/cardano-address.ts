@@ -1,4 +1,3 @@
-import invariant from "@minswap/tiny-invariant";
 import {
   type CSLAddress,
   type CSLStakeCredential,
@@ -8,6 +7,7 @@ import {
   RustModule,
   safeFreeRustObjects,
 } from "@minswap/felis-ledger-utils";
+import invariant from "@minswap/tiny-invariant";
 import * as Typhon from "@stricahq/typhonjs";
 import { Bytes } from "./bytes";
 import { NetworkID } from "./network-id";

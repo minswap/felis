@@ -10,7 +10,9 @@
   "bugs": {
     "url": "https://github.com/minswap/felis/issues"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": "./dist/index.js"
   },

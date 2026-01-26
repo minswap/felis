@@ -1,4 +1,3 @@
-import invariant from "@minswap/tiny-invariant";
 import {
   Address,
   AddressType,
@@ -9,6 +8,7 @@ import {
   RewardAddress,
 } from "@minswap/felis-ledger-core";
 import { RustModule } from "@minswap/felis-ledger-utils";
+import invariant from "@minswap/tiny-invariant";
 import { mnemonicToEntropy } from "bip39";
 
 const harden = (num: number): number => 0x80000000 + num;

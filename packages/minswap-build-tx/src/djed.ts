@@ -1,4 +1,3 @@
-import invariant from "@minswap/tiny-invariant";
 import {
   ADA,
   Address,
@@ -17,6 +16,7 @@ import {
 } from "@minswap/felis-ledger-core";
 import { Result } from "@minswap/felis-ledger-utils";
 import type { TxBuilder } from "@minswap/felis-tx-builder";
+import invariant from "@minswap/tiny-invariant";
 import BigNumber from "bignumber.js";
 
 export namespace Djed {

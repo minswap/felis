@@ -1,4 +1,3 @@
-import invariant from "@minswap/tiny-invariant";
 import {
   Address,
   AddressType,
@@ -17,6 +16,7 @@ import {
   RustModule,
   safeFreeRustObjects,
 } from "@minswap/felis-ledger-utils";
+import invariant from "@minswap/tiny-invariant";
 import { mnemonicToEntropy } from "bip39";
 
 /**

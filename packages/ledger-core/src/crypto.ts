@@ -1,4 +1,3 @@
-import invariant from "@minswap/tiny-invariant";
 import {
   type CborHex,
   type CSLEd25519KeyHash,
@@ -8,6 +7,7 @@ import {
   RustModule,
   safeFreeRustObjects,
 } from "@minswap/felis-ledger-utils";
+import invariant from "@minswap/tiny-invariant";
 import * as cbor from "cbor";
 import { Bytes } from "./bytes";
 import type { NativeScript } from "./native-script";
