@@ -1,7 +1,7 @@
-import { baseWalletFromEntropy } from "@repo/cip";
-import { Address } from "@repo/ledger-core";
-import { sha3 } from "@repo/ledger-utils";
-import { NitroWallet } from "@repo/minswap-lending-market";
+import { baseWalletFromEntropy } from "@minswap/felis-cip";
+import { Address } from "@minswap/felis-ledger-core";
+import { sha3 } from "@minswap/felis-ledger-utils";
+import { NitroWallet } from "@minswap/felis-lending-market";
 import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { setNitroBalanceAtom, setNitroWalletAtom } from "../atoms/walletAtom";

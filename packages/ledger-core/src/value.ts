@@ -1,5 +1,5 @@
 import type * as Ogmios from "@cardano-ogmios/schema";
-import { type CborHex, type CSLValue, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
+import { type CborHex, type CSLValue, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
 import JSONBig from "json-bigint";
 import { isDeepEqual } from "remeda";
 import { ADA, Asset } from "./asset";

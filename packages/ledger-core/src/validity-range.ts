@@ -1,4 +1,4 @@
-import { type Maybe, Result } from "@repo/ledger-utils";
+import { type Maybe, Result } from "@minswap/felis-ledger-utils";
 
 export type ValidityRange = {
   validFrom: Maybe<number>;

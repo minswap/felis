@@ -2,8 +2,8 @@
 
 import { CloseOutlined, DollarOutlined, SwapOutlined, TrophyOutlined } from "@ant-design/icons";
 import invariant from "@minswap/tiny-invariant";
-import { ADA, Asset, Utxo, XJSON } from "@repo/ledger-core";
-import { LendingMarket, type LiqwidProvider, NitroWallet } from "@repo/minswap-lending-market";
+import { ADA, Asset, Utxo, XJSON } from "@minswap/felis-ledger-core";
+import { LendingMarket, type LiqwidProvider, NitroWallet } from "@minswap/felis-lending-market";
 import { Alert, App, Button, Card, Col, Divider, Progress, Row, Space, Statistic, Tag } from "antd";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";

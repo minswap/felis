@@ -1,5 +1,5 @@
 import invariant from "@minswap/tiny-invariant";
-import { blake2b256, Maybe, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
+import { blake2b256, Maybe, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
 import * as cbors from "@stricahq/cbors";
 import BigNumber from "bignumber.js";
 import * as cbor from "cbor";

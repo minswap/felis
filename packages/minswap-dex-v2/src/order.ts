@@ -17,8 +17,8 @@ import {
   TxIn,
   type Utxo,
   type Value,
-} from "@repo/ledger-core";
-import { type CborHex, type CSLPlutusData, Maybe, Result } from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-core";
+import { type CborHex, type CSLPlutusData, Maybe, Result } from "@minswap/felis-ledger-utils";
 import { getDexV2Configs, getDexV2OrderScriptHash } from "./constants";
 import { InvalidOrder } from "./invalid-order";
 import { DexVersion, OrderV2StepType } from "./order-step";

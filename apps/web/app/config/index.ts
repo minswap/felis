@@ -1,4 +1,4 @@
-import { NetworkEnvironment } from "@repo/ledger-core";
+import { NetworkEnvironment } from "@minswap/felis-ledger-core";
 
 type Config = {
   networkEnv: NetworkEnvironment;

@@ -1,5 +1,5 @@
-import { NetworkEnvironment, type PrivateKey, XJSON } from "@repo/ledger-core";
-import { blake2b256, Result, RustModule } from "@repo/ledger-utils";
+import { NetworkEnvironment, type PrivateKey, XJSON } from "@minswap/felis-ledger-core";
+import { blake2b256, Result, RustModule } from "@minswap/felis-ledger-utils";
 import * as cbor from "cbor";
 
 export namespace LiqwidProvider {

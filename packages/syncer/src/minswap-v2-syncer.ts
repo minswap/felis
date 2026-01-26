@@ -1,12 +1,12 @@
-import { Asset, NetworkEnvironment, TxIn } from "@repo/ledger-core";
+import { Asset, NetworkEnvironment, TxIn } from "@minswap/felis-ledger-core";
 import {
   getDexV2Configs,
   OrderV2,
   OrderV2StepType,
   PoolV2,
-} from "@repo/minswap-dex-v2";
+} from "@minswap/felis-dex-v2";
 import { Transaction } from "./transaction";
-import { Maybe, Result } from "@repo/ledger-utils";
+import { Maybe, Result } from "@minswap/felis-ledger-utils";
 import { WrapAddress, WrapAsset, WrapNum } from "./types";
 
 export namespace MinswapV2Syncer {

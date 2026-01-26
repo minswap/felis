@@ -1,5 +1,5 @@
-import { ADA, type Address, type Asset, type NetworkEnvironment, TxOut, Utxo, Value } from "@repo/ledger-core";
-import { Result } from "@repo/ledger-utils";
+import { ADA, type Address, type Asset, type NetworkEnvironment, TxOut, Utxo, Value } from "@minswap/felis-ledger-core";
+import { Result } from "@minswap/felis-ledger-utils";
 import { MAX_TOKEN_BUNDLE_SIZE } from "./constants";
 import { SelectUtxosError } from "./tx-builder-error";
 import { SplitChangeOutError, type SplitChangeOutResult } from "./types";

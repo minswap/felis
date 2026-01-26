@@ -1,11 +1,11 @@
-# @repo/syncer
+# @minswap/felis-syncer
 
 A library for parsing Cardano DEX transactions from various protocols. This package provides syncers that can extract order and pool creation information from raw transactions.
 
 ## Installation
 
 ```bash
-pnpm add @repo/syncer
+pnpm add @minswap/felis-syncer
 ```
 
 ## Prerequisites
@@ -13,7 +13,7 @@ pnpm add @repo/syncer
 Before using the syncers, you must initialize the WASM module:
 
 ```typescript
-import { RustModule } from "@repo/ledger-utils";
+import { RustModule } from "@minswap/felis-ledger-utils";
 
 await RustModule.load();
 ```
@@ -38,8 +38,8 @@ await RustModule.load();
 The `Transaction` type is the input format for all syncers. Convert from CSL (Cardano Serialization Lib) transaction:
 
 ```typescript
-import { Transaction } from "@repo/syncer";
-import { RustModule } from "@repo/ledger-utils";
+import { Transaction } from "@minswap/felis-syncer";
+import { RustModule } from "@minswap/felis-ledger-utils";
 
 // From CBOR hex
 const cslTx = RustModule.getE.Transaction.from_hex(txCborHex);
@@ -77,8 +77,8 @@ type WrapAddress = string; // Bech32 address, e.g. "addr1..."
 ### MinswapV1Syncer
 
 ```typescript
-import { MinswapV1Syncer, Transaction } from "@repo/syncer";
-import { NetworkEnvironment } from "@repo/ledger-core";
+import { MinswapV1Syncer, Transaction } from "@minswap/felis-syncer";
+import { NetworkEnvironment } from "@minswap/felis-ledger-core";
 
 const result = MinswapV1Syncer.parseTx({
   tx: transaction,
@@ -103,8 +103,8 @@ if (result) {
 MinswapV2Syncer requires a `MapPool` to resolve LP assets to their underlying pair:
 
 ```typescript
-import { MinswapV2Syncer, Transaction } from "@repo/syncer";
-import { NetworkEnvironment } from "@repo/ledger-core";
+import { MinswapV2Syncer, Transaction } from "@minswap/felis-syncer";
+import { NetworkEnvironment } from "@minswap/felis-ledger-core";
 
 // MapPool: LP asset string -> { assetA, assetB }
 const mapPool: MinswapV2Syncer.MapPool = {
@@ -147,8 +147,8 @@ if (result) {
 Stableswap syncer doesn't require a MapPool - pool configs are loaded from the package:
 
 ```typescript
-import { MinswapStableswapSyncer, Transaction } from "@repo/syncer";
-import { NetworkEnvironment } from "@repo/ledger-core";
+import { MinswapStableswapSyncer, Transaction } from "@minswap/felis-syncer";
+import { NetworkEnvironment } from "@minswap/felis-ledger-core";
 
 const result = MinswapStableswapSyncer.parseTx({
   tx: transaction,
@@ -180,8 +180,8 @@ if (result) {
 ### SundaeSwapV3Syncer
 
 ```typescript
-import { SundaeSwapV3Syncer, Transaction } from "@repo/syncer";
-import { NetworkEnvironment } from "@repo/ledger-core";
+import { SundaeSwapV3Syncer, Transaction } from "@minswap/felis-syncer";
+import { NetworkEnvironment } from "@minswap/felis-ledger-core";
 
 // MapPool: pool ident hex -> { assetA, assetB }
 const mapPool: SundaeSwapV3Syncer.MapPool = {
@@ -220,7 +220,7 @@ if (result) {
 The `Helper` namespace provides utility functions for quick transaction filtering:
 
 ```typescript
-import { Helper, Transaction } from "@repo/syncer";
+import { Helper, Transaction } from "@minswap/felis-syncer";
 
 // Check if transaction pays to any address in a set
 const addressSet = new Set(["addr1...", "addr2..."]);
@@ -329,15 +329,15 @@ Pool creation output varies by protocol:
 Typical integration flow for syncing transactions:
 
 ```typescript
-import { RustModule } from "@repo/ledger-utils";
-import { NetworkEnvironment } from "@repo/ledger-core";
+import { RustModule } from "@minswap/felis-ledger-utils";
+import { NetworkEnvironment } from "@minswap/felis-ledger-core";
 import {
   Transaction,
   Helper,
   MinswapV1Syncer,
   MinswapV2Syncer,
   MinswapStableswapSyncer,
-} from "@repo/syncer";
+} from "@minswap/felis-syncer";
 
 // Initialize WASM
 await RustModule.load();

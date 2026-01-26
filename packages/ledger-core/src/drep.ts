@@ -1,4 +1,4 @@
-import { type CSLDRep, RustModule } from "@repo/ledger-utils";
+import { type CSLDRep, RustModule } from "@minswap/felis-ledger-utils";
 import type { Bytes } from "./bytes";
 import type { PublicKeyHash } from "./crypto";
 

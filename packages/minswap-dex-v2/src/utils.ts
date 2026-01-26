@@ -1,5 +1,5 @@
-import type { Asset } from "@repo/ledger-core";
-import { type Maybe, Result } from "@repo/ledger-utils";
+import type { Asset } from "@minswap/felis-ledger-core";
+import { type Maybe, Result } from "@minswap/felis-ledger-utils";
 import { OrderV2Direction } from "./order";
 import type { PoolV2BaseFee } from "./pool";
 import { bigIntPow, sqrt } from "./sqrt";

@@ -19,7 +19,7 @@ import {
   TxIn,
   Utxo,
   Value,
-} from "@repo/ledger-core";
+} from "@minswap/felis-ledger-core";
 import {
   type CSLPlutusData,
   type CSLPlutusList,
@@ -36,7 +36,7 @@ import {
   safeFreeRustObjects,
   unwrapRustMap,
   unwrapRustVec,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
 import JSONBig from "json-bigint";
 import { CertsBuilder } from "./certs-builder";
 import { ECSLConverter } from "./ecsl-converter";

@@ -1,9 +1,9 @@
 import invariant from "@minswap/tiny-invariant";
-import { type Address, Asset, NetworkEnvironment, PrivateKey, Utxo, type Value, XJSON } from "@repo/ledger-core";
-import { Result } from "@repo/ledger-utils";
-import { DEXOrderTransaction } from "@repo/minswap-build-tx";
-import { DexVersion, OrderV2Direction, OrderV2StepType } from "@repo/minswap-dex-v2";
-import { CoinSelectionAlgorithm, EmulatorProvider } from "@repo/tx-builder";
+import { type Address, Asset, NetworkEnvironment, PrivateKey, Utxo, type Value, XJSON } from "@minswap/felis-ledger-core";
+import { Result } from "@minswap/felis-ledger-utils";
+import { DEXOrderTransaction } from "@minswap/felis-build-tx";
+import { DexVersion, OrderV2Direction, OrderV2StepType } from "@minswap/felis-dex-v2";
+import { CoinSelectionAlgorithm, EmulatorProvider } from "@minswap/felis-tx-builder";
 import { LiqwidProvider } from "./liqwid-provider";
 import type { NitroWallet } from "./nitro-wallet";
 

@@ -13,8 +13,8 @@ import {
   UnwrapPlutusDataError,
   type Utxo,
   type Value,
-} from "@repo/ledger-core";
-import { type CborHex, type CSLPlutusData, Result } from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-core";
+import { type CborHex, type CSLPlutusData, Result } from "@minswap/felis-ledger-utils";
 import JSONBig from "json-bigint";
 import { zipWith } from "remeda";
 import { type StableswapPoolConfig, getStableswapPoolConfigs } from "./configs";

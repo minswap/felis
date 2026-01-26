@@ -1,5 +1,5 @@
-import { NetworkEnvironment, TxIn } from "@repo/ledger-core";
-import { RustModule } from "@repo/ledger-utils";
+import { NetworkEnvironment, TxIn } from "@minswap/felis-ledger-core";
+import { RustModule } from "@minswap/felis-ledger-utils";
 import { beforeAll, describe, expect, it } from "vitest";
 import * as S from "../src";
 

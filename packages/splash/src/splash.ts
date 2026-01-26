@@ -24,8 +24,8 @@ import {
   PublicKeyHash,
   type Utxo,
   Value,
-} from "@repo/ledger-core";
-import { type CborHex, Maybe, Result } from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-core";
+import { type CborHex, Maybe, Result } from "@minswap/felis-ledger-utils";
 import invariant from "@minswap/tiny-invariant";
 
 export namespace Splash {

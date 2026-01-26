@@ -9,14 +9,14 @@ import {
   networkEnvironmentToNetworkID,
   PrivateKey,
   type Utxo,
-} from "@repo/ledger-core";
+} from "@minswap/felis-ledger-core";
 import {
   type CSLBip32PrivateKey,
   type CSLBip32PublicKey,
   Maybe,
   RustModule,
   safeFreeRustObjects,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
 import { mnemonicToEntropy } from "bip39";
 
 /**

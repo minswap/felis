@@ -14,9 +14,9 @@ import {
   TxOut,
   Utxo,
   Value,
-} from "@repo/ledger-core";
-import { Result } from "@repo/ledger-utils";
-import type { TxBuilder } from "@repo/tx-builder";
+} from "@minswap/felis-ledger-core";
+import { Result } from "@minswap/felis-ledger-utils";
+import type { TxBuilder } from "@minswap/felis-tx-builder";
 import BigNumber from "bignumber.js";
 
 export namespace Djed {

@@ -18,8 +18,8 @@ import {
   PlutusInt,
   type Utxo,
   Value,
-} from "@repo/ledger-core";
-import { type CborHex, Maybe, Result, sha3 } from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-core";
+import { type CborHex, Maybe, Result, sha3 } from "@minswap/felis-ledger-utils";
 import invariant from "@minswap/tiny-invariant";
 import { normalizePair } from "./utils";
 

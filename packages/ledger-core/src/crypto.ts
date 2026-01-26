@@ -7,7 +7,7 @@ import {
   type ECSLPrivateKey,
   RustModule,
   safeFreeRustObjects,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
 import * as cbor from "cbor";
 import { Bytes } from "./bytes";
 import type { NativeScript } from "./native-script";

@@ -1,6 +1,6 @@
 export type Lib = typeof import("@minswap/cardano-serialization-lib-nodejs");
 export type ELib = typeof import("@emurgo/cardano-serialization-lib-nodejs");
-export type ULib = typeof import("@repo/uplc-node");
+export type ULib = typeof import("@minswap/felis-uplc-node");
 
 class Module {
   private _wasm: Lib | null = null;
@@ -37,7 +37,7 @@ class Module {
       const [_wasm, _eWasm, _uWasm] = await Promise.all([
         import("@minswap/cardano-serialization-lib-browser"),
         import("@emurgo/cardano-serialization-lib-browser"),
-        import("@repo/uplc-web"),
+        import("@minswap/felis-uplc-web"),
       ]);
       this._wasm = _wasm;
       this._eWasm = _eWasm;
@@ -46,7 +46,7 @@ class Module {
       const [_wasm, _eWasm, _uWasm] = await Promise.all([
         import("@minswap/cardano-serialization-lib-nodejs"),
         import("@emurgo/cardano-serialization-lib-nodejs"),
-        import("@repo/uplc-node"),
+        import("@minswap/felis-uplc-node"),
       ]);
       this._wasm = _wasm;
       this._eWasm = _eWasm;

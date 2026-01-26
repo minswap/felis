@@ -1,4 +1,4 @@
-import type { CborHex, CSLNativeScript, CSLPlutusScript } from "@repo/ledger-utils";
+import type { CborHex, CSLNativeScript, CSLPlutusScript } from "@minswap/felis-ledger-utils";
 import type { Address, RewardAddress } from "./address";
 import type { Asset } from "./asset";
 import type { PlutusData } from "./plutus-json";

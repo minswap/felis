@@ -1,7 +1,6 @@
 {
-  "name": "@repo/minswap-stableswap",
+  "name": "@minswap/felis-stableswap",
   "version": "0.0.1",
-  "private": true,
   "exports": {
     ".": "./dist/index.js"
   },
@@ -25,11 +24,11 @@
   },
   "dependencies": {
     "@minswap/tiny-invariant": "^1.2.0",
-    "@repo/ledger-core": "workspace:*",
-    "@repo/ledger-utils": "workspace:*",
-    "@repo/minswap-build-tx": "workspace:*",
-    "@repo/minswap-dex-v2": "workspace:*",
-    "@repo/tx-builder": "workspace:*",
+    "@minswap/felis-ledger-core": "workspace:*",
+    "@minswap/felis-ledger-utils": "workspace:*",
+    "@minswap/felis-build-tx": "workspace:*",
+    "@minswap/felis-dex-v2": "workspace:*",
+    "@minswap/felis-tx-builder": "workspace:*",
     "bignumber.js": "^9.1.2",
     "json-bigint": "^1.0.0",
     "remeda": "^2.19.2"

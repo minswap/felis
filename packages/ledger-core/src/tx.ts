@@ -4,7 +4,7 @@ import type {
   CSLPlutusScript,
   ECSLVotingProcedures,
   ECSLVotingProposals,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
 import type { RewardAddress } from "./address";
 import type { PublicKeyHash } from "./crypto";
 import { DRep } from "./drep";

@@ -12,8 +12,8 @@ import {
   Value,
   NetworkEnvironment as NetworkEnv,
   ADA,
-} from "@repo/ledger-core";
-import { Maybe, Result } from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-core";
+import { Maybe, Result } from "@minswap/felis-ledger-utils";
 import mainnetRawReferencesScripts from "./scripts/mainnet/references-script.json";
 import mainnetRawScripts from "./scripts/mainnet/stableswap-script.json";
 import testnetRawReferencesScripts from "./scripts/testnet/references-script.json";

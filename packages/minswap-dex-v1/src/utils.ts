@@ -1,4 +1,4 @@
-import { Asset } from "@repo/ledger-core";
+import { Asset } from "@minswap/felis-ledger-core";
 
 export function normalizePair([a, b]: [Asset, Asset]): [Asset, Asset] {
   if (a.compare(b) > 0) {

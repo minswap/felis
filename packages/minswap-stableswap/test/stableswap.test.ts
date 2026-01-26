@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js";
 import * as fc from "fast-check";
 
-import { Result } from "@repo/ledger-utils";
+import { Result } from "@minswap/felis-ledger-utils";
 import { describe, expect, it } from "vitest";
 import { StableswapCalculation } from "../src/utils";
 

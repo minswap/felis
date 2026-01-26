@@ -1,6 +1,6 @@
 import invariant from "@minswap/tiny-invariant";
-import { Address, type Asset, type Bytes, type KupoUtxo, type TxIn, Utxo, Value } from "@repo/ledger-core";
-import { type CborHex, type CSLTransactionUnspentOutput, Maybe } from "@repo/ledger-utils";
+import { Address, type Asset, type Bytes, type KupoUtxo, type TxIn, Utxo, Value } from "@minswap/felis-ledger-core";
+import { type CborHex, type CSLTransactionUnspentOutput, Maybe } from "@minswap/felis-ledger-utils";
 import * as R from "remeda";
 import { uniq } from "./lodash";
 

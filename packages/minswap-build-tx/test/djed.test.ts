@@ -12,8 +12,8 @@ import {
   TxOut,
   Utxo,
   Value,
-} from "@repo/ledger-core";
-import { CoinSelectionAlgorithm, EmulatorProvider, TxBuilder } from "@repo/tx-builder";
+} from "@minswap/felis-ledger-core";
+import { CoinSelectionAlgorithm, EmulatorProvider, TxBuilder } from "@minswap/felis-tx-builder";
 import { beforeAll, describe, expect, it } from "vitest";
 import { RustModule } from "../../ledger-utils/dist/loader";
 import { Djed } from "../src";

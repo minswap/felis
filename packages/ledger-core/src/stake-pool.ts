@@ -1,4 +1,4 @@
-import { RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
+import { RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
 import type { RewardAddress } from "./address";
 import { Bytes } from "./bytes";
 

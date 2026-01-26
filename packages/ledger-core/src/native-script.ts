@@ -1,4 +1,4 @@
-import { type CSLScriptPubkey, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
+import { type CSLScriptPubkey, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
 import { Bytes } from "./bytes";
 
 export type NativeScriptPubKeyHash = {

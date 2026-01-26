@@ -1,5 +1,5 @@
 import invariant from "@minswap/tiny-invariant";
-import { type CSLPlutusData, Maybe, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
+import { type CSLPlutusData, Maybe, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
 import * as cbors from "@stricahq/cbors";
 import { BigNumber } from "bignumber.js";
 

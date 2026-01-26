@@ -14,9 +14,9 @@ import {
   TxIn,
   type Utxo,
   type Value,
-} from "@repo/ledger-core";
-import { type CborHex, type CSLPlutusData, Maybe, Result } from "@repo/ledger-utils";
-import { DexVersion, InvalidOrder } from "@repo/minswap-dex-v2";
+} from "@minswap/felis-ledger-core";
+import { type CborHex, type CSLPlutusData, Maybe, Result } from "@minswap/felis-ledger-utils";
+import { DexVersion, InvalidOrder } from "@minswap/felis-dex-v2";
 import { getLPAssetFromStableswapOrderAddress, getStableswapPoolConfigByLPAsset } from "./configs";
 
 export type AssetAmount = {

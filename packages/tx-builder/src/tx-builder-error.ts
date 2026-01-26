@@ -1,5 +1,5 @@
-import type { Value } from "@repo/ledger-core";
-import { getErrorMessage } from "@repo/ledger-utils";
+import type { Value } from "@minswap/felis-ledger-core";
+import { getErrorMessage } from "@minswap/felis-ledger-utils";
 import type { CoverForFeesResult, DebugInfo } from "./types";
 
 export type ExtendedDebugInfo = DebugInfo & {

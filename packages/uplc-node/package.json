@@ -1,5 +1,5 @@
 {
-  "name": "@repo/uplc-node",
+  "name": "@minswap/felis-uplc-node",
   "version": "0.1.0",
   "files": [
     "wasm_helpers_bg.wasm",

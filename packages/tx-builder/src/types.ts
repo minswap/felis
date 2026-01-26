@@ -10,7 +10,7 @@ import {
   TxIn,
   type TxOut,
   type Utxo,
-} from "@repo/ledger-core";
+} from "@minswap/felis-ledger-core";
 import type {
   CborHex,
   CSLEd25519KeyHash,
@@ -22,8 +22,8 @@ import type {
   CSLTransactionInput,
   CSLTransactionOutput,
   CSLTransactionUnspentOutput,
-} from "@repo/ledger-utils";
-import { Maybe } from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
+import { Maybe } from "@minswap/felis-ledger-utils";
 
 export interface CoverForFeesResult {
   finalCoins: TxOut[];

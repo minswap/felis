@@ -1,6 +1,6 @@
 import invariant from "@minswap/tiny-invariant";
 
-import { sha3 } from "@repo/ledger-utils";
+import { sha3 } from "@minswap/felis-ledger-utils";
 import { Bytes } from "./bytes";
 import { PlutusConstr, type PlutusData } from "./plutus-json";
 

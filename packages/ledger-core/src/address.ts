@@ -8,7 +8,7 @@ import {
   Maybe,
   RustModule,
   safeFreeRustObjects,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
 import { Bytes } from "./bytes";
 import {
   AddressType,

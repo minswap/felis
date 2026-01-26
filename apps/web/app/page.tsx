@@ -1,6 +1,6 @@
 "use client";
 
-import { LendingMarket } from "@repo/minswap-lending-market";
+import { LendingMarket } from "@minswap/felis-lending-market";
 import { App, Button, Layout, Space } from "antd";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useState } from "react";

@@ -8,8 +8,8 @@ import {
   type NetworkEnvironment,
   TxOut,
   Value,
-} from "@repo/ledger-core";
-import { Maybe } from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-core";
+import { Maybe } from "@minswap/felis-ledger-utils";
 import {
   BATCHER_FEE_DEX_V2,
   buildDexV2OrderAddress,
@@ -26,8 +26,8 @@ import {
   OrderV2StepType,
   type OrderV2SwapRouting,
   OUTPUT_ADA,
-} from "@repo/minswap-dex-v2";
-import { TxBuilder } from "@repo/tx-builder";
+} from "@minswap/felis-dex-v2";
+import { TxBuilder } from "@minswap/felis-tx-builder";
 import { MetadataMessage } from "./metadata";
 
 export namespace DEXOrderTransaction {

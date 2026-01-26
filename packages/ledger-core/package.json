@@ -1,5 +1,6 @@
 {
-  "name": "@repo/ledger-core",
+  "name": "@minswap/felis-ledger-core",
+  "version": "0.0.1",
   "exports": {
     ".": "./dist/index.js"
   },
@@ -20,7 +21,7 @@
     "fast-check": "^3.23.2"
   },
   "dependencies": {
-    "@repo/ledger-utils": "workspace:*",
+    "@minswap/felis-ledger-utils": "workspace:*",
     "bignumber.js": "^9.1.2",
     "@stricahq/cbors": "^1.0.3",
     "@minswap/tiny-invariant": "^1.2.0",

@@ -15,7 +15,7 @@ import {
   RustModule,
   safeFreeRustObjects,
   unwrapRustVec,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
 import * as cbor from "cbor";
 import { Address } from "./address";
 import { ADA, type Asset } from "./asset";

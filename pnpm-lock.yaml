@@ -23,33 +23,33 @@ importers:
       '@cardano-ogmios/client':
         specifier: ^6.11.0
         version: 6.14.0
+      '@minswap/felis-dex-v2':
+        specifier: workspace:*
+        version: link:../../packages/minswap-dex-v2
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../../packages/ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../../packages/ledger-utils
+      '@minswap/felis-provider':
+        specifier: workspace:*
+        version: link:../../packages/provider
+      '@minswap/felis-sundaeswap-v1':
+        specifier: workspace:*
+        version: link:../../packages/sundaeswap-v1
+      '@minswap/felis-sundaeswap-v3':
+        specifier: workspace:*
+        version: link:../../packages/sundaeswap-v3
+      '@minswap/felis-syncer':
+        specifier: workspace:*
+        version: link:../../packages/syncer
+      '@minswap/felis-tx-builder':
+        specifier: workspace:*
+        version: link:../../packages/tx-builder
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../../packages/ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../../packages/ledger-utils
-      '@repo/minswap-dex-v2':
-        specifier: workspace:*
-        version: link:../../packages/minswap-dex-v2
-      '@repo/provider':
-        specifier: workspace:*
-        version: link:../../packages/provider
-      '@repo/sundaeswap-v1':
-        specifier: workspace:*
-        version: link:../../packages/sundaeswap-v1
-      '@repo/sundaeswap-v3':
-        specifier: workspace:*
-        version: link:../../packages/sundaeswap-v3
-      '@repo/syncer':
-        specifier: workspace:*
-        version: link:../../packages/syncer
-      '@repo/tx-builder':
-        specifier: workspace:*
-        version: link:../../packages/tx-builder
       socket.io-client:
         specifier: ^4.8.3
         version: 4.8.3
@@ -84,30 +84,30 @@ importers:
       '@ant-design/nextjs-registry':
         specifier: ^1.1.0
         version: 1.1.0(@ant-design/cssinjs@1.24.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(antd@5.27.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(next@16.0.10(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@minswap/felis-build-tx':
+        specifier: workspace:*
+        version: link:../../packages/minswap-build-tx
+      '@minswap/felis-cip':
+        specifier: workspace:*
+        version: link:../../packages/cip
+      '@minswap/felis-dex-v2':
+        specifier: workspace:*
+        version: link:../../packages/minswap-dex-v2
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../../packages/ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../../packages/ledger-utils
+      '@minswap/felis-lending-market':
+        specifier: workspace:*
+        version: link:../../packages/minswap-lending-market
+      '@minswap/felis-tx-builder':
+        specifier: workspace:*
+        version: link:../../packages/tx-builder
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/cip':
-        specifier: workspace:*
-        version: link:../../packages/cip
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../../packages/ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../../packages/ledger-utils
-      '@repo/minswap-build-tx':
-        specifier: workspace:*
-        version: link:../../packages/minswap-build-tx
-      '@repo/minswap-dex-v2':
-        specifier: workspace:*
-        version: link:../../packages/minswap-dex-v2
-      '@repo/minswap-lending-market':
-        specifier: workspace:*
-        version: link:../../packages/minswap-lending-market
-      '@repo/tx-builder':
-        specifier: workspace:*
-        version: link:../../packages/tx-builder
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -151,15 +151,15 @@ importers:
 
   packages/cip:
     dependencies:
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
       bip39:
         specifier: ^3.1.0
         version: 3.1.0
@@ -225,17 +225,87 @@ importers:
         specifier: ^8.37.0
         version: 8.37.0(eslint@9.31.0)(typescript@5.8.2)
 
+  packages/felis:
+    dependencies:
+      '@minswap/felis-build-tx':
+        specifier: workspace:*
+        version: link:../minswap-build-tx
+      '@minswap/felis-cip':
+        specifier: workspace:*
+        version: link:../cip
+      '@minswap/felis-dex-v1':
+        specifier: workspace:*
+        version: link:../minswap-dex-v1
+      '@minswap/felis-dex-v2':
+        specifier: workspace:*
+        version: link:../minswap-dex-v2
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
+      '@minswap/felis-lending-market':
+        specifier: workspace:*
+        version: link:../minswap-lending-market
+      '@minswap/felis-provider':
+        specifier: workspace:*
+        version: link:../provider
+      '@minswap/felis-splash':
+        specifier: workspace:*
+        version: link:../splash
+      '@minswap/felis-stableswap':
+        specifier: workspace:*
+        version: link:../minswap-stableswap
+      '@minswap/felis-sundaeswap-v1':
+        specifier: workspace:*
+        version: link:../sundaeswap-v1
+      '@minswap/felis-sundaeswap-v3':
+        specifier: workspace:*
+        version: link:../sundaeswap-v3
+      '@minswap/felis-syncer':
+        specifier: workspace:*
+        version: link:../syncer
+      '@minswap/felis-tx-builder':
+        specifier: workspace:*
+        version: link:../tx-builder
+      '@minswap/felis-wingriders-v1':
+        specifier: workspace:*
+        version: link:../wingriders-v1
+      '@minswap/felis-wingriders-v2':
+        specifier: workspace:*
+        version: link:../wingriders-v2
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.15.3
+      dpdm:
+        specifier: ^3.14.0
+        version: 3.14.0
+      eslint:
+        specifier: ^9.31.0
+        version: 9.31.0
+      typescript:
+        specifier: 5.8.2
+        version: 5.8.2
+
   packages/ledger-core:
     dependencies:
       '@cardano-ogmios/schema':
         specifier: ^6.11.0
         version: 6.13.0
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
       '@stricahq/cbors':
         specifier: ^1.0.3
         version: 1.0.3
@@ -291,15 +361,15 @@ importers:
       '@minswap/cardano-serialization-lib-nodejs':
         specifier: 11.1.0-minswap.33
         version: 11.1.0-minswap.33
+      '@minswap/felis-uplc-node':
+        specifier: workspace:*
+        version: link:../uplc-node
+      '@minswap/felis-uplc-web':
+        specifier: workspace:*
+        version: link:../uplc-web
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/uplc-node':
-        specifier: workspace:*
-        version: link:../uplc-node
-      '@repo/uplc-web':
-        specifier: workspace:*
-        version: link:../uplc-web
       blakejs:
         specifier: ^1.2.1
         version: 1.2.1
@@ -337,21 +407,21 @@ importers:
 
   packages/minswap-build-tx:
     dependencies:
+      '@minswap/felis-dex-v2':
+        specifier: workspace:*
+        version: link:../minswap-dex-v2
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
+      '@minswap/felis-tx-builder':
+        specifier: workspace:*
+        version: link:../tx-builder
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
-      '@repo/minswap-dex-v2':
-        specifier: workspace:*
-        version: link:../minswap-dex-v2
-      '@repo/tx-builder':
-        specifier: workspace:*
-        version: link:../tx-builder
       bignumber.js:
         specifier: ^9.1.2
         version: 9.3.1
@@ -383,15 +453,15 @@ importers:
 
   packages/minswap-dex-v1:
     dependencies:
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -417,15 +487,15 @@ importers:
 
   packages/minswap-dex-v2:
     dependencies:
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -454,27 +524,27 @@ importers:
 
   packages/minswap-lending-market:
     dependencies:
+      '@minswap/felis-build-tx':
+        specifier: workspace:*
+        version: link:../minswap-build-tx
+      '@minswap/felis-cip':
+        specifier: workspace:*
+        version: link:../cip
+      '@minswap/felis-dex-v2':
+        specifier: workspace:*
+        version: link:../minswap-dex-v2
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
+      '@minswap/felis-tx-builder':
+        specifier: workspace:*
+        version: link:../tx-builder
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/cip':
-        specifier: workspace:*
-        version: link:../cip
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
-      '@repo/minswap-build-tx':
-        specifier: workspace:*
-        version: link:../minswap-build-tx
-      '@repo/minswap-dex-v2':
-        specifier: workspace:*
-        version: link:../minswap-dex-v2
-      '@repo/tx-builder':
-        specifier: workspace:*
-        version: link:../tx-builder
       bignumber.js:
         specifier: ^9.1.2
         version: 9.3.1
@@ -512,24 +582,24 @@ importers:
 
   packages/minswap-stableswap:
     dependencies:
+      '@minswap/felis-build-tx':
+        specifier: workspace:*
+        version: link:../minswap-build-tx
+      '@minswap/felis-dex-v2':
+        specifier: workspace:*
+        version: link:../minswap-dex-v2
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
+      '@minswap/felis-tx-builder':
+        specifier: workspace:*
+        version: link:../tx-builder
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
-      '@repo/minswap-build-tx':
-        specifier: workspace:*
-        version: link:../minswap-build-tx
-      '@repo/minswap-dex-v2':
-        specifier: workspace:*
-        version: link:../minswap-dex-v2
-      '@repo/tx-builder':
-        specifier: workspace:*
-        version: link:../tx-builder
       bignumber.js:
         specifier: ^9.1.2
         version: 9.3.1
@@ -570,25 +640,25 @@ importers:
 
   packages/provider:
     dependencies:
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
       remeda:
         specifier: ^2.19.2
         version: 2.28.0
     devDependencies:
+      '@minswap/felis-dex-v2':
+        specifier: workspace:*
+        version: link:../minswap-dex-v2
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@repo/minswap-dex-v2':
-        specifier: workspace:*
-        version: link:../minswap-dex-v2
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -610,15 +680,15 @@ importers:
 
   packages/splash:
     dependencies:
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
       blakejs:
         specifier: ^1.2.1
         version: 1.2.1
@@ -647,15 +717,15 @@ importers:
 
   packages/sundaeswap-v1:
     dependencies:
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -684,15 +754,15 @@ importers:
 
   packages/sundaeswap-v3:
     dependencies:
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -718,42 +788,42 @@ importers:
 
   packages/syncer:
     dependencies:
+      '@minswap/felis-dex-v1':
+        specifier: workspace:*
+        version: link:../minswap-dex-v1
+      '@minswap/felis-dex-v2':
+        specifier: workspace:*
+        version: link:../minswap-dex-v2
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
+      '@minswap/felis-splash':
+        specifier: workspace:*
+        version: link:../splash
+      '@minswap/felis-stableswap':
+        specifier: workspace:*
+        version: link:../minswap-stableswap
+      '@minswap/felis-sundaeswap-v1':
+        specifier: workspace:*
+        version: link:../sundaeswap-v1
+      '@minswap/felis-sundaeswap-v3':
+        specifier: workspace:*
+        version: link:../sundaeswap-v3
+      '@minswap/felis-tx-builder':
+        specifier: workspace:*
+        version: link:../tx-builder
+      '@minswap/felis-wingriders-v1':
+        specifier: workspace:*
+        version: link:../wingriders-v1
+      '@minswap/felis-wingriders-v2':
+        specifier: workspace:*
+        version: link:../wingriders-v2
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
-      '@repo/minswap-dex-v1':
-        specifier: workspace:*
-        version: link:../minswap-dex-v1
-      '@repo/minswap-dex-v2':
-        specifier: workspace:*
-        version: link:../minswap-dex-v2
-      '@repo/minswap-stableswap':
-        specifier: workspace:*
-        version: link:../minswap-stableswap
-      '@repo/splash':
-        specifier: workspace:*
-        version: link:../splash
-      '@repo/sundaeswap-v1':
-        specifier: workspace:*
-        version: link:../sundaeswap-v1
-      '@repo/sundaeswap-v3':
-        specifier: workspace:*
-        version: link:../sundaeswap-v3
-      '@repo/tx-builder':
-        specifier: workspace:*
-        version: link:../tx-builder
-      '@repo/wingriders-v1':
-        specifier: workspace:*
-        version: link:../wingriders-v1
-      '@repo/wingriders-v2':
-        specifier: workspace:*
-        version: link:../wingriders-v2
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -782,18 +852,18 @@ importers:
 
   packages/tx-builder:
     dependencies:
+      '@minswap/felis-cip':
+        specifier: workspace:*
+        version: link:../cip
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/cip':
-        specifier: workspace:*
-        version: link:../cip
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
       bignumber.js:
         specifier: ^9.1.2
         version: 9.3.1
@@ -865,15 +935,15 @@ importers:
 
   packages/wingriders-v1:
     dependencies:
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -899,15 +969,15 @@ importers:
 
   packages/wingriders-v2:
     dependencies:
+      '@minswap/felis-ledger-core':
+        specifier: workspace:*
+        version: link:../ledger-core
+      '@minswap/felis-ledger-utils':
+        specifier: workspace:*
+        version: link:../ledger-utils
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
-      '@repo/ledger-core':
-        specifier: workspace:*
-        version: link:../ledger-core
-      '@repo/ledger-utils':
-        specifier: workspace:*
-        version: link:../ledger-utils
       blakejs:
         specifier: ^1.2.1
         version: 1.2.1

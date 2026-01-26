@@ -1,6 +1,6 @@
-import { DatumSourceType, type NetworkEnvironment } from "@repo/ledger-core";
-import { Maybe } from "@repo/ledger-utils";
-import { WingridersV2 } from "@repo/wingriders-v2";
+import { DatumSourceType, type NetworkEnvironment } from "@minswap/felis-ledger-core";
+import { Maybe } from "@minswap/felis-ledger-utils";
+import { WingridersV2 } from "@minswap/felis-wingriders-v2";
 import type { Transaction } from "./transaction";
 import type { WrapAddress, WrapAsset, WrapNum } from "./types";
 

@@ -1,4 +1,4 @@
-import { Duration } from "@repo/ledger-utils";
+import { Duration } from "@minswap/felis-ledger-utils";
 import { NetworkEnvironment } from "./network-id";
 
 // Default timeout for txs in ms (to set TTL field)

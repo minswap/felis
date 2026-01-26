@@ -1,5 +1,5 @@
-import { type Address, NetworkEnvironment, Utxo } from "@repo/ledger-core";
-import { NitroWallet } from "@repo/minswap-lending-market";
+import { type Address, NetworkEnvironment, Utxo } from "@minswap/felis-ledger-core";
+import { NitroWallet } from "@minswap/felis-lending-market";
 import { CONFIG } from "../config";
 
 export namespace Helpers {

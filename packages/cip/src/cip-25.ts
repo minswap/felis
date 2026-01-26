@@ -1,4 +1,4 @@
-import type { Asset } from "@repo/ledger-core";
+import type { Asset } from "@minswap/felis-ledger-core";
 
 export type CIP25File = {
   name: string;

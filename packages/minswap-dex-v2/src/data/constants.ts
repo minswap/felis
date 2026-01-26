@@ -7,7 +7,7 @@ import {
   NetworkID,
   networkEnvironmentToNetworkID,
   RewardAddress,
-} from "@repo/ledger-core";
+} from "@minswap/felis-ledger-core";
 import rawLpStakeAddressMainnet from "../data/mainnet/liquidity-pool-stake-addresses.json";
 import rawLpStakeAddressTestnet from "../data/testnet/liquidity-pool-stake-addresses.json";
 

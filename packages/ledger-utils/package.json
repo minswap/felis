@@ -1,7 +1,6 @@
 {
-  "name": "@repo/ledger-utils",
+  "name": "@minswap/felis-ledger-utils",
   "version": "0.0.1",
-  "private": true,
   "exports": {
     ".": "./dist/index.js"
   },
@@ -28,8 +27,8 @@
     "@minswap/cardano-serialization-lib-browser": "11.1.0-minswap.33",
     "@minswap/cardano-serialization-lib-nodejs": "11.1.0-minswap.33",
     "@minswap/tiny-invariant": "^1.2.0",
-    "@repo/uplc-node": "workspace:*",
-    "@repo/uplc-web": "workspace:*",
+    "@minswap/felis-uplc-node": "workspace:*",
+    "@minswap/felis-uplc-web": "workspace:*",
     "blakejs": "^1.2.1",
     "sha3": "^2.1.4",
     "json-bigint": "^1.0.0"
