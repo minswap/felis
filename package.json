@@ -1,6 +1,10 @@
 {
   "name": "minswap-felis",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/minswap/felis"
+  },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
@@ -10,7 +14,9 @@
     "format-and-lint": "biome check .",
     "format-and-lint:fix": "biome check . --write --unsafe",
     "test": "turbo run test",
-    "test:watch": "turbo run test:watch"
+    "test:watch": "turbo run test:watch",
+    "publish:dry": "pnpm -r publish --dry-run --no-git-checks",
+    "publish:release": "pnpm -r publish --no-git-checks"
   },
   "devDependencies": {
     "@biomejs/biome": "2.1.4",

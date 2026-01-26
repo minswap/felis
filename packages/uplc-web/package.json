@@ -2,6 +2,15 @@
   "name": "@minswap/felis-uplc-web",
   "type": "module",
   "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/minswap/felis",
+    "directory": "packages/uplc-web"
+  },
+  "bugs": {
+    "url": "https://github.com/minswap/felis/issues"
+  },
   "files": [
     "wasm_helpers_bg.wasm",
     "wasm_helpers.js",
@@ -13,5 +22,8 @@
   "sideEffects": [
     "./wasm_helpers.js",
     "./snippets/*"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

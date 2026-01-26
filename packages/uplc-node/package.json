@@ -1,11 +1,23 @@
 {
   "name": "@minswap/felis-uplc-node",
   "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/minswap/felis",
+    "directory": "packages/uplc-node"
+  },
+  "bugs": {
+    "url": "https://github.com/minswap/felis/issues"
+  },
   "files": [
     "wasm_helpers_bg.wasm",
     "wasm_helpers.js",
     "wasm_helpers.d.ts"
   ],
   "main": "wasm_helpers.js",
-  "types": "wasm_helpers.d.ts"
+  "types": "wasm_helpers.d.ts",
+  "publishConfig": {
+    "access": "public"
+  }
 }
