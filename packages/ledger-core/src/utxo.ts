@@ -1,5 +1,4 @@
 import type * as Ogmios from "@cardano-ogmios/schema";
-import invariant from "@minswap/tiny-invariant";
 import {
   type CborHex,
   type CSLPlutusData,
@@ -15,7 +14,8 @@ import {
   RustModule,
   safeFreeRustObjects,
   unwrapRustVec,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
+import invariant from "@minswap/tiny-invariant";
 import * as cbor from "cbor";
 import { Address } from "./address";
 import { ADA, type Asset } from "./asset";

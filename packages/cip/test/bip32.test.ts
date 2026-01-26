@@ -1,5 +1,5 @@
-import { NetworkEnvironment, PrivateKey } from "@repo/ledger-core";
-import { RustModule } from "@repo/ledger-utils";
+import { NetworkEnvironment, PrivateKey } from "@minswap/felis-ledger-core";
+import { RustModule } from "@minswap/felis-ledger-utils";
 import { beforeAll, describe, expect, it } from "vitest";
 import { Bip32, baseAddressWalletFromSeed } from "../src";
 

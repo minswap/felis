@@ -1,5 +1,5 @@
-import { Address, Value } from "@repo/ledger-core";
-import { RustModule } from "@repo/ledger-utils";
+import { Address, Value } from "@minswap/felis-ledger-core";
+import { RustModule } from "@minswap/felis-ledger-utils";
 
 /**
  * CIP-30 Wallet utilities for Cardano

@@ -1,6 +1,6 @@
-import { Bytes, TxIn, TxOut, type Value } from "@repo/ledger-core";
-import { type ECSLTransaction, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
-import { ECSLConverter } from "@repo/tx-builder";
+import { Bytes, TxIn, TxOut, type Value } from "@minswap/felis-ledger-core";
+import { type ECSLTransaction, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
+import { ECSLConverter } from "@minswap/felis-tx-builder";
 import { PlutusDataHash } from "./types";
 
 export type TransactionBody = {

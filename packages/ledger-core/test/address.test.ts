@@ -1,4 +1,4 @@
-import { RustModule } from "@repo/ledger-utils";
+import { RustModule } from "@minswap/felis-ledger-utils";
 import { beforeAll, describe, expect, it, test } from "vitest";
 import { Address, NetworkEnvironment, RewardAddress } from "../src";
 

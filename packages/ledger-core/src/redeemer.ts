@@ -7,7 +7,7 @@ import {
   RustModule,
   safeFreeRustObjects,
   unwrapRustVec,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
 import * as cbors from "@stricahq/cbors";
 import type { Bytes } from "./bytes";
 import { PlutusData, type PreEncodedPlutusData } from "./plutus-json";

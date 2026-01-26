@@ -1,8 +1,8 @@
 import BigNumber from "bignumber.js";
 import { zipWith } from "remeda";
 
-import { type Asset, NetworkID } from "@repo/ledger-core";
-import { Result } from "@repo/ledger-utils";
+import { type Asset, NetworkID } from "@minswap/felis-ledger-core";
+import { Result } from "@minswap/felis-ledger-utils";
 import { StableswapCalculationErrorCode, StableswapPoolCalculationError } from "./error";
 
 /**

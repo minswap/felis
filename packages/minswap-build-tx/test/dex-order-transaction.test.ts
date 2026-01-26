@@ -1,7 +1,7 @@
-import { ADA, Address, Bytes, NetworkEnvironment, TxOut, Value } from "@repo/ledger-core";
-import { RustModule } from "@repo/ledger-utils";
-import { OrderV2Direction } from "@repo/minswap-dex-v2";
-import { CoinSelectionAlgorithm, EmulatorProvider } from "@repo/tx-builder";
+import { OrderV2Direction } from "@minswap/felis-dex-v2";
+import { ADA, Address, Bytes, NetworkEnvironment, TxOut, Value } from "@minswap/felis-ledger-core";
+import { RustModule } from "@minswap/felis-ledger-utils";
+import { CoinSelectionAlgorithm, EmulatorProvider } from "@minswap/felis-tx-builder";
 import { beforeAll, describe, expect, it } from "vitest";
 import { Asset } from "../../ledger-core/src";
 import { DexVersion, OrderV2StepType } from "../../minswap-dex-v2/dist/order-step";

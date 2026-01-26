@@ -1,4 +1,4 @@
-import { type CSLLanguage, type ECSLLanguage, RustModule } from "@repo/ledger-utils";
+import { type CSLLanguage, type ECSLLanguage, RustModule } from "@minswap/felis-ledger-utils";
 import type { Bytes } from "./bytes";
 
 export enum PlutusVersion {

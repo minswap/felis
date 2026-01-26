@@ -1,9 +1,23 @@
 {
-  "name": "@repo/ledger-utils",
+  "name": "@minswap/felis-ledger-utils",
   "version": "0.0.1",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/minswap/felis",
+    "directory": "packages/ledger-utils"
+  },
+  "bugs": {
+    "url": "https://github.com/minswap/felis/issues"
+  },
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": "./dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
@@ -28,8 +42,8 @@
     "@minswap/cardano-serialization-lib-browser": "11.1.0-minswap.33",
     "@minswap/cardano-serialization-lib-nodejs": "11.1.0-minswap.33",
     "@minswap/tiny-invariant": "^1.2.0",
-    "@repo/uplc-node": "workspace:*",
-    "@repo/uplc-web": "workspace:*",
+    "@minswap/felis-uplc-node": "workspace:*",
+    "@minswap/felis-uplc-web": "workspace:*",
     "blakejs": "^1.2.1",
     "sha3": "^2.1.4",
     "json-bigint": "^1.0.0"

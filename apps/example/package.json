@@ -23,14 +23,14 @@
   "dependencies": {
     "@cardano-ogmios/client": "^6.11.0",
     "@minswap/tiny-invariant": "^1.2.0",
-    "@repo/ledger-core": "workspace:*",
-    "@repo/ledger-utils": "workspace:*",
-    "@repo/minswap-dex-v2": "workspace:*",
-    "@repo/sundaeswap-v1": "workspace:*",
-    "@repo/sundaeswap-v3": "workspace:*",
-    "@repo/syncer": "workspace:*",
-    "@repo/provider": "workspace:*",
-    "@repo/tx-builder": "workspace:*",
+    "@minswap/felis-ledger-core": "workspace:*",
+    "@minswap/felis-ledger-utils": "workspace:*",
+    "@minswap/felis-dex-v2": "workspace:*",
+    "@minswap/felis-sundaeswap-v1": "workspace:*",
+    "@minswap/felis-sundaeswap-v3": "workspace:*",
+    "@minswap/felis-syncer": "workspace:*",
+    "@minswap/felis-provider": "workspace:*",
+    "@minswap/felis-tx-builder": "workspace:*",
     "socket.io-client": "^4.8.3"
   }
 }

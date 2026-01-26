@@ -1,9 +1,21 @@
 {
-  "name": "@repo/sundaeswap-v1",
+  "name": "@minswap/felis-sundaeswap-v1",
   "version": "0.0.1",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/minswap/felis",
+    "directory": "packages/sundaeswap-v1"
+  },
+  "bugs": {
+    "url": "https://github.com/minswap/felis/issues"
+  },
+  "files": ["dist"],
   "exports": {
     ".": "./dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
@@ -23,8 +35,8 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@repo/ledger-core": "workspace:*",
-    "@repo/ledger-utils": "workspace:*",
+    "@minswap/felis-ledger-core": "workspace:*",
+    "@minswap/felis-ledger-utils": "workspace:*",
     "@minswap/tiny-invariant": "^1.2.0"
   }
 }

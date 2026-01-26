@@ -1,5 +1,5 @@
-import { ADA, type Asset, DatumSourceType, type NetworkEnvironment } from "@repo/ledger-core";
-import { Maybe } from "@repo/ledger-utils";
+import { ADA, type Asset, DatumSourceType, type NetworkEnvironment } from "@minswap/felis-ledger-core";
+import { Maybe } from "@minswap/felis-ledger-utils";
 import {
   getStableswapPoolConfigByNFTAsset,
   getStableswapPoolConfigs,
@@ -7,7 +7,7 @@ import {
   StableswapPoolDatum,
   type StableswapPoolConfig,
   StableswapStepType,
-} from "@repo/minswap-stableswap";
+} from "@minswap/felis-stableswap";
 import type { Transaction } from "./transaction";
 import type { WrapAddress, WrapAsset, WrapNum } from "./types";
 

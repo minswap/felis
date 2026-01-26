@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as S1 from "../src";
-import { ADA, Asset, NetworkEnvironment, Value, XJSON } from "@repo/ledger-core";
+import { ADA, Asset, NetworkEnvironment, Value, XJSON } from "@minswap/felis-ledger-core";
 
 describe("sample", () => {
   it("order datum", () => {

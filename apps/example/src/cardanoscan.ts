@@ -1,9 +1,9 @@
 import fs from "node:fs";
-import { RustModule } from "@repo/ledger-utils";
-import { MinswapStableswapSyncer, MinswapV1Syncer, MinswapV2Syncer, SplashSyncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction, WingridersV1Syncer, WingridersV2Syncer } from "@repo/syncer";
+import { RustModule } from "@minswap/felis-ledger-utils";
+import { MinswapStableswapSyncer, MinswapV1Syncer, MinswapV2Syncer, SplashSyncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction, WingridersV1Syncer, WingridersV2Syncer } from "@minswap/felis-syncer";
 import socketIO from "socket.io-client";
 import { NetworkEnvironment } from "../../../packages/ledger-core/dist/network-id";
-import { Bytes } from "@repo/ledger-core";
+import { Bytes } from "@minswap/felis-ledger-core";
 
 const main = async () => {
   await RustModule.load();

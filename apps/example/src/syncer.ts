@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import * as Ogmios from "@cardano-ogmios/client";
 import invariant from "@minswap/tiny-invariant";
-import { NetworkEnvironment } from "@repo/ledger-core";
-import { RustModule } from "@repo/ledger-utils";
-import { MinswapStableswapSyncer, MinswapV1Syncer, MinswapV2Syncer, SplashSyncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction, WingridersV1Syncer, WingridersV2Syncer } from "@repo/syncer";
+import { NetworkEnvironment } from "@minswap/felis-ledger-core";
+import { RustModule } from "@minswap/felis-ledger-utils";
+import { MinswapStableswapSyncer, MinswapV1Syncer, MinswapV2Syncer, SplashSyncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction, WingridersV1Syncer, WingridersV2Syncer } from "@minswap/felis-syncer";
 
 const main = async () => {
   await RustModule.load();

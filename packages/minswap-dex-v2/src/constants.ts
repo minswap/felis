@@ -1,5 +1,3 @@
-import invariant from "@minswap/tiny-invariant";
-
 import {
   Address,
   AddressType,
@@ -18,8 +16,9 @@ import {
   TxOut,
   Utxo,
   Value,
-} from "@repo/ledger-core";
-import { Maybe } from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-core";
+import { Maybe } from "@minswap/felis-ledger-utils";
+import invariant from "@minswap/tiny-invariant";
 import { getMinswapStakeAddresses } from "./data/constants";
 import mainnetRawScripts from "./scripts/mainnet/dex-v2-script.json";
 import mainnetReferenceScripts from "./scripts/mainnet/references-script.json";

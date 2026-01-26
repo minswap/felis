@@ -1,5 +1,4 @@
 import type * as Ogmios from "@cardano-ogmios/schema";
-import invariant from "@minswap/tiny-invariant";
 import {
   type CborHex,
   type CSLAddress,
@@ -8,7 +7,8 @@ import {
   Maybe,
   RustModule,
   safeFreeRustObjects,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
+import invariant from "@minswap/tiny-invariant";
 import { Bytes } from "./bytes";
 import {
   AddressType,

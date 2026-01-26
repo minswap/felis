@@ -1,11 +1,12 @@
 {
-  "name": "@minswap/felis-syncer",
+  "name": "@minswap/felis",
   "version": "0.0.1",
+  "description": "Minswap Felis - A comprehensive TypeScript SDK for Cardano DEX infrastructure with leveraged trading",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/minswap/felis",
-    "directory": "packages/syncer"
+    "directory": "packages/felis"
   },
   "bugs": {
     "url": "https://github.com/minswap/felis/issues"
@@ -20,8 +21,6 @@
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
     "build": "tsc",
-    "test": "vitest",
-    "test:watch": "vitest --watch",
     "check-circular-imports": "dpdm --no-warning --no-tree src"
   },
   "devDependencies": {
@@ -30,22 +29,24 @@
     "@types/node": "^22.15.3",
     "eslint": "^9.31.0",
     "typescript": "5.8.2",
-    "@types/json-bigint": "^1.0.4",
-    "dpdm": "^3.14.0",
-    "vitest": "^3.2.4"
+    "dpdm": "^3.14.0"
   },
   "dependencies": {
-    "@minswap/tiny-invariant": "^1.2.0",
-    "@minswap/felis-ledger-core": "workspace:*",
     "@minswap/felis-ledger-utils": "workspace:*",
+    "@minswap/felis-ledger-core": "workspace:*",
+    "@minswap/felis-cip": "workspace:*",
+    "@minswap/felis-tx-builder": "workspace:*",
+    "@minswap/felis-provider": "workspace:*",
     "@minswap/felis-dex-v1": "workspace:*",
     "@minswap/felis-dex-v2": "workspace:*",
+    "@minswap/felis-build-tx": "workspace:*",
     "@minswap/felis-stableswap": "workspace:*",
+    "@minswap/felis-lending-market": "workspace:*",
+    "@minswap/felis-splash": "workspace:*",
     "@minswap/felis-sundaeswap-v1": "workspace:*",
     "@minswap/felis-sundaeswap-v3": "workspace:*",
     "@minswap/felis-wingriders-v1": "workspace:*",
     "@minswap/felis-wingriders-v2": "workspace:*",
-    "@minswap/felis-splash": "workspace:*",
-    "@minswap/felis-tx-builder": "workspace:*"
+    "@minswap/felis-syncer": "workspace:*"
   }
 }

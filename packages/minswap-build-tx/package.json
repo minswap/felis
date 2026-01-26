@@ -1,9 +1,23 @@
 {
-  "name": "@repo/minswap-build-tx",
+  "name": "@minswap/felis-build-tx",
   "version": "0.0.1",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/minswap/felis",
+    "directory": "packages/minswap-build-tx"
+  },
+  "bugs": {
+    "url": "https://github.com/minswap/felis/issues"
+  },
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": "./dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
@@ -23,10 +37,10 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@repo/ledger-core": "workspace:*",
-    "@repo/ledger-utils": "workspace:*",
-    "@repo/tx-builder": "workspace:*",
-    "@repo/minswap-dex-v2": "workspace:*",
+    "@minswap/felis-ledger-core": "workspace:*",
+    "@minswap/felis-ledger-utils": "workspace:*",
+    "@minswap/felis-tx-builder": "workspace:*",
+    "@minswap/felis-dex-v2": "workspace:*",
     "@minswap/tiny-invariant": "^1.2.0",
     "bignumber.js": "^9.1.2"
   }

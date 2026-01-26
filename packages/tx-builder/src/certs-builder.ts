@@ -1,5 +1,5 @@
-import { Credential, DRep, type RewardAddress, type StakePool, type VoteDelegation } from "@repo/ledger-core";
-import { type CSLCertificates, RustModule } from "@repo/ledger-utils";
+import { Credential, DRep, type RewardAddress, type StakePool, type VoteDelegation } from "@minswap/felis-ledger-core";
+import { type CSLCertificates, RustModule } from "@minswap/felis-ledger-utils";
 import { uniqueWith } from "remeda";
 
 export type StakeKeyDelegation = {

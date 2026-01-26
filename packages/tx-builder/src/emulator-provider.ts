@@ -1,4 +1,8 @@
-import { DEFAULT_PROTOCOL_PARAMS, type NetworkEnvironment, type UnstableProtocolParams } from "@repo/ledger-core";
+import {
+  DEFAULT_PROTOCOL_PARAMS,
+  type NetworkEnvironment,
+  type UnstableProtocolParams,
+} from "@minswap/felis-ledger-core";
 import type { ITxBuilderProvider } from "./tx-builder";
 
 export class EmulatorProvider implements ITxBuilderProvider {

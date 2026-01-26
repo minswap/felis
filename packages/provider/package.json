@@ -1,9 +1,21 @@
 {
-  "name": "@repo/provider",
+  "name": "@minswap/felis-provider",
   "version": "0.0.1",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/minswap/felis",
+    "directory": "packages/provider"
+  },
+  "bugs": {
+    "url": "https://github.com/minswap/felis/issues"
+  },
+  "files": ["dist"],
   "exports": {
     ".": "./dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
@@ -18,12 +30,12 @@
     "dpdm": "^3.14.0",
     "eslint": "^9.31.0",
     "typescript": "5.8.2",
-    "@repo/minswap-dex-v2": "workspace:*"
+    "@minswap/felis-dex-v2": "workspace:*"
   },
   "dependencies": {
     "@minswap/tiny-invariant": "^1.2.0",
-    "@repo/ledger-core": "workspace:*",
-    "@repo/ledger-utils": "workspace:*",
+    "@minswap/felis-ledger-core": "workspace:*",
+    "@minswap/felis-ledger-utils": "workspace:*",
     "remeda": "^2.19.2"
   }
 }

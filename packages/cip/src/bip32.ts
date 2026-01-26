@@ -1,4 +1,3 @@
-import invariant from "@minswap/tiny-invariant";
 import {
   Address,
   AddressType,
@@ -9,14 +8,15 @@ import {
   networkEnvironmentToNetworkID,
   PrivateKey,
   type Utxo,
-} from "@repo/ledger-core";
+} from "@minswap/felis-ledger-core";
 import {
   type CSLBip32PrivateKey,
   type CSLBip32PublicKey,
   Maybe,
   RustModule,
   safeFreeRustObjects,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
+import invariant from "@minswap/tiny-invariant";
 import { mnemonicToEntropy } from "bip39";
 
 /**

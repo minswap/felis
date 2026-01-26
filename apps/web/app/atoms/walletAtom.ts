@@ -1,5 +1,5 @@
-import { XJSON } from "@repo/ledger-core";
-import type { LendingMarket } from "@repo/minswap-lending-market";
+import { XJSON } from "@minswap/felis-ledger-core";
+import type { LendingMarket } from "@minswap/felis-lending-market";
 import { atom } from "jotai";
 import type { Asset } from "../../../../packages/ledger-core/dist/asset";
 import { LocalStorageKey } from "../constants/storage";

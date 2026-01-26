@@ -1,6 +1,6 @@
-import { Asset, Bytes, NetworkEnvironment } from "@repo/ledger-core";
+import { Asset, Bytes, NetworkEnvironment } from "@minswap/felis-ledger-core";
 import { KupoService } from "../src";
-import { PoolV2 } from "@repo/minswap-dex-v2";
+import { PoolV2 } from "@minswap/felis-dex-v2";
 
 const fetchMinswapV2Pools = async (kupo: KupoService, networkEnv: NetworkEnvironment) => {
   const poolHash = Bytes.fromHex("d6ba9b7509eac866288ff5072d2a18205ac56f744bc82dcd808cb8fe");

@@ -1,4 +1,4 @@
-import { RustModule } from "@repo/ledger-utils";
+import { RustModule } from "@minswap/felis-ledger-utils";
 import { beforeAll, describe, expect, test } from "vitest";
 import { Bytes, PlutusBytes, PlutusInt, Redeemer, RedeemerType } from "../src";
 

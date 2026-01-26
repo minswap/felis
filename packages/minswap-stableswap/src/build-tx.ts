@@ -12,10 +12,10 @@ import {
   TxOut,
   type Utxo,
   Value,
-} from "@repo/ledger-core";
-import { Maybe } from "@repo/ledger-utils";
-import { MetadataMessage } from "@repo/minswap-build-tx";
-import { TxBuilder } from "@repo/tx-builder";
+} from "@minswap/felis-ledger-core";
+import { Maybe } from "@minswap/felis-ledger-utils";
+import { MetadataMessage } from "@minswap/felis-build-tx";
+import { TxBuilder } from "@minswap/felis-tx-builder";
 import { getStableswapPoolConfig, getStableswapReferencesScript } from "./configs";
 import { type StableswapOrder, StableswapOrderRedeemer } from "./order";
 import {

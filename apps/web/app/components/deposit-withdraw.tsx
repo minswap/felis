@@ -1,9 +1,9 @@
 "use client";
 
 import { ArrowDownOutlined, ArrowUpOutlined } from "@ant-design/icons";
-import { RustModule } from "@repo/ledger-utils";
-import { NitroWallet } from "@repo/minswap-lending-market";
-import { TxComplete } from "@repo/tx-builder";
+import { RustModule } from "@minswap/felis-ledger-utils";
+import { NitroWallet } from "@minswap/felis-lending-market";
+import { TxComplete } from "@minswap/felis-tx-builder";
 import { Alert, App, Button, Card, Col, Form, Input, Modal, Row, Space, Statistic } from "antd";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useState } from "react";

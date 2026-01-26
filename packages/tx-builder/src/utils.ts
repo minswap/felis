@@ -11,8 +11,14 @@ import {
   TxOut,
   Utxo,
   Value,
-} from "@repo/ledger-core";
-import { type CSLTransactionBuilder, Maybe, Result, RustModule, safeFreeRustObjects } from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-core";
+import {
+  type CSLTransactionBuilder,
+  Maybe,
+  Result,
+  RustModule,
+  safeFreeRustObjects,
+} from "@minswap/felis-ledger-utils";
 import BigNumber from "bignumber.js";
 import { selectUtxos, splitChangeOut } from "./select-utxos";
 import {

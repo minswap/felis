@@ -1,4 +1,4 @@
-import { RustModule } from "@repo/ledger-utils";
+import { RustModule } from "@minswap/felis-ledger-utils";
 import * as fc from "fast-check";
 import { beforeAll, describe, it } from "vitest";
 import { Asset } from "../src";

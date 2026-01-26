@@ -1,10 +1,10 @@
 import fs from "node:fs";
-import { Bytes, NetworkEnvironment, Utxo, XJSON } from "@repo/ledger-core";
-import { getDexV2Configs, PoolV2 } from "@repo/minswap-dex-v2";
-import { KupoService } from "@repo/provider";
-import { MinswapV2Syncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer } from "@repo/syncer";
-import { SundaeSwapV1 } from "@repo/sundaeswap-v1";
-import { SundaeSwapV3 } from "@repo/sundaeswap-v3";
+import { Bytes, NetworkEnvironment, Utxo, XJSON } from "@minswap/felis-ledger-core";
+import { getDexV2Configs, PoolV2 } from "@minswap/felis-dex-v2";
+import { KupoService } from "@minswap/felis-provider";
+import { MinswapV2Syncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer } from "@minswap/felis-syncer";
+import { SundaeSwapV1 } from "@minswap/felis-sundaeswap-v1";
+import { SundaeSwapV3 } from "@minswap/felis-sundaeswap-v3";
 
 const fetchMinswapV2Pools = async (kupo: KupoService, networkEnv: NetworkEnvironment) => {
   const minswapDexV2Configs = getDexV2Configs(networkEnv);

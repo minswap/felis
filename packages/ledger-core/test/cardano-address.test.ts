@@ -1,4 +1,4 @@
-import { Result, RustModule } from "@repo/ledger-utils";
+import { Result, RustModule } from "@minswap/felis-ledger-utils";
 import * as fc from "fast-check";
 import { isDeepEqual } from "remeda";
 import { beforeAll, describe, test } from "vitest";

@@ -9,7 +9,7 @@ import {
   type TxIn,
   TxOut,
   Value,
-} from "@repo/ledger-core";
+} from "@minswap/felis-ledger-core";
 import {
   blake2b256,
   type ECSLTransaction,
@@ -18,7 +18,7 @@ import {
   RustModule,
   safeFreeRustObjects,
   unwrapRustVec,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
 
 export namespace ECSLConverter {
   export function getTransactionFromHex(data: string): ECSLTransaction {

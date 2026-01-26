@@ -5,7 +5,7 @@ import {
   isValidHex,
   RustModule,
   safeFreeRustObjects,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
 
 import { PlutusBytes, type PlutusData } from "./plutus-json";
 

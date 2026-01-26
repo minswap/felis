@@ -1,5 +1,5 @@
-import { NetworkEnvironment } from "@repo/ledger-core";
-import { RustModule } from "@repo/ledger-utils";
+import { NetworkEnvironment } from "@minswap/felis-ledger-core";
+import { RustModule } from "@minswap/felis-ledger-utils";
 import { beforeAll, describe, expect, it } from "vitest";
 import { OrderV2Datum, OrderV2StepType } from "../src";
 

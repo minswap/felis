@@ -1,4 +1,4 @@
-import type { CIP25Metadata, CIP25NFT } from "@repo/cip";
+import type { CIP25Metadata, CIP25NFT } from "@minswap/felis-cip";
 import {
   ADA,
   type Address,
@@ -26,7 +26,7 @@ import {
   type Validator,
   Value,
   XJSON,
-} from "@repo/ledger-core";
+} from "@minswap/felis-ledger-core";
 import {
   type CborHex,
   type CSLTransaction,
@@ -38,7 +38,7 @@ import {
   RustModule,
   safeFreeRustObjects,
   unwrapRustVec,
-} from "@repo/ledger-utils";
+} from "@minswap/felis-ledger-utils";
 import { unique } from "remeda";
 import { ECSLConverter } from "./ecsl-converter";
 import { CSLTxSerializer } from "./serializer";

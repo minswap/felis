@@ -1,4 +1,4 @@
-import { Maybe } from "@repo/ledger-utils";
+import { Maybe } from "@minswap/felis-ledger-utils";
 import type { Transaction } from "./transaction";
 
 export namespace Helper {

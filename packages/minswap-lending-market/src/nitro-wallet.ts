@@ -1,7 +1,7 @@
-import { baseWalletFromEntropy } from "@repo/cip";
-import { ADA, type Address, NetworkEnvironment, PrivateKey, TxOut, Utxo, Value } from "@repo/ledger-core";
-import { sha3 } from "@repo/ledger-utils";
-import { CoinSelectionAlgorithm, EmulatorProvider, TxBuilder } from "@repo/tx-builder";
+import { baseWalletFromEntropy } from "@minswap/felis-cip";
+import { ADA, type Address, NetworkEnvironment, PrivateKey, TxOut, Utxo, Value } from "@minswap/felis-ledger-core";
+import { sha3 } from "@minswap/felis-ledger-utils";
+import { CoinSelectionAlgorithm, EmulatorProvider, TxBuilder } from "@minswap/felis-tx-builder";
 
 export namespace NitroWallet {
   export type Wallet = {

@@ -11,8 +11,8 @@ import {
   CredentialType,
   NetworkID,
   RewardAddress,
-} from "@repo/ledger-core";
-import { NetworkEnvironment, networkEnvironmentToNetworkID } from "@repo/ledger-core";
+} from "@minswap/felis-ledger-core";
+import { NetworkEnvironment, networkEnvironmentToNetworkID } from "@minswap/felis-ledger-core";
 import { factoryPolicyID, lpPolicyID, nftPolicyID } from "./scripts";
 
 let orderEnterpriseAddrTestnet: CardanoEnterpriseAddress | undefined = undefined;
