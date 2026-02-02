@@ -5,14 +5,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    network_mode: host
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_NETWORK_ENV: TESTNET_PREVIEW
+      PORT: 3001
+    expose:
+      - "3001"
     restart: unless-stopped
-    networks:
-      - dev-network
-
-networks:
-  dev-network:
-    name: dev-network
-    driver: bridge
