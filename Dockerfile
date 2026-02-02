@@ -40,7 +40,7 @@ COPY --from=builder /app/apps/web ./apps/web
 RUN pnpm install --prod --frozen-lockfile
 
 # Expose port
-EXPOSE 3000
+EXPOSE 3002
 
 # Set environment to production
 ENV NODE_ENV=production

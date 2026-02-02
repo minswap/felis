@@ -9,7 +9,7 @@ services:
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_NETWORK_ENV: TESTNET_PREVIEW
-      PORT: 3001
+      PORT: 3002
     expose:
-      - "3001"
+      - "3002"
     restart: unless-stopped
