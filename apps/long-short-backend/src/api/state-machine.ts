@@ -5,6 +5,8 @@ import { DexVersion, OrderV2Direction, OrderV2StepType } from "@minswap/felis-de
 import { CoinSelectionAlgorithm, EmulatorProvider } from "@minswap/felis-tx-builder";
 import { Duration, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
 import { HashUtils } from "../utils";
+import { CardanoscanProvider } from "../provider";
+import { MarketConfig } from "../config";
 
 export namespace StateMachine {
   export enum PositionSide {
@@ -91,8 +93,90 @@ export namespace StateMachine {
     return {
       txRaw,
       txId: txId,
+      orderOutputIndex: 0,
       outputsHash,
       validTo,
     }
+  };
+
+  export type WaitingLongBuyOptions = {
+    marketConfig: MarketConfig;
+    txHash: string;
+    orderOutputIndex: number;
+    userAddress: Address;
+    assetOut: Asset;
+    cardanoscanProvider: CardanoscanProvider;
+  };
+
+  export type WaitingLongBuyResult =
+    | { isSpent: false }
+    | {
+        isSpent: true;
+        nextOrderType: LongOrderType;
+        assetIn: string;
+        amountIn: string;
+        assetOut: string;
+      };
+
+  /**
+   * Check if the order output has been spent (consumed by a subsequent transaction)
+   * and prepare the next order details
+   * @param options - Options containing transaction details and cardanoscan provider
+   * @returns Result with next order details if spent, or isSpent: false if not yet processed
+   */
+  export const waitingLongBuy = async (options: WaitingLongBuyOptions): Promise<WaitingLongBuyResult> => {
+    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, assetOut } = options;
+
+    // Cache hex conversion of user address
+    const userAddressHex = userAddress.toHex();
+
+    // Search for the transaction that spent this UTXO
+    const spendingTx = await cardanoscanProvider.findTransactionHasSpent(
+      userAddress,
+      txHash,
+      orderOutputIndex,
+      5, // pageSize - search 50 transactions per page
+      10, // maxPage - search up to 10 pages (500 transactions total)
+    );
+
+    if (spendingTx) {
+      // Order output has been spent
+      // Now find the output that belongs to the user and contains the assetOut token
+      const assetOutUnit = assetOut.toBlockFrostString();
+
+      // Search through the spending transaction's outputs
+      for (const output of spendingTx.outputs) {
+        // Check if output address matches user address (in hex)
+        if (output.address === userAddressHex) {
+          // Check if output contains the assetOut token
+          if (output.tokens && output.tokens.length > 0) {
+            const matchingToken = output.tokens.find((token) => token.assetId === assetOutUnit);
+            if (matchingToken) {
+              // Found the output with the matching token
+              // Prepare next order: LONG_SUPPLY
+              const amountOut = BigInt(matchingToken.value);
+              return {
+                isSpent: true,
+                nextOrderType: LongOrderType.LONG_SUPPLY,
+                assetIn: assetOut.toString(), // The asset we received becomes input for next order
+                amountIn: amountOut.toString(), // The amount we received becomes input amount
+                assetOut: marketConfig.collateralMarketId, // Supply to get collateral token
+              };
+            }
+          }
+        }
+      }
+
+      // Transaction found but couldn't find matching output
+      // This is an error condition - the order was processed but we can't find the result
+      throw new Error(
+        `Order output spent (tx: ${spendingTx.hash}) but could not find matching output with asset ${assetOut.toString()}`,
+      );
+    }
+
+    // Order output has not been spent yet
+    return {
+      isSpent: false,
+    };
   };
 }

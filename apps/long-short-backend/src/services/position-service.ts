@@ -1,5 +1,5 @@
 import type { Kysely } from "kysely";
-import { Address, type NetworkEnvironment } from "@minswap/felis-ledger-core";
+import { Address, Asset, XJSON, type NetworkEnvironment } from "@minswap/felis-ledger-core";
 import { getMarketConfig, isSupportedMarket } from "../config/market";
 import type { DB } from "../database";
 import { type Position, PositionRepository } from "../repository/position-repository";
@@ -139,42 +139,151 @@ export class PositionService {
       return { success: false, error: "No open position found for this market" };
     }
 
-    // Find next unhandled order
-    const order = await OrderRepository.getNextUnhandledOrder(this.db, position.id);
-    if (!order) {
-      return { success: false, error: "No unhandled order found" };
+    const marketConfig = getMarketConfig(marketId);
+    if (!marketConfig) {
+      return { success: false, error: `Market "${marketId}" configuration not found` };
     }
 
     try {
-      // Case 1: Order has built_tx_id not null => check if tx appears on chain
+      // STEP 1: Check if there's a waiting order (created_tx_id not null, waiting = true)
+      const waitingOrder = await OrderRepository.getWaitingOrder(this.db, position.id);
+      if (waitingOrder) {
+        logger.info("Found waiting order, checking if output is spent", {
+          orderId: waitingOrder.id,
+          orderType: waitingOrder.orderType,
+          createdTxId: waitingOrder.createdTxId,
+        });
+
+        const address = Address.fromBech32(userAddress);
+
+        // Call appropriate waiting function based on order type
+        if (waitingOrder.orderType === StateMachine.LongOrderType.LONG_BUY) {
+          const waitingResult = await StateMachine.waitingLongBuy({
+            marketConfig,
+            txHash: waitingOrder.createdTxId!,
+            orderOutputIndex: waitingOrder.createdTxIndex ?? 0,
+            userAddress: address,
+            assetOut: Asset.fromString(waitingOrder.assetOut!),
+            cardanoscanProvider: this.cardanoscanProvider,
+          });
+
+          if (waitingResult.isSpent) {
+            // Order output has been spent - find and update the next order
+            logger.info("Order output spent, updating next order", {
+              orderId: waitingOrder.id,
+              nextOrderType: waitingResult.nextOrderType,
+            });
+
+            // Find the order with the next order type
+            const nextOrder = await this.db
+              .selectFrom("order")
+              .selectAll()
+              .where("position_id", "=", waitingOrder.positionId.toString())
+              .where("order_type", "=", waitingResult.nextOrderType)
+              .executeTakeFirst();
+
+            if (!nextOrder) {
+              logger.error("Next order not found", {
+                positionId: waitingOrder.positionId,
+                nextOrderType: waitingResult.nextOrderType,
+              });
+              return {
+                success: false,
+                error: `Next order with type "${waitingResult.nextOrderType}" not found`,
+              };
+            }
+
+            // Update the next order with details and set current order waiting = false
+            await OrderRepository.updateOrderNextDetails(
+              this.db,
+              BigInt(nextOrder.id),
+              waitingResult.assetIn,
+              waitingResult.amountIn,
+              waitingResult.assetOut,
+            );
+            await OrderRepository.setOrderWaiting(this.db, waitingOrder.id, false);
+
+            logger.info("Next order updated, current order no longer waiting", {
+              currentOrderId: waitingOrder.id,
+              nextOrderId: nextOrder.id,
+              assetIn: waitingResult.assetIn,
+              amountIn: waitingResult.amountIn,
+              assetOut: waitingResult.assetOut,
+            });
+
+            return {
+              success: false,
+              error: "Order processed. Next order details updated. Call build-tx again to continue.",
+            };
+          } else {
+            // Order output not spent yet
+            return {
+              success: false,
+              error: "Transaction confirmed on chain. Waiting for order to be processed.",
+            };
+          }
+        } else {
+          // Other order types not implemented yet
+          return {
+            success: false,
+            error: `Waiting logic for order type "${waitingOrder.orderType}" is not implemented yet`,
+          };
+        }
+      }
+
+      // STEP 2: No waiting order, find next unhandled order
+      const order = await OrderRepository.getNextUnhandledOrder(this.db, position.id);
+      if (!order) {
+        return { success: false, error: "No unhandled order found" };
+      }
+
+      // STEP 3: Handle order - check if transaction already built
       if (order.builtTxId) {
         logger.info("Order has built_tx_id, checking transaction status", {
           orderId: order.id,
           builtTxId: order.builtTxId,
+          hasCreatedTxId: !!order.createdTxId,
         });
 
         const address = Address.fromBech32(userAddress);
-        const txFound = await this.cardanoscanProvider.findTransactionByHash(
+
+        // If order.createdTxId exists, transaction was already found on chain
+        if (order.createdTxId) {
+          logger.info("Transaction already confirmed on chain", {
+            orderId: order.id,
+            createdTxId: order.createdTxId,
+          });
+          // Transaction is confirmed, waiting for it to be spent
+          return {
+            success: false,
+            error: "Transaction confirmed on chain. Waiting for order to be processed.",
+          };
+        }
+
+        // Search for transaction on chain
+        const txFoundOnChain = await this.cardanoscanProvider.findTransactionByHash(
           address,
           order.builtTxId,
           50, // pageSize
           10, // maxPage - search up to 10 pages (500 transactions)
         );
 
-        // Case 1a: Transaction found on chain => order is handled, move to next
-        if (txFound) {
+        if (txFoundOnChain) {
           logger.info("Transaction found on chain", {
             orderId: order.id,
-            txHash: order.builtTxId,
+            txHash: txFoundOnChain.hash,
           });
+
+          // Update order with created_tx_id (this will set waiting = true by default)
+          await OrderRepository.updateOrderCreatedTx(this.db, order.id, txFoundOnChain.hash, 0);
+
           return {
             success: false,
-            error: "Transaction already submitted and found on chain. This order is being processed.",
+            error: "Transaction confirmed on chain. Waiting for order to be processed.",
           };
         }
 
-        // Case 3: Transaction not found on chain
-        // Check if transaction has expired
+        // Transaction not found on chain - check if expired
         const now = new Date();
         const validTo = order.builtValidTo;
 
@@ -184,7 +293,7 @@ export class PositionService {
           });
           // Fall through to rebuild
         } else if (validTo < now) {
-          // Case 3a: Transaction expired => rebuild
+          // Transaction expired => rebuild
           logger.info("Transaction expired, rebuilding", {
             orderId: order.id,
             validTo: validTo.toISOString(),
@@ -192,7 +301,7 @@ export class PositionService {
           });
           // Fall through to rebuild
         } else {
-          // Case 3b: Transaction not expired yet => wait
+          // Transaction not expired yet => wait
           const remainingMs = validTo.getTime() - now.getTime();
           const remainingMinutes = Math.ceil(remainingMs / 1000 / 60);
           logger.info("Transaction not yet expired, waiting", {
@@ -209,7 +318,7 @@ export class PositionService {
         }
       }
 
-      // Case 2: Order has no built_tx_id OR transaction expired => build new transaction
+      // STEP 4: Build new transaction
       logger.info("Building new transaction", {
         orderId: order.id,
         orderType: order.orderType,

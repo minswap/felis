@@ -43,6 +43,7 @@ export interface Order {
   id: Generated<Int8>;
   order_type: string;
   position_id: Int8;
+  waiting: Generated<boolean>;
 }
 
 export interface Position {

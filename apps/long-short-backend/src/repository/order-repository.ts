@@ -25,6 +25,7 @@ export type Order = {
   builtTxId: string | null;
   builtOutputsHash: string | null;
   builtValidTo: Date | null;
+  waiting: boolean;
 };
 
 export namespace OrderRepository {
@@ -135,6 +136,81 @@ export namespace OrderRepository {
       .execute();
   }
 
+  /**
+   * Update order created_tx fields when transaction is found on chain
+   */
+  export async function updateOrderCreatedTx(
+    db: Kysely<DB> | Transaction<DB>,
+    orderId: bigint,
+    createdTxId: string,
+    createdTxIndex: number,
+  ): Promise<void> {
+    await db
+      .updateTable("order")
+      .set({
+        created_tx_id: createdTxId,
+        created_tx_index: createdTxIndex,
+      })
+      .where("id", "=", orderId.toString())
+      .execute();
+  }
+
+  /**
+   * Update order with next order details when current order output is spent
+   */
+  export async function updateOrderNextDetails(
+    db: Kysely<DB> | Transaction<DB>,
+    orderId: bigint,
+    assetIn: string,
+    amountIn: string,
+    assetOut: string,
+  ): Promise<void> {
+    await db
+      .updateTable("order")
+      .set({
+        asset_in: assetIn,
+        amount_in: amountIn,
+        asset_out: assetOut,
+      })
+      .where("id", "=", orderId.toString())
+      .execute();
+  }
+
+  /**
+   * Find an order that has created_tx_id not null and waiting = true
+   * This order has been confirmed on chain and is waiting for its output to be spent
+   */
+  export async function getWaitingOrder(
+    db: Kysely<DB> | Transaction<DB>,
+    positionId: bigint,
+  ): Promise<Order | null> {
+    const result = await db
+      .selectFrom("order")
+      .selectAll()
+      .where("position_id", "=", positionId.toString())
+      .where("created_tx_id", "is not", null)
+      .where("waiting", "=", true)
+      .orderBy("id", "asc")
+      .executeTakeFirst();
+
+    return result ? mapOrderRow(result) : null;
+  }
+
+  /**
+   * Set order waiting flag to false
+   */
+  export async function setOrderWaiting(
+    db: Kysely<DB> | Transaction<DB>,
+    orderId: bigint,
+    waiting: boolean,
+  ): Promise<void> {
+    await db
+      .updateTable("order")
+      .set({ waiting })
+      .where("id", "=", orderId.toString())
+      .execute();
+  }
+
   // biome-ignore lint/suspicious/noExplicitAny: DB row type
   function mapOrderRow(row: any): Order {
     return {
@@ -150,6 +226,7 @@ export namespace OrderRepository {
       builtTxId: row.built_tx_id,
       builtOutputsHash: row.built_outputs_hash,
       builtValidTo: row.built_valid_to ? new Date(row.built_valid_to) : null,
+      waiting: row.waiting,
     };
   }
 }

@@ -1,6 +1,5 @@
 import { Address } from "@minswap/felis-ledger-core";
 import { logger } from "../utils";
-import { RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
 
 /**
  * Transaction input/output structure from Cardanoscan API
@@ -9,8 +8,8 @@ export type CardanoscanTxIO = {
   address: string;
   value: string;
   tokens?: Array<{
-    quantity: string;
-    unit: string;
+    value: string;
+    assetId: string;
   }>;
   datum?: string;
   scriptRef?: string;
@@ -28,7 +27,7 @@ export type CardanoscanTransaction = {
   blockHeight: number;
   timestamp: string; // ISO 8601 date-time
   index: number;
-  inputs: CardanoscanTxIO[];
+  inputs: (CardanoscanTxIO & {txId: string; index: number; })[];
   outputs: CardanoscanTxIO[];
   collateral: CardanoscanTxIO[];
   certificates?: {
@@ -81,7 +80,7 @@ export type GetTransactionListOptions = {
   address: string;
   pageNo: number;
   limit?: number; // 1-50, default 20
-  order?: "asc" | "desc"; // default "asc"
+  order: "asc" | "desc"; // default "desc"
 };
 
 /**
@@ -103,7 +102,7 @@ export class CardanoscanProvider {
    * @returns Transaction list response with pagination info
    */
   async getTransactionList(options: GetTransactionListOptions): Promise<CardanoscanTransactionListResponse> {
-    const { address, pageNo, limit = 20, order = "asc" } = options;
+    const { address, pageNo, limit = 20, order } = options;
 
     // Validate parameters
     if (!address || address.length > 200) {
@@ -157,21 +156,17 @@ export class CardanoscanProvider {
    * @param address - Address to query
    * @param pageNo - Page number (1-indexed)
    * @param limit - Results per page (1-50, default 20)
-   * @param order - Sort order (asc or desc, default asc)
+   * @param order - Sort order (asc or desc, default desc)
    * @returns Transaction list response
    */
   async getTransactionListByAddress(
     address: Address,
     pageNo: number,
-    limit?: number,
-    order?: "asc" | "desc",
+    limit: number,
+    order: "asc" | "desc",
   ): Promise<CardanoscanTransactionListResponse> {
-    const ECSL = RustModule.getE;
-    const ea = ECSL.Address.from_bech32(address.bech32);
-    const ah = ea.to_hex();
-    safeFreeRustObjects(ea);
     return this.getTransactionList({
-      address: ah,
+      address: address.toHex(),
       pageNo,
       limit,
       order,
@@ -269,6 +264,65 @@ export class CardanoscanProvider {
       }
     }
 
+    return null;
+  }
+
+  /**
+   * Find the transaction that spent a specific UTXO
+   * @param address - Address to query
+   * @param txHash - Transaction hash of the UTXO
+   * @param index - Output index of the UTXO
+   * @param pageSize - Number of transactions per page (default: 50)
+   * @param maxPage - Maximum pages to search (default: 100)
+   * @returns The transaction that spent the UTXO, or null if not found
+   */
+  async findTransactionHasSpent(
+    address: Address,
+    txHash: string,
+    index: number,
+    pageSize?: number,
+    maxPage?: number,
+  ): Promise<CardanoscanTransaction | null> {
+    // Start from most recent and work backwards
+    let pageNo = 1;
+    let hasMore = true;
+
+    logger.info("Searching for transaction that spent UTXO", {
+      address: address.bech32,
+      txHash,
+      outputIndex: index,
+    });
+
+    while (hasMore) {
+      const response = await this.getTransactionListByAddress(address, pageNo, pageSize ?? 50, "desc");
+
+      // Check each transaction's inputs for the specified UTXO
+      for (const tx of response.transactions) {
+        const spentInput = tx.inputs.find(
+          (input) => input.txId === txHash && input.index === index,
+        );
+
+        if (spentInput) {
+          logger.info("Found transaction that spent UTXO", {
+            spendingTxHash: tx.hash,
+            utxoTxHash: txHash,
+            utxoIndex: index,
+          });
+          return tx;
+        }
+      }
+
+      hasMore = response.transactions.length === response.limit;
+      pageNo++;
+
+      // Safety limit to prevent infinite loops
+      if (pageNo > (maxPage ?? 100)) {
+        logger.warn(`Searched ${maxPage ?? 100} pages without finding spending transaction for ${txHash}:${index}`);
+        break;
+      }
+    }
+
+    logger.info("UTXO not spent yet", { txHash, outputIndex: index });
     return null;
   }
 }

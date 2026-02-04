@@ -32,7 +32,7 @@ async function main() {
 
   // Connect to database
   logger.info("Connecting to database...");
-  const db = await newKyselyClient<DB>(DATABASE_URL, { logSQL: true });
+  const db = await newKyselyClient<DB>(DATABASE_URL, { logSQL: false });
   logger.info("Database connected");
 
   // Load market configs from database
