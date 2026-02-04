@@ -1,4 +1,5 @@
 import { Type, type Static } from "@sinclair/typebox";
+import { StateMachine } from "./state-machine";
 
 export const SignedDataSchema = Type.Object({
   key: Type.String({ minLength: 1, description: "COSEKey hex" }),
@@ -21,13 +22,18 @@ export type AuthenCommonType<T> = {
   witness: SignedDataType;
 };
 
-// Position schemas
-export const PositionSideSchema = Type.Union([Type.Literal("LONG"), Type.Literal("SHORT")]);
+// Position schemas (derived from StateMachine enums)
+export const PositionSideSchema = Type.Union(
+  Object.values(StateMachine.PositionSide).map((v) => Type.Literal(v)),
+);
+export const PositionStatusSchema = Type.Union(
+  Object.values(StateMachine.PositionStatus).map((v) => Type.Literal(v)),
+);
 
 export const CreatePositionDataSchema = Type.Object({
-  market: Type.String({ minLength: 1, description: "Trading pair (e.g., ADA-MIN)" }),
-  side: PositionSideSchema,
-  amount: Type.String({ pattern: "^[0-9]+$", description: "Collateral amount in lovelace" }),
+  market_id: Type.String({ minLength: 1, description: "Market ID (e.g., ADA-MIN)" }),
+  side: Type.Literal("LONG", { description: "Position side (only LONG supported)" }),
+  amount_in: Type.String({ pattern: "^[0-9]+$", description: "Collateral amount in lovelace" }),
 });
 
 export type CreatePositionDataType = Static<typeof CreatePositionDataSchema>;
@@ -38,24 +44,13 @@ export type AuthenCreatePositionBodyType = AuthenCommonType<CreatePositionDataTy
 
 export const PositionResponseSchema = Type.Object({
   id: Type.String({ description: "Position ID" }),
+  market_id: Type.String(),
   user_address: Type.String(),
-  market: Type.String(),
   side: PositionSideSchema,
-  status: Type.Union([Type.Literal("OPEN"), Type.Literal("CLOSED"), Type.Literal("LIQUIDATED")]),
-  leverage: Type.String(),
-  collateral_asset: Type.String(),
-  collateral_amount: Type.String(),
-  entry_price: Type.String(),
-  position_size: Type.String(),
-  borrowed_amount: Type.String(),
-  liquidation_price: Type.String(),
-  take_profit_price: Type.Union([Type.String(), Type.Null()]),
-  stop_loss_price: Type.Union([Type.String(), Type.Null()]),
-  realized_pnl: Type.String(),
-  unrealized_pnl: Type.String(),
-  funding_paid: Type.String(),
+  status: PositionStatusSchema,
+  amount_in: Type.String(),
+  amount_borrow: Type.String(),
   created_at: Type.String({ format: "date-time" }),
-  updated_at: Type.String({ format: "date-time" }),
   closed_at: Type.Union([Type.String({ format: "date-time" }), Type.Null()]),
 });
 
@@ -68,6 +63,47 @@ export const CreatePositionResponseSchema = Type.Object({
 });
 
 export type CreatePositionResponseType = Static<typeof CreatePositionResponseSchema>;
+
+// Get position schemas
+export const GetPositionQuerySchema = Type.Object({
+  user_address: Type.String({ minLength: 1, description: "User's Cardano address (bech32)" }),
+});
+
+export type GetPositionQueryType = Static<typeof GetPositionQuerySchema>;
+
+export const GetPositionResponseSchema = Type.Object({
+  success: Type.Boolean(),
+  data: Type.Union([PositionResponseSchema, Type.Null()]),
+});
+
+export type GetPositionResponseType = Static<typeof GetPositionResponseSchema>;
+
+// Build TX schemas
+export const BuildTxDataSchema = Type.Object({
+  market_id: Type.String({ description: "Market identifier (e.g., ADA-MIN)" }),
+  utxos: Type.Array(Type.String({ minLength: 1 }), { description: "User UTXOs (CBOR hex)" }),
+});
+
+export type BuildTxDataType = Static<typeof BuildTxDataSchema>;
+
+export const AuthenBuildTxBodyTypeSchema = AuthenCommonSchema(BuildTxDataSchema);
+
+export type AuthenBuildTxBodyType = AuthenCommonType<BuildTxDataType>;
+
+export const BuildTxResponseSchema = Type.Object({
+  success: Type.Boolean(),
+  data: Type.Optional(
+    Type.Object({
+      tx_raw: Type.Optional(Type.String({ description: "Unsigned transaction CBOR hex" })),
+      order_type: Type.String({ description: "Order type being processed" }),
+      waiting: Type.Optional(Type.Boolean({ description: "True if transaction is waiting for confirmation" })),
+      message: Type.Optional(Type.String({ description: "Status message when waiting" })),
+    }),
+  ),
+  error: Type.Optional(Type.String()),
+});
+
+export type BuildTxResponseType = Static<typeof BuildTxResponseSchema>;
 
 // Error response
 export const ErrorResponseSchema = Type.Object({

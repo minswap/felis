@@ -25,55 +25,35 @@ export interface MarketConfig {
   asset_b_q_token_ticker: string;
   collateral_market_id: string;
   enable: Generated<boolean>;
-  leverage: number;
+  leverage: Numeric;
   market_id: string;
   min_collateral: Numeric;
 }
 
 export interface Order {
-  action: string;
-  collateral_amount: Numeric | null;
-  created_at: Generated<Timestamp>;
-  expires_at: Timestamp | null;
-  filled_at: Timestamp | null;
-  filled_price: Numeric | null;
+  amount_in: Numeric | null;
+  amount_out: Numeric | null;
+  asset_in: string | null;
+  asset_out: string | null;
+  built_outputs_hash: string | null;
+  built_tx_id: string | null;
+  built_valid_to: Timestamp | null;
+  created_tx_id: string | null;
+  created_tx_index: number | null;
   id: Generated<Int8>;
-  leverage: Numeric | null;
-  market: string;
   order_type: string;
-  position_id: Int8 | null;
-  price: Numeric | null;
-  side: string;
-  size: Numeric;
-  slippage_tolerance: Numeric | null;
-  status: Generated<string>;
-  trigger_price: Numeric | null;
-  tx_hash: string | null;
-  user_address: string;
+  position_id: Int8;
 }
 
 export interface Position {
-  borrowed_amount: Numeric;
+  amount_borrow: Numeric;
+  amount_in: Numeric;
   closed_at: Timestamp | null;
-  collateral_amount: Numeric;
-  collateral_asset: string;
   created_at: Generated<Timestamp>;
-  entry_price: Numeric;
-  funding_paid: Generated<Numeric>;
   id: Generated<Int8>;
-  leverage: Numeric;
-  liquidation_price: Numeric;
-  liqwid_borrow_id: string | null;
-  liqwid_supply_id: string | null;
-  market: string;
-  position_size: Numeric;
-  realized_pnl: Generated<Numeric>;
+  market_id: string;
   side: string;
   status: Generated<string>;
-  stop_loss_price: Numeric | null;
-  take_profit_price: Numeric | null;
-  unrealized_pnl: Generated<Numeric>;
-  updated_at: Generated<Timestamp>;
   user_address: string;
 }
 

@@ -43,7 +43,7 @@ export async function loadMarketConfigs(db: Kysely<DB>): Promise<Map<string, Mar
       assetBQTokenTicker: row.asset_b_q_token_ticker,
       assetBQTokenRaw: row.asset_b_q_token_raw,
       collateralMarketId: row.collateral_market_id,
-      leverage: row.leverage,
+      leverage: Number(row.leverage),
       minCollateral: BigInt(row.min_collateral),
       enable: row.enable,
     });

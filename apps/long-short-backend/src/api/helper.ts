@@ -1,3 +1,4 @@
+import { HashUtils } from "../utils";
 import { verifySignData } from "../utils/signature";
 import type { SignedDataType } from "./schemas";
 
@@ -20,9 +21,10 @@ export namespace ApiHelper {
     witness: SignedDataType,
   ): AuthenticateResult {
     const message = Buffer.from(JSON.stringify(data)).toString("hex");
+    const hashMessage = HashUtils.sha256(message);
 
     const isValid = verifySignData({
-      message,
+      message: hashMessage,
       address: userAddress,
       key: witness.key,
       signature: witness.signature,

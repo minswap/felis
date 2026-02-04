@@ -1,28 +1,38 @@
 import { RustModule } from "@minswap/felis-ledger-utils";
-import { createApiServer } from "./api/server";
-import { loadMarketConfigs } from "./config/market";
-import { newKyselyClient } from "./database/postgres";
-import type { DB } from "./database";
-import { logger } from "./utils";
+import { NetworkEnvironment } from "@minswap/felis-ledger-core";
+import { createApiServer } from "../api/server";
+import { loadMarketConfigs } from "../config/market";
+import { newKyselyClient } from "../database/postgres";
+import type { DB } from "../database";
+import { logger } from "../utils";
+import { CardanoscanProvider } from "../provider";
 
 const API_PORT = Number(process.env.API_PORT) || 9999;
 const API_HOST = process.env.API_HOST || "0.0.0.0";
 const DATABASE_URL = process.env.DATABASE_URL;
+const NETWORK = process.env.NETWORK || "mainnet";
+const CARDANOSCAN_API_KEY = process.env.CARDANOSCAN_API_KEY;
 
 async function main() {
   // Validate environment
   if (!DATABASE_URL) {
     throw new Error("DATABASE_URL environment variable is required");
   }
+  if (!CARDANOSCAN_API_KEY) {
+    throw new Error("CARDANOSCAN_API_KEY environment variable is required");
+  }
 
-  // Load WASM modules
+  // Parse network environment
+  const networkEnv = NETWORK === "mainnet" ? NetworkEnvironment.MAINNET : NetworkEnvironment.TESTNET_PREVIEW;
+  logger.info(`Network environment: ${NETWORK}`);
+
   logger.info("Loading WASM modules...");
   await RustModule.load();
   logger.info("WASM modules loaded");
 
   // Connect to database
   logger.info("Connecting to database...");
-  const db = await newKyselyClient<DB>(DATABASE_URL);
+  const db = await newKyselyClient<DB>(DATABASE_URL, { logSQL: true });
   logger.info("Database connected");
 
   // Load market configs from database
@@ -30,17 +40,26 @@ async function main() {
   const marketConfigs = await loadMarketConfigs(db);
   logger.info(`Loaded ${marketConfigs.size} market configs`);
 
+  // Create Cardanoscan provider
+  const cardanoscanProvider = new CardanoscanProvider(
+    "https://api.cardanoscan.io/api/v1",
+    CARDANOSCAN_API_KEY,
+  );
+
   // Start API server
   logger.info("Starting API server...");
   await createApiServer({
     port: API_PORT,
     host: API_HOST,
     db,
+    networkEnv,
+    cardanoscanProvider,
   });
 
   logger.info("Long-Short Backend started successfully", {
     port: API_PORT,
     host: API_HOST,
+    network: NETWORK,
   });
 }
 

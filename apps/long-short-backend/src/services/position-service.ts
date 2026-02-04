@@ -1,45 +1,65 @@
 import type { Kysely } from "kysely";
-import { getMarketConfig, isSupportedMarket, type MarketConfig } from "../config/market";
+import { Address, type NetworkEnvironment } from "@minswap/felis-ledger-core";
+import { getMarketConfig, isSupportedMarket } from "../config/market";
 import type { DB } from "../database";
 import { type Position, PositionRepository } from "../repository/position-repository";
+import { OrderRepository } from "../repository/order-repository";
+import { StateMachine } from "../api/state-machine";
+import { logger } from "../utils";
+import { CardanoscanProvider } from "../provider";
 
 export type CreatePositionInput = {
   userAddress: string;
-  market: string;
-  side: "LONG" | "SHORT";
-  amount: bigint; // collateral amount in lovelace
+  marketId: string;
+  side: "LONG";
+  amountIn: bigint;
 };
 
 export type CreatePositionResult =
   | { success: true; position: Position }
   | { success: false; error: string };
 
+export type BuildTxInput = {
+  userAddress: string;
+  marketId: string;
+  utxos: string[];
+};
+
+export type BuildTxResult =
+  | { success: true; txRaw: string; orderType: string }
+  | { success: true; waiting: true; orderType: string; message: string }
+  | { success: false; error: string };
+
 export class PositionService {
-  constructor(private readonly db: Kysely<DB>) {}
+  constructor(
+    private readonly db: Kysely<DB>,
+    private readonly networkEnv: NetworkEnvironment,
+    private readonly cardanoscanProvider: CardanoscanProvider,
+  ) {}
 
   async createPosition(input: CreatePositionInput): Promise<CreatePositionResult> {
-    const { userAddress, market, side, amount } = input;
+    const { userAddress, marketId, side, amountIn } = input;
+
+    // Only LONG side is supported
+    if (side !== "LONG") {
+      return { success: false, error: "Only LONG side is supported" };
+    }
 
     // Validate market
-    if (!isSupportedMarket(market)) {
-      return { success: false, error: `Market "${market}" is not supported` };
+    if (!isSupportedMarket(marketId)) {
+      return { success: false, error: `Market "${marketId}" is not supported or disabled` };
     }
 
-    const marketConfig = getMarketConfig(market);
+    const marketConfig = getMarketConfig(marketId);
     if (!marketConfig) {
-      return { success: false, error: `Market "${market}" configuration not found` };
-    }
-
-    if (!marketConfig.enable) {
-      return { success: false, error: `Market "${market}" is currently disabled` };
+      return { success: false, error: `Market "${marketId}" configuration not found` };
     }
 
     // Validate minimum collateral
-    if (amount < marketConfig.minCollateral) {
-      const minLovelace = marketConfig.minCollateral;
+    if (amountIn < marketConfig.minCollateral) {
       return {
         success: false,
-        error: `Minimum collateral is ${minLovelace} lovelace`,
+        error: `Minimum collateral is ${marketConfig.minCollateral} lovelace`,
       };
     }
 
@@ -47,60 +67,211 @@ export class PositionService {
     const existingPosition = await PositionRepository.getOpenPositionByUserAndMarket(
       this.db,
       userAddress,
-      market,
+      marketId,
     );
 
     if (existingPosition) {
       return {
         success: false,
-        error: `You already have an open position in market "${market}". Close it first or modify the existing position.`,
+        error: "User already has an open position for this market",
       };
     }
 
-    // For now, create a pending position
-    // In a full implementation, this would:
-    // 1. Calculate entry price from DEX
-    // 2. Calculate position size based on leverage
-    // 3. Interact with Liqwid to supply collateral and borrow
-    // 4. Execute swap on Minswap DEX
+    // Calculate amount_borrow = amount_in * (leverage - 1)
+    const amountBorrow = BigInt(Math.floor(Number(amountIn) * (marketConfig.leverage - 1)));
 
-    const position = await PositionRepository.createPosition(this.db, {
-      userAddress,
-      market,
-      side,
-      leverage: marketConfig.leverage.toString(),
-      collateralAsset: marketConfig.assetA.toString(),
-      collateralAmount: amount.toString(),
-      entryPrice: "0", // TODO: Get from price oracle
-      positionSize: amount.toString(), // TODO: Calculate based on leverage
-      borrowedAmount: "0", // TODO: Calculate based on leverage
-      liquidationPrice: "0", // TODO: Calculate liquidation price
+    // Execute transaction: create position + 4 orders
+    const position = await this.db.transaction().execute(async (trx) => {
+      const pos = await PositionRepository.createPosition(trx, {
+        marketId,
+        userAddress,
+        side: side as StateMachine.PositionSide,
+        amountIn: amountIn.toString(),
+        amountBorrow: amountBorrow.toString(),
+      });
+
+      // Create 4 LONG orders
+      await OrderRepository.createOrders(trx, [
+        {
+          positionId: pos.id,
+          orderType: StateMachine.LongOrderType.LONG_BUY,
+          assetIn: marketConfig.assetA.toString(),
+          amountIn: pos.amountIn,
+          assetOut: marketConfig.assetB.toString(),
+          amountOut: "1",
+        },
+        {
+          positionId: pos.id,
+          orderType: StateMachine.LongOrderType.LONG_SUPPLY,
+        },
+        {
+          positionId: pos.id,
+          orderType: StateMachine.LongOrderType.LONG_BORROW,
+        },
+        {
+          positionId: pos.id,
+          orderType: StateMachine.LongOrderType.LONG_BUY_MORE,
+        },
+      ]);
+
+      return pos;
     });
 
     return { success: true, position };
   }
 
-  async getPosition(positionId: bigint): Promise<Position | null> {
-    return PositionRepository.getPositionById(this.db, positionId);
-  }
+  async buildTx(input: BuildTxInput): Promise<BuildTxResult> {
+    const { userAddress, marketId, utxos } = input;
 
-  async getUserOpenPositions(userAddress: string): Promise<Position[]> {
-    return PositionRepository.getUserOpenPositions(this.db, userAddress);
-  }
+    // Validate market
+    if (!isSupportedMarket(marketId)) {
+      return { success: false, error: `Market "${marketId}" is not supported or disabled` };
+    }
 
-  async getUserPositions(
-    userAddress: string,
-    options?: { status?: "OPEN" | "CLOSED" | "LIQUIDATED"; limit?: number; offset?: number },
-  ): Promise<Position[]> {
-    return PositionRepository.getUserPositions(this.db, userAddress, options);
-  }
-
-  async hasOpenPosition(userAddress: string, market: string): Promise<boolean> {
+    // Check if user has an open position for this market
     const position = await PositionRepository.getOpenPositionByUserAndMarket(
       this.db,
       userAddress,
-      market,
+      marketId,
     );
-    return position !== null;
+
+    if (!position) {
+      return { success: false, error: "No open position found for this market" };
+    }
+
+    // Find next unhandled order
+    const order = await OrderRepository.getNextUnhandledOrder(this.db, position.id);
+    if (!order) {
+      return { success: false, error: "No unhandled order found" };
+    }
+
+    try {
+      // Case 1: Order has built_tx_id not null => check if tx appears on chain
+      if (order.builtTxId) {
+        logger.info("Order has built_tx_id, checking transaction status", {
+          orderId: order.id,
+          builtTxId: order.builtTxId,
+        });
+
+        const address = Address.fromBech32(userAddress);
+        const txFound = await this.cardanoscanProvider.findTransactionByHash(
+          address,
+          order.builtTxId,
+          50, // pageSize
+          10, // maxPage - search up to 10 pages (500 transactions)
+        );
+
+        // Case 1a: Transaction found on chain => order is handled, move to next
+        if (txFound) {
+          logger.info("Transaction found on chain", {
+            orderId: order.id,
+            txHash: order.builtTxId,
+          });
+          return {
+            success: false,
+            error: "Transaction already submitted and found on chain. This order is being processed.",
+          };
+        }
+
+        // Case 3: Transaction not found on chain
+        // Check if transaction has expired
+        const now = new Date();
+        const validTo = order.builtValidTo;
+
+        if (!validTo) {
+          logger.warn("Order has built_tx_id but no built_valid_to, rebuilding", {
+            orderId: order.id,
+          });
+          // Fall through to rebuild
+        } else if (validTo < now) {
+          // Case 3a: Transaction expired => rebuild
+          logger.info("Transaction expired, rebuilding", {
+            orderId: order.id,
+            validTo: validTo.toISOString(),
+            now: now.toISOString(),
+          });
+          // Fall through to rebuild
+        } else {
+          // Case 3b: Transaction not expired yet => wait
+          const remainingMs = validTo.getTime() - now.getTime();
+          const remainingMinutes = Math.ceil(remainingMs / 1000 / 60);
+          logger.info("Transaction not yet expired, waiting", {
+            orderId: order.id,
+            validTo: validTo.toISOString(),
+            remainingMinutes,
+          });
+          return {
+            success: true,
+            waiting: true,
+            orderType: order.orderType,
+            message: `Transaction already built and waiting for confirmation. Expires in ${remainingMinutes} minutes.`,
+          };
+        }
+      }
+
+      // Case 2: Order has no built_tx_id OR transaction expired => build new transaction
+      logger.info("Building new transaction", {
+        orderId: order.id,
+        orderType: order.orderType,
+        hasPreviousBuild: !!order.builtTxId,
+      });
+
+      // Fetch raw DB rows for StateMachine handlers
+      const orderRow = await this.db
+        .selectFrom("order")
+        .selectAll()
+        .where("id", "=", order.id.toString())
+        .executeTakeFirstOrThrow();
+
+      const marketConfigRow = await this.db
+        .selectFrom("market_config")
+        .selectAll()
+        .where("market_id", "=", marketId)
+        .executeTakeFirstOrThrow();
+
+      // Build transaction based on order type
+      let txResult: { txRaw: string; txId: string; outputsHash: string; validTo: number };
+
+      switch (order.orderType) {
+        case StateMachine.LongOrderType.LONG_BUY:
+          txResult = await StateMachine.handleLongBuy({
+            order: orderRow,
+            marketConfig: marketConfigRow,
+            userAddress,
+            networkEnv: this.networkEnv,
+            utxos,
+          });
+          break;
+        default:
+          return { success: false, error: `Order type "${order.orderType}" is not implemented` };
+      }
+
+      // Update order built_tx fields
+      await OrderRepository.updateOrderBuiltTx(
+        this.db,
+        order.id,
+        txResult.txId,
+        txResult.outputsHash,
+        new Date(txResult.validTo),
+      );
+
+      logger.info("Transaction built successfully", {
+        orderId: order.id,
+        txId: txResult.txId,
+        validTo: new Date(txResult.validTo).toISOString(),
+      });
+
+      return { success: true, txRaw: txResult.txRaw, orderType: order.orderType };
+    } catch (error) {
+      logger.error("error building tx", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to build transaction",
+      };
+    }
+  }
+
+  async getOpenPositionByUser(userAddress: string): Promise<Position | null> {
+    return PositionRepository.getOpenPositionByUser(this.db, userAddress);
   }
 }
