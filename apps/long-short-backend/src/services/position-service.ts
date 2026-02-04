@@ -351,6 +351,14 @@ export class PositionService {
             utxos,
           });
           break;
+        case StateMachine.LongOrderType.LONG_SUPPLY:
+          txResult = await StateMachine.handleLongSupply({
+            order: orderRow,
+            userAddress,
+            networkEnv: this.networkEnv,
+            utxos,
+          });
+          break;
         default:
           return { success: false, error: `Order type "${order.orderType}" is not implemented` };
       }

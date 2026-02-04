@@ -3,7 +3,8 @@ import { DEXOrderTransaction } from "@minswap/felis-build-tx";
 import { Address, Asset, NetworkEnvironment, Utxo, XJSON } from "@minswap/felis-ledger-core";
 import { DexVersion, OrderV2Direction, OrderV2StepType } from "@minswap/felis-dex-v2";
 import { CoinSelectionAlgorithm, EmulatorProvider } from "@minswap/felis-tx-builder";
-import { Duration, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
+import { blake2b256, Duration, Result, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
+import { LiqwidProvider } from "@minswap/felis-lending-market";
 import { HashUtils } from "../utils";
 import { CardanoscanProvider } from "../provider";
 import { MarketConfig } from "../config";
@@ -99,6 +100,70 @@ export namespace StateMachine {
     }
   };
 
+  export type HandleLongSupplyOptions = {
+    order: {
+      order_type: string;
+      asset_in: string | null;
+      amount_in: string | null;
+      asset_out: string | null;
+    };
+    userAddress: string;
+    networkEnv: NetworkEnvironment;
+    utxos: string[];
+  };
+
+  export const handleLongSupply = async (options: HandleLongSupplyOptions) => {
+    const { order, userAddress, networkEnv, utxos } = options;
+    invariant(order.order_type === LongOrderType.LONG_SUPPLY, "Invalid order type for handleLongSupply");
+    invariant(order.asset_in, "asset_in is required for LONG_SUPPLY order");
+    invariant(order.amount_in, "amount_in is required for LONG_SUPPLY order");
+    invariant(order.asset_out, "asset_out is required for LONG_SUPPLY order");
+
+    // asset_out contains the lending market ID (collateral token qMIN or qADA)
+    // We need to extract the market ID from the asset_out
+    // For example: "186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0" -> "MIN"
+    const marketId = order.asset_out as LiqwidProvider.MarketId;
+
+    const buildTxResult = await LiqwidProvider.getSupplyTransaction({
+      marketId,
+      amount: Number(order.amount_in),
+      address: userAddress,
+      utxos,
+      networkEnv,
+    });
+
+    if (buildTxResult.type === "err") {
+      throw new Error(`Failed to build supply transaction: ${buildTxResult.error.message}`);
+    }
+
+    const txRaw = buildTxResult.value;
+
+    // Calculate transaction ID from transaction body hash
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const txBody = eTx.body();
+    const txBodyBytes = txBody.to_bytes();
+    const txBodyHashBytes = blake2b256(Buffer.from(txBodyBytes));
+    const txBodyHash = ECSL.TransactionHash.from_bytes(Buffer.from(txBodyHashBytes));
+    const txId = txBodyHash.to_hex();
+
+    // Calculate outputs hash for transaction chaining
+    const outputsHash = HashUtils.sha256(utxos.join(","));
+
+    // Set valid_to to 3 minutes from now
+    const validTo = new Date().getTime() + Duration.newMinutes(3).milliseconds;
+
+    safeFreeRustObjects(eTx, txBody, txBodyHash);
+
+    return {
+      txRaw,
+      txId,
+      orderOutputIndex: 0,
+      outputsHash,
+      validTo,
+    };
+  };
+
   export type WaitingLongBuyOptions = {
     marketConfig: MarketConfig;
     txHash: string;
@@ -179,4 +244,6 @@ export namespace StateMachine {
       isSpent: false,
     };
   };
+
+  
 }

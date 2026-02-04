@@ -105,6 +105,9 @@ importers:
       '@minswap/felis-ledger-utils':
         specifier: workspace:*
         version: link:../../packages/ledger-utils
+      '@minswap/felis-lending-market':
+        specifier: workspace:*
+        version: link:../../packages/minswap-lending-market
       '@minswap/felis-tx-builder':
         specifier: workspace:*
         version: link:../../packages/tx-builder
