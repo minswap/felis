@@ -1,15 +1,7 @@
-import type { Asset } from "@minswap/felis-ledger-core";
 import { type Maybe, Result } from "@minswap/felis-ledger-utils";
 import { OrderV2Direction } from "./order";
 import type { PoolV2BaseFee } from "./pool";
 import { bigIntPow, sqrt } from "./sqrt";
-
-export function normalizePair([a, b]: [Asset, Asset]): [Asset, Asset] {
-  if (a.compare(b) > 0) {
-    return [b, a];
-  }
-  return [a, b];
-}
 
 export type PoolFee = {
   // Trading Fee is the total Fee that is taken from the Traders by the Liquidity Pool

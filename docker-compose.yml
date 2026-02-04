@@ -32,6 +32,7 @@ services:
   #   ports:
   #     - "127.0.0.1:9999:9999"
   #   environment:
+  #     NETWORK: mainnet
   #     DATABASE_URL: postgres://postgres:JBNGlQ9wNFLlYWc2mG@postgres:5432/margin
   #     REDIS_URL: redis://default:7obaQyYSDDLDk3ECYA@redis:6379
   #     API_PORT: 9999

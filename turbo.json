@@ -7,50 +7,147 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
-    "@repo/ledger-core#build": {
-      "dependsOn": ["@repo/ledger-utils#build"],
+    "@minswap/felis-ledger-utils#build": {
+      "dependsOn": ["@minswap/felis-uplc-node#build", "@minswap/felis-uplc-web#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
-    "@repo/tx-builder#build": {
-      "dependsOn": ["@repo/ledger-core#build", "@repo/cip#build"],
+    "@minswap/felis-ledger-core#build": {
+      "dependsOn": ["@minswap/felis-ledger-utils#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
-    "@repo/cip#build": {
-      "dependsOn": ["@repo/ledger-core#build"],
+    "@minswap/felis-cip#build": {
+      "dependsOn": ["@minswap/felis-ledger-core#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
-    "@repo/minswap-lending-market#build": {
-      "dependsOn": ["@repo/tx-builder#build", "@repo/minswap-build-tx#build"],
+    "@minswap/felis-tx-builder#build": {
+      "dependsOn": ["@minswap/felis-ledger-core#build", "@minswap/felis-cip#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
-    "@repo/minswap-build-tx#build": {
-      "dependsOn": ["@repo/tx-builder#build"],
+    "@minswap/felis-dex-v1#build": {
+      "dependsOn": ["@minswap/felis-ledger-core#build", "@minswap/felis-ledger-utils#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
-    "@repo/minswap-dex-v1#build": {
-      "dependsOn": ["@repo/ledger-core#build", "@repo/ledger-utils#build"],
+    "@minswap/felis-dex-v2#build": {
+      "dependsOn": ["@minswap/felis-ledger-core#build", "@minswap/felis-ledger-utils#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
-    "@repo/minswap-dex-v2#build": {
-      "dependsOn": ["@repo/ledger-core#build", "@repo/ledger-utils#build"],
+    "@minswap/felis-provider#build": {
+      "dependsOn": ["@minswap/felis-ledger-core#build", "@minswap/felis-ledger-utils#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
-    "@repo/minswap-stableswap#build": {
-      "dependsOn": ["@repo/minswap-dex-v2#build", "@repo/minswap-build-tx#build", "@repo/tx-builder#build"],
+    "@minswap/felis-splash#build": {
+      "dependsOn": ["@minswap/felis-ledger-core#build", "@minswap/felis-ledger-utils#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
-    "@repo/syncer#build": {
-      "dependsOn": ["@repo/minswap-dex-v1#build", "@repo/minswap-dex-v2#build", "@repo/minswap-stableswap#build", "@repo/tx-builder#build"],
+    "@minswap/felis-sundaeswap-v1#build": {
+      "dependsOn": ["@minswap/felis-ledger-core#build", "@minswap/felis-ledger-utils#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
+    },
+    "@minswap/felis-sundaeswap-v3#build": {
+      "dependsOn": ["@minswap/felis-ledger-core#build", "@minswap/felis-ledger-utils#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@minswap/felis-wingriders-v1#build": {
+      "dependsOn": ["@minswap/felis-ledger-core#build", "@minswap/felis-ledger-utils#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@minswap/felis-wingriders-v2#build": {
+      "dependsOn": ["@minswap/felis-ledger-core#build", "@minswap/felis-ledger-utils#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@minswap/felis-build-tx#build": {
+      "dependsOn": ["@minswap/felis-tx-builder#build", "@minswap/felis-dex-v2#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@minswap/felis-stableswap#build": {
+      "dependsOn": ["@minswap/felis-dex-v2#build", "@minswap/felis-build-tx#build", "@minswap/felis-tx-builder#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@minswap/felis-lending-market#build": {
+      "dependsOn": ["@minswap/felis-tx-builder#build", "@minswap/felis-build-tx#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@minswap/felis-syncer#build": {
+      "dependsOn": ["@minswap/felis-dex-v1#build", "@minswap/felis-dex-v2#build", "@minswap/felis-stableswap#build", "@minswap/felis-tx-builder#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@minswap/felis#build": {
+      "dependsOn": [
+        "@minswap/felis-ledger-utils#build",
+        "@minswap/felis-ledger-core#build",
+        "@minswap/felis-cip#build",
+        "@minswap/felis-tx-builder#build",
+        "@minswap/felis-provider#build",
+        "@minswap/felis-dex-v1#build",
+        "@minswap/felis-dex-v2#build",
+        "@minswap/felis-build-tx#build",
+        "@minswap/felis-stableswap#build",
+        "@minswap/felis-lending-market#build",
+        "@minswap/felis-splash#build",
+        "@minswap/felis-sundaeswap-v1#build",
+        "@minswap/felis-sundaeswap-v3#build",
+        "@minswap/felis-wingriders-v1#build",
+        "@minswap/felis-wingriders-v2#build",
+        "@minswap/felis-syncer#build"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "long-short-backend#build": {
+      "dependsOn": [
+        "@minswap/felis-build-tx#build",
+        "@minswap/felis-cip#build",
+        "@minswap/felis-dex-v1#build",
+        "@minswap/felis-dex-v2#build",
+        "@minswap/felis-ledger-core#build",
+        "@minswap/felis-ledger-utils#build",
+        "@minswap/felis-tx-builder#build"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@apps/example#build": {
+      "dependsOn": [
+        "@minswap/felis-ledger-core#build",
+        "@minswap/felis-ledger-utils#build",
+        "@minswap/felis-dex-v2#build",
+        "@minswap/felis-sundaeswap-v1#build",
+        "@minswap/felis-sundaeswap-v3#build",
+        "@minswap/felis-syncer#build",
+        "@minswap/felis-provider#build",
+        "@minswap/felis-tx-builder#build"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "web#build": {
+      "dependsOn": [
+        "@minswap/felis-ledger-core#build",
+        "@minswap/felis-ledger-utils#build",
+        "@minswap/felis-tx-builder#build",
+        "@minswap/felis-cip#build",
+        "@minswap/felis-lending-market#build",
+        "@minswap/felis-dex-v2#build",
+        "@minswap/felis-build-tx#build"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"]
     },
     "lint": {
       "dependsOn": ["^lint"]

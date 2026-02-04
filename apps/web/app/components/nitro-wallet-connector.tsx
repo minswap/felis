@@ -1,12 +1,12 @@
 "use client";
 
 import { CopyOutlined, LogoutOutlined } from "@ant-design/icons";
+import { Address } from "@minswap/felis-ledger-core";
+import { NitroWallet } from "@minswap/felis-lending-market";
 import invariant from "@minswap/tiny-invariant";
 import { Alert, App, Button, Card, Col, Row, Space, Statistic, Tooltip } from "antd";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
-import { Address } from "../../../../packages/ledger-core/dist/address";
-import { NitroWallet } from "../../../../packages/minswap-lending-market/dist/nitro-wallet";
 import {
   type NitroWalletData,
   nitroBalanceAtom,
