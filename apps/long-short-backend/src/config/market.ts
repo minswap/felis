@@ -80,7 +80,7 @@ export function getMarketConfig(marketId: string): MarketConfig | null {
  */
 export function isSupportedMarket(marketId: string): boolean {
   const config = getMarketConfig(marketId);
-  return config?.enable;
+  return config ? config.enable : false;
 }
 
 /**

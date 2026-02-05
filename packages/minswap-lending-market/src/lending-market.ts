@@ -257,6 +257,7 @@ export namespace LendingMarket {
     const mapMarket: Record<LiqwidProvider.MarketId, Asset> = {
       Ada: qAdaToken,
       MIN: qMinToken,
+      NIGHT: Asset.fromString("c45fa8aefc662c003a32be67f6a4652d8ce56bd9e54d7696efd40c86"),
     };
     const collaterals: LiqwidProvider.LoanCalculationInput["collaterals"] = [];
     const buildTxCollaterals: LiqwidProvider.BorrowCollateral[] = [];
