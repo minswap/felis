@@ -1,6 +1,6 @@
 import type { Kysely, Transaction } from "kysely";
-import type { DB } from "../database";
 import { StateMachine } from "../api/state-machine";
+import type { DB } from "../database";
 
 export type CreatePositionParams = {
   marketId: string;
@@ -43,15 +43,8 @@ export namespace PositionRepository {
     return mapPositionRow(result);
   }
 
-  export async function getPositionById(
-    db: Kysely<DB> | Transaction<DB>,
-    id: bigint,
-  ): Promise<Position | null> {
-    const result = await db
-      .selectFrom("position")
-      .selectAll()
-      .where("id", "=", id.toString())
-      .executeTakeFirst();
+  export async function getPositionById(db: Kysely<DB> | Transaction<DB>, id: bigint): Promise<Position | null> {
+    const result = await db.selectFrom("position").selectAll().where("id", "=", id.toString()).executeTakeFirst();
 
     return result ? mapPositionRow(result) : null;
   }
@@ -106,10 +99,7 @@ export namespace PositionRepository {
     userAddress: string,
     options?: { includesClosed?: boolean; limit?: number; offset?: number },
   ): Promise<Position[]> {
-    let query = db
-      .selectFrom("position")
-      .selectAll()
-      .where("user_address", "=", userAddress);
+    let query = db.selectFrom("position").selectAll().where("user_address", "=", userAddress);
 
     if (!options?.includesClosed) {
       query = query.where("closed_at", "is", null);
@@ -140,11 +130,7 @@ export namespace PositionRepository {
       updates.closed_at = new Date();
     }
 
-    await db
-      .updateTable("position")
-      .set(updates)
-      .where("id", "=", id.toString())
-      .execute();
+    await db.updateTable("position").set(updates).where("id", "=", id.toString()).execute();
   }
 
   // biome-ignore lint/suspicious/noExplicitAny: DB row type

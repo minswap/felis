@@ -15,7 +15,8 @@
       "packages/minswap-dex-v2/**",
       "packages/minswap-lending-market/**",
       "packages/tx-builder/**",
-      "apps/web/**"
+      "apps/web/**",
+      "apps/long-short-backend/src/**"
     ],
     "experimentalScannerIgnores": ["**/uplc/**"]
   },

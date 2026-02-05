@@ -1,12 +1,13 @@
+import { Address, Asset, type NetworkEnvironment } from "@minswap/felis-ledger-core";
+import invariant from "@minswap/tiny-invariant";
 import type { Kysely } from "kysely";
-import { Address, Asset, XJSON, type NetworkEnvironment } from "@minswap/felis-ledger-core";
+import { StateMachine } from "../api/state-machine";
 import { getMarketConfig, isSupportedMarket } from "../config/market";
 import type { DB } from "../database";
-import { type Position, PositionRepository } from "../repository/position-repository";
+import type { CardanoscanProvider } from "../provider";
 import { OrderRepository } from "../repository/order-repository";
-import { StateMachine } from "../api/state-machine";
+import { type Position, PositionRepository } from "../repository/position-repository";
 import { logger } from "../utils";
-import { CardanoscanProvider } from "../provider";
 
 export type CreatePositionInput = {
   userAddress: string;
@@ -15,9 +16,7 @@ export type CreatePositionInput = {
   amountIn: bigint;
 };
 
-export type CreatePositionResult =
-  | { success: true; position: Position }
-  | { success: false; error: string };
+export type CreatePositionResult = { success: true; position: Position } | { success: false; error: string };
 
 export type BuildTxInput = {
   userAddress: string;
@@ -64,11 +63,7 @@ export class PositionService {
     }
 
     // Check for existing open position in this market
-    const existingPosition = await PositionRepository.getOpenPositionByUserAndMarket(
-      this.db,
-      userAddress,
-      marketId,
-    );
+    const existingPosition = await PositionRepository.getOpenPositionByUserAndMarket(this.db, userAddress, marketId);
 
     if (existingPosition) {
       return {
@@ -129,11 +124,7 @@ export class PositionService {
     }
 
     // Check if user has an open position for this market
-    const position = await PositionRepository.getOpenPositionByUserAndMarket(
-      this.db,
-      userAddress,
-      marketId,
-    );
+    const position = await PositionRepository.getOpenPositionByUserAndMarket(this.db, userAddress, marketId);
 
     if (!position) {
       return { success: false, error: "No open position found for this market" };
@@ -153,6 +144,8 @@ export class PositionService {
           orderType: waitingOrder.orderType,
           createdTxId: waitingOrder.createdTxId,
         });
+        invariant(waitingOrder.assetOut, "Waiting order must have assetOut defined");
+        invariant(waitingOrder.createdTxId, "Waiting order must have createdTxId defined");
 
         const address = Address.fromBech32(userAddress);
 
@@ -160,10 +153,10 @@ export class PositionService {
         if (waitingOrder.orderType === StateMachine.LongOrderType.LONG_BUY) {
           const waitingResult = await StateMachine.waitingLongBuy({
             marketConfig,
-            txHash: waitingOrder.createdTxId!,
+            txHash: waitingOrder.createdTxId,
             orderOutputIndex: waitingOrder.createdTxIndex ?? 0,
             userAddress: address,
-            assetOut: Asset.fromString(waitingOrder.assetOut!),
+            assetOut: Asset.fromString(waitingOrder.assetOut),
             cardanoscanProvider: this.cardanoscanProvider,
           });
 

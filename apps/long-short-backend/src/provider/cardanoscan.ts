@@ -1,4 +1,4 @@
-import { Address } from "@minswap/felis-ledger-core";
+import type { Address } from "@minswap/felis-ledger-core";
 import { logger } from "../utils";
 
 /**
@@ -27,7 +27,7 @@ export type CardanoscanTransaction = {
   blockHeight: number;
   timestamp: string; // ISO 8601 date-time
   index: number;
-  inputs: (CardanoscanTxIO & {txId: string; index: number; })[];
+  inputs: (CardanoscanTxIO & { txId: string; index: number })[];
   outputs: CardanoscanTxIO[];
   collateral: CardanoscanTxIO[];
   certificates?: {
@@ -129,7 +129,7 @@ export class CardanoscanProvider {
         method: "GET",
         headers: {
           Accept: "application/json",
-          "apiKey": this.apiKey,
+          apiKey: this.apiKey,
         },
       });
 
@@ -180,10 +180,7 @@ export class CardanoscanProvider {
    * @param maxPages - Maximum number of pages to fetch (default: no limit)
    * @returns All transactions
    */
-  async getAllTransactionsByAddress(
-    address: Address,
-    maxPages?: number,
-  ): Promise<CardanoscanTransaction[]> {
+  async getAllTransactionsByAddress(address: Address, maxPages?: number): Promise<CardanoscanTransaction[]> {
     const allTransactions: CardanoscanTransaction[] = [];
     let pageNo = 1;
     let hasMore = true;
@@ -298,9 +295,7 @@ export class CardanoscanProvider {
 
       // Check each transaction's inputs for the specified UTXO
       for (const tx of response.transactions) {
-        const spentInput = tx.inputs.find(
-          (input) => input.txId === txHash && input.index === index,
-        );
+        const spentInput = tx.inputs.find((input) => input.txId === txHash && input.index === index);
 
         if (spentInput) {
           logger.info("Found transaction that spent UTXO", {

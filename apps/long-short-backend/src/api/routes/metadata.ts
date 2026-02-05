@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { getEnabledMarketConfigs, type MarketConfig } from "../../config/market";
-import { type MarketConfigResponseType, MetadataResponseSchema, type MetadataResponseType } from "../schemas";
 import { API_ENDPOINTS } from "../../constants";
+import { type MarketConfigResponseType, MetadataResponseSchema, type MetadataResponseType } from "../schemas";
 
 function marketConfigToResponse(config: MarketConfig): MarketConfigResponseType {
   return {

@@ -1,11 +1,11 @@
-import { RustModule } from "@minswap/felis-ledger-utils";
 import { NetworkEnvironment } from "@minswap/felis-ledger-core";
+import { RustModule } from "@minswap/felis-ledger-utils";
 import { createApiServer } from "../api/server";
 import { loadMarketConfigs } from "../config/market";
-import { newKyselyClient } from "../database/postgres";
 import type { DB } from "../database";
-import { logger } from "../utils";
+import { newKyselyClient } from "../database/postgres";
 import { CardanoscanProvider } from "../provider";
+import { logger } from "../utils";
 
 const API_PORT = Number(process.env.API_PORT) || 9999;
 const API_HOST = process.env.API_HOST || "0.0.0.0";
@@ -41,10 +41,7 @@ async function main() {
   logger.info(`Loaded ${marketConfigs.size} market configs`);
 
   // Create Cardanoscan provider
-  const cardanoscanProvider = new CardanoscanProvider(
-    "https://api.cardanoscan.io/api/v1",
-    CARDANOSCAN_API_KEY,
-  );
+  const cardanoscanProvider = new CardanoscanProvider("https://api.cardanoscan.io/api/v1", CARDANOSCAN_API_KEY);
 
   // Start API server
   logger.info("Starting API server...");

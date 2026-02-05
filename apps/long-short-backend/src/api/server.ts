@@ -1,14 +1,14 @@
 import cors from "@fastify/cors";
+import type { NetworkEnvironment } from "@minswap/felis-ledger-core";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { Kysely } from "kysely";
-import type { NetworkEnvironment } from "@minswap/felis-ledger-core";
+import { API_ENDPOINTS } from "../constants";
 import type { DB } from "../database";
+import type { CardanoscanProvider } from "../provider";
+import { PositionService } from "../services/position-service";
 import { logger } from "../utils";
 import { registerMetadataRoutes } from "./routes/metadata";
 import { registerPositionRoutes } from "./routes/position";
-import { PositionService } from "../services/position-service";
-import { API_ENDPOINTS } from "../constants";
-import { CardanoscanProvider } from "../provider";
 
 export type ApiServerOptions = {
   port: number;

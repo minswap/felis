@@ -1,4 +1,4 @@
-import { Type, type Static } from "@sinclair/typebox";
+import { type Static, Type } from "@sinclair/typebox";
 import { StateMachine } from "./state-machine";
 
 export const SignedDataSchema = Type.Object({
@@ -23,12 +23,8 @@ export type AuthenCommonType<T> = {
 };
 
 // Position schemas (derived from StateMachine enums)
-export const PositionSideSchema = Type.Union(
-  Object.values(StateMachine.PositionSide).map((v) => Type.Literal(v)),
-);
-export const PositionStatusSchema = Type.Union(
-  Object.values(StateMachine.PositionStatus).map((v) => Type.Literal(v)),
-);
+export const PositionSideSchema = Type.Union(Object.values(StateMachine.PositionSide).map((v) => Type.Literal(v)));
+export const PositionStatusSchema = Type.Union(Object.values(StateMachine.PositionStatus).map((v) => Type.Literal(v)));
 
 export const CreatePositionDataSchema = Type.Object({
   market_id: Type.String({ minLength: 1, description: "Market ID (e.g., ADA-MIN)" }),

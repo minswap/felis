@@ -29,10 +29,7 @@ export type Order = {
 };
 
 export namespace OrderRepository {
-  export async function createOrder(
-    db: Kysely<DB> | Transaction<DB>,
-    params: CreateOrderParams,
-  ): Promise<Order> {
+  export async function createOrder(db: Kysely<DB> | Transaction<DB>, params: CreateOrderParams): Promise<Order> {
     const result = await db
       .insertInto("order")
       .values({
@@ -51,10 +48,7 @@ export namespace OrderRepository {
     return mapOrderRow(result);
   }
 
-  export async function createOrders(
-    db: Kysely<DB> | Transaction<DB>,
-    params: CreateOrderParams[],
-  ): Promise<Order[]> {
+  export async function createOrders(db: Kysely<DB> | Transaction<DB>, params: CreateOrderParams[]): Promise<Order[]> {
     const results = await db
       .insertInto("order")
       .values(
@@ -75,15 +69,8 @@ export namespace OrderRepository {
     return results.map(mapOrderRow);
   }
 
-  export async function getOrdersByPositionId(
-    db: Kysely<DB> | Transaction<DB>,
-    positionId: bigint,
-  ): Promise<Order[]> {
-    const results = await db
-      .selectFrom("order")
-      .selectAll()
-      .where("position_id", "=", positionId.toString())
-      .execute();
+  export async function getOrdersByPositionId(db: Kysely<DB> | Transaction<DB>, positionId: bigint): Promise<Order[]> {
+    const results = await db.selectFrom("order").selectAll().where("position_id", "=", positionId.toString()).execute();
 
     return results.map(mapOrderRow);
   }
@@ -100,12 +87,7 @@ export namespace OrderRepository {
       .selectFrom("order")
       .selectAll()
       .where("position_id", "=", positionId.toString())
-      .where((eb) =>
-        eb.or([
-          eb("created_tx_id", "is", null),
-          eb("created_tx_id", "=", ""),
-        ]),
-      )
+      .where((eb) => eb.or([eb("created_tx_id", "is", null), eb("created_tx_id", "=", "")]))
       .where("asset_in", "is not", null)
       .where("amount_in", "is not", null)
       .where("asset_out", "is not", null)
@@ -180,10 +162,7 @@ export namespace OrderRepository {
    * Find an order that has created_tx_id not null and waiting = true
    * This order has been confirmed on chain and is waiting for its output to be spent
    */
-  export async function getWaitingOrder(
-    db: Kysely<DB> | Transaction<DB>,
-    positionId: bigint,
-  ): Promise<Order | null> {
+  export async function getWaitingOrder(db: Kysely<DB> | Transaction<DB>, positionId: bigint): Promise<Order | null> {
     const result = await db
       .selectFrom("order")
       .selectAll()
@@ -204,11 +183,7 @@ export namespace OrderRepository {
     orderId: bigint,
     waiting: boolean,
   ): Promise<void> {
-    await db
-      .updateTable("order")
-      .set({ waiting })
-      .where("id", "=", orderId.toString())
-      .execute();
+    await db.updateTable("order").set({ waiting }).where("id", "=", orderId.toString()).execute();
   }
 
   // biome-ignore lint/suspicious/noExplicitAny: DB row type

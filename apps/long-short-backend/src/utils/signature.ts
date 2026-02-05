@@ -1,6 +1,6 @@
-import { Address, PrivateKey } from "@minswap/felis-ledger-core";
-import { RustModule } from "@minswap/felis-ledger-utils";
 import * as CMS from "@emurgo/cardano-message-signing-nodejs";
+import { Address, type PrivateKey } from "@minswap/felis-ledger-core";
+import { RustModule } from "@minswap/felis-ledger-utils";
 
 export type VerifySignDataOptions = {
   message: string; // The original message that was signed (hex encoded)
@@ -29,9 +29,7 @@ export function verifySignData(options: VerifySignDataOptions): boolean {
 
     // 2. Parse the COSEKey and extract public key using label -2 (COSE key identifier for EC2 x-coordinate)
     const coseKey = CMS.COSEKey.from_bytes(Buffer.from(key, "hex"));
-    const pubKeyBytes = coseKey
-      .header(CMS.Label.new_int(CMS.Int.new_negative(CMS.BigNum.from_str("2"))))
-      ?.as_bytes();
+    const pubKeyBytes = coseKey.header(CMS.Label.new_int(CMS.Int.new_negative(CMS.BigNum.from_str("2"))))?.as_bytes();
 
     if (!pubKeyBytes) {
       return false;
@@ -80,21 +78,14 @@ export function verifySignData(options: VerifySignDataOptions): boolean {
   }
 }
 
-export function signData(
-  privateKey: PrivateKey,
-  address: string,
-  payload: string,
-): { signature: string; key: string } {
+export function signData(privateKey: PrivateKey, address: string, payload: string): { signature: string; key: string } {
   const cslPrivateKey = privateKey.toECSL();
   const cslPublicKey = cslPrivateKey.to_public();
 
   // Build protected header with address
   const protectedHeaders = CMS.HeaderMap.new();
   protectedHeaders.set_algorithm_id(CMS.Label.from_algorithm_id(CMS.AlgorithmId.EdDSA));
-  protectedHeaders.set_header(
-    CMS.Label.new_text("address"),
-    CMS.CBORValue.new_bytes(Buffer.from(address, "hex")),
-  );
+  protectedHeaders.set_header(CMS.Label.new_text("address"), CMS.CBORValue.new_bytes(Buffer.from(address, "hex")));
 
   const protectedSerialized = CMS.ProtectedHeaderMap.new(protectedHeaders);
   const unprotectedHeaders = CMS.HeaderMap.new();

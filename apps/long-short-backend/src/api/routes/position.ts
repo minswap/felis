@@ -1,7 +1,8 @@
+import invariant from "@minswap/tiny-invariant";
 import type { FastifyInstance } from "fastify";
 import { API_ENDPOINTS } from "../../constants";
-import { PositionService } from "../../services/position-service";
 import type { Position } from "../../repository/position-repository";
+import type { PositionService } from "../../services/position-service";
 import { ApiHelper } from "../helper";
 import {
   type AuthenBuildTxBodyType,
@@ -169,6 +170,7 @@ export function registerPositionRoutes(fastify: FastifyInstance, positionService
       }
 
       // Return newly built transaction
+      invariant("txRaw" in result && result.txRaw, "type-safe");
       return reply.status(200).send({
         success: true,
         data: {

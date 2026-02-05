@@ -1,13 +1,13 @@
-import invariant from "@minswap/tiny-invariant";
 import { DEXOrderTransaction } from "@minswap/felis-build-tx";
-import { Address, Asset, NetworkEnvironment, Utxo, XJSON } from "@minswap/felis-ledger-core";
 import { DexVersion, OrderV2Direction, OrderV2StepType } from "@minswap/felis-dex-v2";
-import { CoinSelectionAlgorithm, EmulatorProvider } from "@minswap/felis-tx-builder";
-import { blake2b256, Duration, Result, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
+import { Address, Asset, type NetworkEnvironment, Utxo } from "@minswap/felis-ledger-core";
+import { blake2b256, Duration, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
 import { LiqwidProvider } from "@minswap/felis-lending-market";
+import { CoinSelectionAlgorithm, EmulatorProvider } from "@minswap/felis-tx-builder";
+import invariant from "@minswap/tiny-invariant";
+import type { MarketConfig } from "../config";
+import type { CardanoscanProvider } from "../provider";
 import { HashUtils } from "../utils";
-import { CardanoscanProvider } from "../provider";
-import { MarketConfig } from "../config";
 
 export namespace StateMachine {
   export enum PositionSide {
@@ -63,22 +63,28 @@ export namespace StateMachine {
     const txb = DEXOrderTransaction.createBulkOrdersTx({
       networkEnv,
       sender,
-      orderOptions: [{
-        lpAsset: Asset.fromString(marketConfig.amm_lp_asset),
-        version: DexVersion.DEX_V2,
-        type: OrderV2StepType.SWAP_EXACT_IN,
-        assetIn: Asset.fromString(marketConfig.asset_a),
-        amountIn: BigInt(order.amount_in.toString()),
-        minimumAmountOut: 1n,
-        direction: OrderV2Direction.A_TO_B,
-        killOnFailed: false,
-        isLimitOrder: false,
-      }],
+      orderOptions: [
+        {
+          lpAsset: Asset.fromString(marketConfig.amm_lp_asset),
+          version: DexVersion.DEX_V2,
+          type: OrderV2StepType.SWAP_EXACT_IN,
+          assetIn: Asset.fromString(marketConfig.asset_a),
+          amountIn: BigInt(order.amount_in.toString()),
+          minimumAmountOut: 1n,
+          direction: OrderV2Direction.A_TO_B,
+          killOnFailed: false,
+          isLimitOrder: false,
+        },
+      ],
     });
-    const validTo = new Date().getTime() + Duration.newMinutes(3).milliseconds;
+    const validTo = Date.now() + Duration.newMinutes(3).milliseconds;
     txb.validToUnixTime(validTo);
 
-    const {txComplete, txId, newUtxoState: { changeUtxos } } = await txb.completeUnsafeForTxChaining({
+    const {
+      txComplete,
+      txId,
+      newUtxoState: { changeUtxos },
+    } = await txb.completeUnsafeForTxChaining({
       coinSelectionAlgorithm: CoinSelectionAlgorithm.SPEND_ALL,
       walletUtxos,
       changeAddress: sender,
@@ -97,7 +103,7 @@ export namespace StateMachine {
       orderOutputIndex: 0,
       outputsHash,
       validTo,
-    }
+    };
   };
 
   export type HandleLongSupplyOptions = {
@@ -151,7 +157,7 @@ export namespace StateMachine {
     const outputsHash = HashUtils.sha256(utxos.join(","));
 
     // Set valid_to to 3 minutes from now
-    const validTo = new Date().getTime() + Duration.newMinutes(3).milliseconds;
+    const validTo = Date.now() + Duration.newMinutes(3).milliseconds;
 
     safeFreeRustObjects(eTx, txBody, txBodyHash);
 
@@ -244,6 +250,4 @@ export namespace StateMachine {
       isSpent: false,
     };
   };
-
-  
 }
