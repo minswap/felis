@@ -168,12 +168,11 @@ export class PositionService {
             });
 
             // Find the order with the next order type
-            const nextOrder = await this.db
-              .selectFrom("order")
-              .selectAll()
-              .where("position_id", "=", waitingOrder.positionId.toString())
-              .where("order_type", "=", waitingResult.nextOrderType)
-              .executeTakeFirst();
+            const nextOrder = await OrderRepository.getOrderByPositionAndType(
+              this.db,
+              waitingOrder.positionId,
+              waitingResult.nextOrderType,
+            );
 
             if (!nextOrder) {
               logger.error("Next order not found", {
@@ -189,7 +188,7 @@ export class PositionService {
             // Update the next order with details and set current order waiting = false
             await OrderRepository.updateOrderNextDetails(
               this.db,
-              BigInt(nextOrder.id),
+              nextOrder.id,
               waitingResult.assetIn,
               waitingResult.amountIn,
               waitingResult.assetOut,
@@ -233,12 +232,11 @@ export class PositionService {
             });
 
             // Find the LONG_BORROW order
-            const nextOrder = await this.db
-              .selectFrom("order")
-              .selectAll()
-              .where("position_id", "=", waitingOrder.positionId.toString())
-              .where("order_type", "=", waitingResult.nextOrderType)
-              .executeTakeFirst();
+            const nextOrder = await OrderRepository.getOrderByPositionAndType(
+              this.db,
+              waitingOrder.positionId,
+              waitingResult.nextOrderType,
+            );
 
             if (!nextOrder) {
               logger.error("Next order not found", {
@@ -254,7 +252,7 @@ export class PositionService {
             // Update the next order with details and set current order waiting = false
             await OrderRepository.updateOrderNextDetails(
               this.db,
-              BigInt(nextOrder.id),
+              nextOrder.id,
               waitingResult.assetIn,
               waitingResult.amountIn,
               waitingResult.assetOut,
@@ -383,18 +381,13 @@ export class PositionService {
         hasPreviousBuild: !!order.builtTxId,
       });
 
-      // Fetch raw DB rows for StateMachine handlers
-      const orderRow = await this.db
-        .selectFrom("order")
-        .selectAll()
-        .where("id", "=", order.id.toString())
-        .executeTakeFirstOrThrow();
-
-      const marketConfigRow = await this.db
-        .selectFrom("market_config")
-        .selectAll()
-        .where("market_id", "=", marketId)
-        .executeTakeFirstOrThrow();
+      // Convert Order to OrderData for StateMachine handlers
+      const orderData: StateMachine.OrderData = {
+        orderType: order.orderType,
+        assetIn: order.assetIn,
+        amountIn: order.amountIn,
+        assetOut: order.assetOut,
+      };
 
       // Build transaction based on order type
       let txResult: StateMachine.BuiltResult;
@@ -402,8 +395,8 @@ export class PositionService {
       switch (order.orderType) {
         case StateMachine.LongOrderType.LONG_BUY:
           txResult = await StateMachine.handleLongBuy({
-            order: orderRow,
-            marketConfig: marketConfigRow,
+            order: orderData,
+            marketConfig,
             userAddress,
             networkEnv: this.networkEnv,
             utxos,
@@ -411,7 +404,8 @@ export class PositionService {
           break;
         case StateMachine.LongOrderType.LONG_SUPPLY:
           txResult = await StateMachine.handleLongSupply({
-            order: orderRow,
+            order: orderData,
+            marketConfig,
             userAddress,
             networkEnv: this.networkEnv,
             utxos,

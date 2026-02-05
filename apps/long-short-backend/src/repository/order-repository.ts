@@ -186,6 +186,33 @@ export namespace OrderRepository {
     await db.updateTable("order").set({ waiting }).where("id", "=", orderId.toString()).execute();
   }
 
+  /**
+   * Get order by position ID and order type
+   */
+  export async function getOrderByPositionAndType(
+    db: Kysely<DB> | Transaction<DB>,
+    positionId: bigint,
+    orderType: string,
+  ): Promise<Order | null> {
+    const result = await db
+      .selectFrom("order")
+      .selectAll()
+      .where("position_id", "=", positionId.toString())
+      .where("order_type", "=", orderType)
+      .executeTakeFirst();
+
+    return result ? mapOrderRow(result) : null;
+  }
+
+  /**
+   * Get order by ID
+   */
+  export async function getOrderById(db: Kysely<DB> | Transaction<DB>, orderId: bigint): Promise<Order | null> {
+    const result = await db.selectFrom("order").selectAll().where("id", "=", orderId.toString()).executeTakeFirst();
+
+    return result ? mapOrderRow(result) : null;
+  }
+
   // biome-ignore lint/suspicious/noExplicitAny: DB row type
   function mapOrderRow(row: any): Order {
     return {

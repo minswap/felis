@@ -40,30 +40,29 @@ export namespace StateMachine {
     outputsHash?: string;
   };
 
-  export type HandleLongBuyOptions = {
-    order: {
-      order_type: string;
-      asset_in: string | null;
-      amount_in: string | null;
-      asset_out: string | null;
-    };
-    marketConfig: {
-      market_id: string;
-      asset_a: string;
-      asset_b: string;
-      amm_lp_asset: string;
-    };
+  // Common order data type for all Handle functions
+  export type OrderData = {
+    orderType: string;
+    assetIn: string | null;
+    amountIn: string | null;
+    assetOut: string | null;
+  };
+
+  // Common options for all Handle functions
+  export type HandleBuildTxOptions = {
+    order: OrderData;
+    marketConfig: MarketConfig;
     userAddress: string;
     networkEnv: NetworkEnvironment;
     utxos: string[];
   };
 
-  export const handleLongBuy = async (options: HandleLongBuyOptions): Promise<BuiltResult> => {
+  export const handleLongBuy = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
     const { order, marketConfig, userAddress, networkEnv, utxos } = options;
-    invariant(order.order_type === LongOrderType.LONG_BUY, "Invalid order type for handleLongBuy");
-    invariant(order.asset_in, "asset_in is required for LONG_BUY order");
-    invariant(order.amount_in, "amount_in is required for LONG_BUY order");
-    invariant(order.asset_out, "asset_out is required for LONG_BUY order");
+    invariant(order.orderType === LongOrderType.LONG_BUY, "Invalid order type for handleLongBuy");
+    invariant(order.assetIn, "assetIn is required for LONG_BUY order");
+    invariant(order.amountIn, "amountIn is required for LONG_BUY order");
+    invariant(order.assetOut, "assetOut is required for LONG_BUY order");
     const walletUtxos: Utxo[] = utxos.map((u) => Utxo.fromHex(u));
     const sender = Address.fromBech32(userAddress);
 
@@ -72,11 +71,11 @@ export namespace StateMachine {
       sender,
       orderOptions: [
         {
-          lpAsset: Asset.fromString(marketConfig.amm_lp_asset),
+          lpAsset: Asset.fromString(marketConfig.ammLpAsset),
           version: DexVersion.DEX_V2,
           type: OrderV2StepType.SWAP_EXACT_IN,
-          assetIn: Asset.fromString(marketConfig.asset_a),
-          amountIn: BigInt(order.amount_in.toString()),
+          assetIn: marketConfig.assetA,
+          amountIn: BigInt(order.amountIn),
           minimumAmountOut: 1n,
           direction: OrderV2Direction.A_TO_B,
           killOnFailed: false,
@@ -112,33 +111,21 @@ export namespace StateMachine {
     };
   };
 
-  export type HandleLongSupplyOptions = {
-    order: {
-      order_type: string;
-      asset_in: string | null;
-      amount_in: string | null;
-      asset_out: string | null;
-    };
-    userAddress: string;
-    networkEnv: NetworkEnvironment;
-    utxos: string[];
-  };
-
-  export const handleLongSupply = async (options: HandleLongSupplyOptions): Promise<BuiltResult> => {
+  export const handleLongSupply = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
     const { order, userAddress, networkEnv, utxos } = options;
-    invariant(order.order_type === LongOrderType.LONG_SUPPLY, "Invalid order type for handleLongSupply");
-    invariant(order.asset_in, "asset_in is required for LONG_SUPPLY order");
-    invariant(order.amount_in, "amount_in is required for LONG_SUPPLY order");
-    invariant(order.asset_out, "asset_out is required for LONG_SUPPLY order");
+    invariant(order.orderType === LongOrderType.LONG_SUPPLY, "Invalid order type for handleLongSupply");
+    invariant(order.assetIn, "assetIn is required for LONG_SUPPLY order");
+    invariant(order.amountIn, "amountIn is required for LONG_SUPPLY order");
+    invariant(order.assetOut, "assetOut is required for LONG_SUPPLY order");
 
-    // asset_out contains the lending market ID (collateral token qMIN or qADA)
-    // We need to extract the market ID from the asset_out
+    // assetOut contains the lending market ID (collateral token qMIN or qADA)
+    // We need to extract the market ID from the assetOut
     // For example: "186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0" -> "MIN"
-    const marketId = order.asset_out as LiqwidProvider.MarketId;
+    const marketId = order.assetOut as LiqwidProvider.MarketId;
 
     const buildTxResult = await LiqwidProvider.getSupplyTransaction({
       marketId,
-      amount: Number(order.amount_in),
+      amount: Number(order.amountIn),
       address: userAddress,
       utxos,
       networkEnv,
