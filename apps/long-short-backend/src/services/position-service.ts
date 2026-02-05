@@ -164,6 +164,7 @@ export class PositionService {
           txHash: waitingOrder.createdTxId,
           userAddress: Address.fromBech32(userAddress),
           cardanoscanProvider: this.cardanoscanProvider,
+          orderType: waitingOrder.orderType,
           orderOutputIndex: waitingOrder.createdTxIndex ?? 0,
           assetOut: Asset.fromString(waitingOrder.assetOut),
           positionAmountIn: position.amountIn,
@@ -172,30 +173,52 @@ export class PositionService {
         const waitingResult = await waitingFn(waitingOptions);
 
         if (waitingResult.isConfirmed) {
-          const transitionResult = await OrderRepository.transitionToNextOrder(this.db, {
-            currentOrderId: waitingOrder.id,
-            positionId: waitingOrder.positionId,
-            nextOrderType: waitingResult.nextOrderType,
-            assetIn: waitingResult.assetIn,
-            amountIn: waitingResult.amountIn,
-            assetOut: waitingResult.assetOut,
-          });
+          // Check if this is a transition state (has nextOrderType)
+          if ("nextOrderType" in waitingResult) {
+            const transitionResult = await OrderRepository.transitionToNextOrder(this.db, {
+              currentOrderId: waitingOrder.id,
+              positionId: waitingOrder.positionId,
+              nextOrderType: waitingResult.nextOrderType,
+              assetIn: waitingResult.assetIn,
+              amountIn: waitingResult.amountIn,
+              assetOut: waitingResult.assetOut,
+            });
 
-          if (!transitionResult.success) {
-            logger.error("Failed to transition to next order", { error: transitionResult.error });
-            return { success: false, error: transitionResult.error };
+            if (!transitionResult.success) {
+              logger.error("Failed to transition to next order", { error: transitionResult.error });
+              return { success: false, error: transitionResult.error };
+            }
+
+            logger.info("Order completed, transitioned to next order", {
+              currentOrderId: waitingOrder.id,
+              currentOrderType: waitingOrder.orderType,
+              nextOrderId: transitionResult.nextOrder.id,
+              nextOrderType: waitingResult.nextOrderType,
+            });
+
+            return {
+              success: false,
+              error: `${waitingOrder.orderType} completed. ${waitingResult.nextOrderType} order ready. Call build-tx again to continue.`,
+            };
           }
 
-          logger.info("Order completed, transitioned to next order", {
+          // This is the final state (no more orders to process)
+          // Update position status to OPEN
+          await PositionRepository.updatePositionStatus(this.db, position.id, waitingResult.positionStatus);
+
+          // Set current order waiting = false
+          await OrderRepository.setOrderWaiting(this.db, waitingOrder.id, false);
+
+          logger.info("Position completed, status updated to OPEN", {
+            positionId: position.id,
             currentOrderId: waitingOrder.id,
             currentOrderType: waitingOrder.orderType,
-            nextOrderId: transitionResult.nextOrder.id,
-            nextOrderType: waitingResult.nextOrderType,
+            newStatus: waitingResult.positionStatus,
           });
 
           return {
             success: false,
-            error: `${waitingOrder.orderType} completed. ${waitingResult.nextOrderType} order ready. Call build-tx again to continue.`,
+            error: `${waitingOrder.orderType} completed. Position is now ${waitingResult.positionStatus}.`,
           };
         } else {
           return {

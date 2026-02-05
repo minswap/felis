@@ -61,7 +61,10 @@ export namespace StateMachine {
 
   export const handleLongBuy = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
     const { order, marketConfig, userAddress, networkEnv, utxos } = options;
-    invariant(order.orderType === LongOrderType.LONG_BUY, "Invalid order type for handleLongBuy");
+    invariant(
+      order.orderType === LongOrderType.LONG_BUY || order.orderType === LongOrderType.LONG_BUY_MORE,
+      "Invalid order type for handleLongBuy",
+    );
     invariant(order.assetIn, "assetIn is required for LONG_BUY order");
     invariant(order.amountIn, "amountIn is required for LONG_BUY order");
     invariant(order.assetOut, "assetOut is required for LONG_BUY order");
@@ -204,6 +207,7 @@ export namespace StateMachine {
     [LongOrderType.LONG_BUY]: handleLongBuy,
     [LongOrderType.LONG_SUPPLY]: handleLongSupply,
     [LongOrderType.LONG_BORROW]: handleLongBorrow,
+    [LongOrderType.LONG_BUY_MORE]: handleLongBuy, // Reuse handleLongBuy
   };
 
   // Common waiting result type for all waiting functions
@@ -215,6 +219,11 @@ export namespace StateMachine {
         assetIn: string;
         amountIn: string;
         assetOut: string;
+      }
+    | {
+        isConfirmed: true;
+        isFinal: true;
+        positionStatus: PositionStatus;
       };
 
   export type WaitingOptions = {
@@ -222,6 +231,8 @@ export namespace StateMachine {
     txHash: string;
     userAddress: Address;
     cardanoscanProvider: CardanoscanProvider;
+    /** Current order type being waited on */
+    orderType: string;
     /** Order output index (used for LONG_BUY to check if output is spent) */
     orderOutputIndex?: number;
     /** Asset out from order (used for LONG_BUY to find the received token) */
@@ -231,11 +242,12 @@ export namespace StateMachine {
   };
 
   /**
-   * Wait for LONG_BUY order output to be spent (consumed by DEX)
-   * and prepare the next LONG_SUPPLY order details
+   * Wait for LONG_BUY or LONG_BUY_MORE order output to be spent (consumed by DEX)
+   * - For LONG_BUY: prepare the next LONG_SUPPLY order details
+   * - For LONG_BUY_MORE: this is the final step, position becomes OPEN
    */
   export const waitingLongBuy = async (options: WaitingOptions): Promise<WaitingResult> => {
-    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, assetOut } = options;
+    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, assetOut, orderType } = options;
     invariant(orderOutputIndex !== undefined, "orderOutputIndex is required for waitingLongBuy");
     invariant(assetOut, "assetOut is required for waitingLongBuy");
 
@@ -259,6 +271,17 @@ export namespace StateMachine {
             const matchingToken = output.tokens.find((token) => token.assetId === assetOutUnit);
             if (matchingToken) {
               const amountOut = BigInt(matchingToken.value);
+
+              // For LONG_BUY_MORE, this is the final step - position becomes OPEN
+              if (orderType === LongOrderType.LONG_BUY_MORE) {
+                return {
+                  isConfirmed: true,
+                  isFinal: true,
+                  positionStatus: PositionStatus.OPEN,
+                };
+              }
+
+              // For LONG_BUY, transition to LONG_SUPPLY
               return {
                 isConfirmed: true,
                 nextOrderType: LongOrderType.LONG_SUPPLY,
@@ -350,5 +373,6 @@ export namespace StateMachine {
     [LongOrderType.LONG_BUY]: waitingLongBuy,
     [LongOrderType.LONG_SUPPLY]: waitingLongSupply,
     [LongOrderType.LONG_BORROW]: waitingLongBorrow,
+    [LongOrderType.LONG_BUY_MORE]: waitingLongBuy, // Reuse waitingLongBuy
   };
 }
