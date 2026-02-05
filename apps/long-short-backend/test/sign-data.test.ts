@@ -100,11 +100,6 @@ describe("verifySignData", () => {
       wallet.address.bech32,
       message,
     );
-    console.log({
-      user_address: wallet.address.bech32,
-      signature,
-      key,
-    });
     // Verify
     const isValid = verifySignData({
       message,
@@ -272,6 +267,5 @@ describe("verifySignData", () => {
     const ECSL = RustModule.getE;
     const ea = ECSL.Address.from_bech32(addr.bech32);
     const a1 = ea.to_hex();
-    console.log(a1);
   });
 });
