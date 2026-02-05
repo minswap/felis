@@ -91,6 +91,7 @@ export const BuildTxResponseSchema = Type.Object({
   data: Type.Optional(
     Type.Object({
       tx_raw: Type.Optional(Type.String({ description: "Unsigned transaction CBOR hex" })),
+      tx_id: Type.Optional(Type.String({ description: "Transaction ID (hash)" })),
       order_type: Type.String({ description: "Order type being processed" }),
       waiting: Type.Optional(Type.Boolean({ description: "True if transaction is waiting for confirmation" })),
       message: Type.Optional(Type.String({ description: "Status message when waiting" })),

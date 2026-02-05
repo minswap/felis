@@ -25,7 +25,7 @@ export type BuildTxInput = {
 };
 
 export type BuildTxResult =
-  | { success: true; txRaw: string; orderType: string }
+  | { success: true; txRaw: string; txId: string; orderType: string }
   | { success: true; waiting: true; orderType: string; message: string }
   | { success: false; error: string };
 
@@ -215,6 +215,71 @@ export class PositionService {
               error: "Transaction confirmed on chain. Waiting for order to be processed.",
             };
           }
+        } else if (waitingOrder.orderType === StateMachine.LongOrderType.LONG_SUPPLY) {
+          // LONG_SUPPLY is simpler - just wait for tx confirmation (already confirmed since we're here)
+          // Then check for qToken output and prepare LONG_BORROW
+          const waitingResult = await StateMachine.waitingLongSupply({
+            marketConfig,
+            txHash: waitingOrder.createdTxId,
+            userAddress: address,
+            cardanoscanProvider: this.cardanoscanProvider,
+          });
+
+          if (waitingResult.isConfirmed) {
+            // Transaction is confirmed - update next order
+            logger.info("LONG_SUPPLY confirmed, updating next LONG_BORROW order", {
+              orderId: waitingOrder.id,
+              nextOrderType: waitingResult.nextOrderType,
+            });
+
+            // Find the LONG_BORROW order
+            const nextOrder = await this.db
+              .selectFrom("order")
+              .selectAll()
+              .where("position_id", "=", waitingOrder.positionId.toString())
+              .where("order_type", "=", waitingResult.nextOrderType)
+              .executeTakeFirst();
+
+            if (!nextOrder) {
+              logger.error("Next order not found", {
+                positionId: waitingOrder.positionId,
+                nextOrderType: waitingResult.nextOrderType,
+              });
+              return {
+                success: false,
+                error: `Next order with type "${waitingResult.nextOrderType}" not found`,
+              };
+            }
+
+            // Update the next order with details and set current order waiting = false
+            await OrderRepository.updateOrderNextDetails(
+              this.db,
+              BigInt(nextOrder.id),
+              waitingResult.assetIn,
+              waitingResult.amountIn,
+              waitingResult.assetOut,
+            );
+            await OrderRepository.setOrderWaiting(this.db, waitingOrder.id, false);
+
+            logger.info("LONG_BORROW order updated, LONG_SUPPLY no longer waiting", {
+              currentOrderId: waitingOrder.id,
+              nextOrderId: nextOrder.id,
+              assetIn: waitingResult.assetIn,
+              amountIn: waitingResult.amountIn,
+              assetOut: waitingResult.assetOut,
+            });
+
+            return {
+              success: false,
+              error: "LONG_SUPPLY completed. LONG_BORROW order ready. Call build-tx again to continue.",
+            };
+          } else {
+            // Transaction not confirmed yet (shouldn't happen since we check waiting=true)
+            return {
+              success: false,
+              error: "LONG_SUPPLY transaction not yet confirmed on chain.",
+            };
+          }
         } else {
           // Other order types not implemented yet
           return {
@@ -371,7 +436,7 @@ export class PositionService {
         validTo: new Date(txResult.validTo).toISOString(),
       });
 
-      return { success: true, txRaw: txResult.txRaw, orderType: order.orderType };
+      return { success: true, txRaw: txResult.txRaw, txId: txResult.txId, orderType: order.orderType };
     } catch (error) {
       logger.error("error building tx", error);
       return {

@@ -246,4 +246,77 @@ export namespace StateMachine {
       isSpent: false,
     };
   };
+
+  export type WaitingLongSupplyOptions = {
+    marketConfig: MarketConfig;
+    txHash: string;
+    userAddress: Address;
+    cardanoscanProvider: CardanoscanProvider;
+  };
+
+  export type WaitingLongSupplyResult =
+    | { isConfirmed: false }
+    | {
+        isConfirmed: true;
+        nextOrderType: LongOrderType;
+        assetIn: string;
+        amountIn: string;
+        assetOut: string;
+      };
+
+  /**
+   * Wait for LONG_SUPPLY transaction to be confirmed and prepare the next LONG_BORROW order
+   * @param options - Options containing transaction details and cardanoscan provider
+   * @returns Result with next order details if confirmed, or isConfirmed: false if not yet confirmed
+   */
+  export const waitingLongSupply = async (options: WaitingLongSupplyOptions): Promise<WaitingLongSupplyResult> => {
+    const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
+
+    // Search for the transaction to confirm it's on chain
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      50, // pageSize
+      10, // maxPage
+    );
+
+    if (txFoundOnChain) {
+      // Transaction is confirmed on chain
+      // Find the output that belongs to the user and contains the qToken (asset_b_q_token_raw)
+      const userAddressHex = userAddress.toHex();
+      const qTokenAsset = Asset.fromString(marketConfig.assetBQTokenRaw);
+      const qTokenUnit = qTokenAsset.toBlockFrostString();
+
+      // Search through the transaction outputs
+      for (const output of txFoundOnChain.outputs) {
+        if (output.address === userAddressHex) {
+          if (output.tokens && output.tokens.length > 0) {
+            const matchingToken = output.tokens.find((token) => token.assetId === qTokenUnit);
+            if (matchingToken) {
+              // Found the output with the qToken
+              // Prepare next order: LONG_BORROW
+              const amountReceived = BigInt(matchingToken.value);
+              return {
+                isConfirmed: true,
+                nextOrderType: LongOrderType.LONG_BORROW,
+                assetIn: marketConfig.assetBQTokenRaw, // qToken (qMIN) becomes input for borrow
+                amountIn: amountReceived.toString(),
+                assetOut: marketConfig.assetA.toString(), // Borrow asset A (ADA)
+              };
+            }
+          }
+        }
+      }
+
+      // Transaction found but couldn't find matching qToken output
+      throw new Error(
+        `LONG_SUPPLY tx confirmed (${txHash}) but could not find output with qToken ${marketConfig.assetBQTokenRaw}`,
+      );
+    }
+
+    // Transaction not yet confirmed
+    return {
+      isConfirmed: false,
+    };
+  };
 }

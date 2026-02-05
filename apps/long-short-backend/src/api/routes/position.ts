@@ -170,11 +170,12 @@ export function registerPositionRoutes(fastify: FastifyInstance, positionService
       }
 
       // Return newly built transaction
-      invariant("txRaw" in result && result.txRaw, "type-safe");
+      invariant("txRaw" in result && result.txRaw && "txId" in result && result.txId, "type-safe");
       return reply.status(200).send({
         success: true,
         data: {
           tx_raw: result.txRaw,
+          tx_id: result.txId,
           order_type: result.orderType,
         },
       });
