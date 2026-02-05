@@ -332,7 +332,7 @@ export class PositionService {
         .executeTakeFirstOrThrow();
 
       // Build transaction based on order type
-      let txResult: { txRaw: string; txId: string; outputsHash: string; validTo: number };
+      let txResult: StateMachine.BuiltResult;
 
       switch (order.orderType) {
         case StateMachine.LongOrderType.LONG_BUY:

@@ -7,6 +7,7 @@ import type { DB } from "../database";
 import type { CardanoscanProvider } from "../provider";
 import { PositionService } from "../services/position-service";
 import { logger } from "../utils";
+import { registerLiqwidRoutes } from "./routes/liqwid";
 import { registerMetadataRoutes } from "./routes/metadata";
 import { registerPositionRoutes } from "./routes/position";
 
@@ -42,6 +43,7 @@ export async function createApiServer(options: ApiServerOptions): Promise<Fastif
   const positionService = new PositionService(db, networkEnv, cardanoscanProvider);
 
   // Register routes
+  registerLiqwidRoutes(fastify, networkEnv);
   registerMetadataRoutes(fastify);
   registerPositionRoutes(fastify, positionService);
 

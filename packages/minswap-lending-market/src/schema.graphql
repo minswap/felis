@@ -1,7 +1,9 @@
 directive @priceConversion on FIELD_DEFINITION
 
 directive @cost(
-  """Assumes the cost of the annotated component"""
+  """
+  Assumes the cost of the annotated component
+  """
   weight: Int!
 ) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
 
@@ -14,7 +16,9 @@ input AquafarmersInput {
   assets: [String!]!
 }
 
-"""Metadata for the aquafarmer"""
+"""
+Metadata for the aquafarmer
+"""
 type AquafarmerOnchainMetadata {
   hat: String
   tier: String
@@ -235,7 +239,9 @@ type Query {
   agora: AgoraQueries!
   meta: MetaQueries!
 
-  """Get the exchange rate of a currency"""
+  """
+  Get the exchange rate of a currency
+  """
   currencyExchangeRate(input: CurrencyExchangeRateInput!): CurrencyExchangeRate!
   liqwid: LiqwidQueries!
   lq: LQQueries!
@@ -254,37 +260,59 @@ type MetaQueries {
 }
 
 enum Currency {
-  """Euro €"""
+  """
+  Euro €
+  """
   EUR
 
-  """US Dollar $"""
+  """
+  US Dollar $
+  """
   USD
 
-  """British Pound £"""
+  """
+  British Pound £
+  """
   GBP
 
-  """Canadian Dollar C$"""
+  """
+  Canadian Dollar C$
+  """
   CAD
 
-  """Brazilian Real R$"""
+  """
+  Brazilian Real R$
+  """
   BRL
 
-  """Japanese Yen ¥"""
+  """
+  Japanese Yen ¥
+  """
   JPY
 
-  """Vietnamese Dong ₫"""
+  """
+  Vietnamese Dong ₫
+  """
   VND
 
-  """Czech Koruna Kč"""
+  """
+  Czech Koruna Kč
+  """
   CZK
 
-  """Australian Dollar A$"""
+  """
+  Australian Dollar A$
+  """
   AUD
 
-  """Singapore Dollar S$"""
+  """
+  Singapore Dollar S$
+  """
   SGD
 
-  """Swiss Franc CHF"""
+  """
+  Swiss Franc CHF
+  """
   CHF
 }
 
@@ -311,7 +339,9 @@ type LQQueries {
   circulatingSupply: Float!
   treasury: Float!
 
-  """Amount of LQ staked"""
+  """
+  Amount of LQ staked
+  """
   staked: Float!
   price(input: InCurrencyInput): Float!
   currencySymbol: String!
@@ -327,7 +357,9 @@ input SubmitTransactionInput {
 }
 
 type Mutation {
-  """Submit a CBOR transaction"""
+  """
+  Submit a CBOR transaction
+  """
   submitTransaction(input: SubmitTransactionInput!): String!
 }
 
@@ -356,16 +388,22 @@ enum TransactionType {
 }
 
 type CustomFee {
-  """Wallet fee name"""
+  """
+  Wallet fee name
+  """
   wallet: SupportedWallet!
   displayName: String!
 
-  """Amount taken in the asset being supplied or withdrawn"""
+  """
+  Amount taken in the asset being supplied or withdrawn
+  """
   amount: Float!
 }
 
 type HistoricalTransaction {
-  """txHash"""
+  """
+  txHash
+  """
   id: String!
   displayName: String!
   logo: String!
@@ -374,12 +412,16 @@ type HistoricalTransaction {
   oraclePrice: Float!
   customFee: CustomFee
 
-  """token amount for supply/withdraw"""
+  """
+  token amount for supply/withdraw
+  """
   qAmount: Float
   amount: Float
   amountUSD: Float
 
-  """qToken exchangeRate for supply/withdraw"""
+  """
+  qToken exchangeRate for supply/withdraw
+  """
   exchangeRate: Float
   principal: Float
   principalUSD: Float
@@ -387,7 +429,9 @@ type HistoricalTransaction {
   healthFactor: Float
   loanOriginationFee: Float
 
-  """Modification loan (borrow more/modify/repay)"""
+  """
+  Modification loan (borrow more/modify/repay)
+  """
   beforeHealthFactor: Float
   beforePrincipal: Float
   beforePrincipalUSD: Float
@@ -397,20 +441,26 @@ type HistoricalTransaction {
 }
 
 type HistoryLoanCollateral {
-  """txHash + unit"""
+  """
+  txHash + unit
+  """
   id: String!
   displayName: String!
   logo: String!
   oraclePrice: Float!
 
-  """qToken exchangeRate"""
+  """
+  qToken exchangeRate
+  """
   exchangeRate: Float!
   qAmount: Float!
   amount: Float!
   amountUSD: Float!
   healthFactor: Float!
 
-  """Modification loan (borrow more/modify/repay)"""
+  """
+  Modification loan (borrow more/modify/repay)
+  """
   beforeHealthFactor: Float
   beforeQAmount: Float
   beforeAmount: Float
@@ -573,15 +623,21 @@ type LoanCalculation {
   collateral(input: InCurrencyInput): Float!
   collaterals: [LoanCollateral!]!
 
-  """The maximum amount that can be borrowed with the current input"""
+  """
+  The maximum amount that can be borrowed with the current input
+  """
   maxBorrow: Float!
 
-  """The maximum amount that can be borrowed due to the borrow cap"""
+  """
+  The maximum amount that can be borrowed due to the borrow cap
+  """
   maxBorrowCap: Float
   protocolFee: Float!
   protocolFeePercentage: Float!
 
-  """The batching fee in ADA"""
+  """
+  The batching fee in ADA
+  """
   batchingFee: Float!
 }
 
@@ -610,10 +666,14 @@ type LiquidateCalculation {
   liquidationProfit(input: InCurrencyInput): Float
   liquidationProfitPercent: Float
 
-  """Collaterals seized in the liquidation with the current input"""
+  """
+  Collaterals seized in the liquidation with the current input
+  """
   collaterals: [LiquidationCalculationCollateral!]
 
-  """Health factor with the current input"""
+  """
+  Health factor with the current input
+  """
   healthFactor: Float!
 }
 
@@ -624,10 +684,14 @@ input SupplyCalculationInput {
 }
 
 type SupplyCalculation {
-  """The batching fee in ADA"""
+  """
+  The batching fee in ADA
+  """
   batchingFee: Float!
 
-  """The maximum amount that can be supplied due to the supply cap"""
+  """
+  The maximum amount that can be supplied due to the supply cap
+  """
   supplyCap: Float
 
   """
@@ -643,7 +707,9 @@ input WithdrawCalculationInput {
 }
 
 type WithdrawCalculation {
-  """The batching fee in ADA"""
+  """
+  The batching fee in ADA
+  """
   batchingFee: Float!
 
   """
@@ -651,7 +717,9 @@ type WithdrawCalculation {
   """
   walletFee: Float!
 
-  """The maximum amount that can be withdrawn due to the borrow cap"""
+  """
+  The maximum amount that can be withdrawn due to the borrow cap
+  """
   withdrawCap: Float!
 }
 
@@ -661,19 +729,29 @@ type netApyCalculation {
   """
   netApy: Float!
 
-  """The net APY including LQ rewards"""
+  """
+  The net APY including LQ rewards
+  """
   netApyLqRewards: Float!
 
-  """The borrow APY is the rate charged on borrowed assets."""
+  """
+  The borrow APY is the rate charged on borrowed assets.
+  """
   borrowApy: Float!
 
-  """The total amount of assets borrowed across all positions"""
+  """
+  The total amount of assets borrowed across all positions
+  """
   totalBorrow: Float!
 
-  """The supply APY is the rate earned on supplied assets."""
+  """
+  The supply APY is the rate earned on supplied assets.
+  """
   supplyApy: Float!
 
-  """The total amount of assets supplied"""
+  """
+  The total amount of assets supplied
+  """
   totalSupply: Float!
 }
 
@@ -695,7 +773,9 @@ type LiqwidCalculations {
   loan(input: LoanCalculationInput!): LoanCalculation!
   liquidate(input: LiquidateCalculationInput!): LiquidateCalculation!
 
-  """Calculation of a user's net APY"""
+  """
+  Calculation of a user's net APY
+  """
   netAPY(input: NetApyInput!): netApyCalculation!
 }
 
@@ -704,7 +784,9 @@ input InCurrencyInput {
 }
 
 type LiqwidData {
-  """ADA staking APY"""
+  """
+  ADA staking APY
+  """
   proofOfStakeApy: Float!
   asset(input: AssetInput!): Asset
   assets(input: AssetsInput): AssetPagination!
@@ -891,7 +973,9 @@ type LoanCollateral {
   market: Market
   asset: Asset!
 
-  """The amount of the collateral in the loan, by default in USD"""
+  """
+  The amount of the collateral in the loan, by default in USD
+  """
   amount(input: InCurrencyInput): Float!
   amountUSD: Float!
   qTokenAmount: Float!
@@ -914,7 +998,9 @@ type Loan {
   """
   adjustedAmount(input: InCurrencyInput): Float!
 
-  """The amount of the collateral in the loan, by default in USD"""
+  """
+  The amount of the collateral in the loan, by default in USD
+  """
   collateral(input: InCurrencyInput): Float!
   interest: Float!
   APY: Float!
@@ -1017,12 +1103,16 @@ type MarketInterestModelParameters {
 }
 
 type MarketIncomeParameters {
-  """Protocol"""
+  """
+  Protocol
+  """
   reserve: Float
   supplier: Float
   staker: Float
 
-  """DAO"""
+  """
+  DAO
+  """
   treasury: Float
 }
 
@@ -1030,26 +1120,40 @@ type MarketParameters {
   id: String!
   collateralParameters: [MarketCollateralParameters]
 
-  """The income parameters in percentage"""
+  """
+  The income parameters in percentage
+  """
   incomeParameters: MarketIncomeParameters!
   interestModelParameters: MarketInterestModelParameters!
 
-  """The maximum percentage of the market value that can be borrowed"""
+  """
+  The maximum percentage of the market value that can be borrowed
+  """
   borrowCap: Float
 
-  """The maximum number of tokens that can be supplied to the market"""
+  """
+  The maximum number of tokens that can be supplied to the market
+  """
   supplyCap: Float
 
-  """The minimum amount required for each action"""
+  """
+  The minimum amount required for each action
+  """
   minValue: Float!
 
-  """The minimum health factor allowed for the market"""
+  """
+  The minimum health factor allowed for the market
+  """
   minHealthFactor: Float!
 
-  """The number of actions that can be performed simultaneously"""
+  """
+  The number of actions that can be performed simultaneously
+  """
   actionCount: Int!
 
-  """The maximum number of collateral that can be used for a single loan"""
+  """
+  The maximum number of collateral that can be used for a single loan
+  """
   maxCollateralCount: Int!
   maxBatchTime: Float!
   minBatchSize: Float!
@@ -1072,43 +1176,65 @@ type Market {
   displayName: String!
   symbol: String!
 
-  """The asset eligible for use as collateral in the market"""
+  """
+  The asset eligible for use as collateral in the market
+  """
   collaterals: [Collateral!]!
 
-  """The asset used as collateral in the market"""
+  """
+  The asset used as collateral in the market
+  """
   collateralInMarkets: [Market!]!
   asset: Asset!
   receiptAsset: Asset!
 
-  """The total amount of supply in the market"""
+  """
+  The total amount of supply in the market
+  """
   supply(input: InCurrencyInput): Float!
 
-  """The total amount of borrow in the market"""
+  """
+  The total amount of borrow in the market
+  """
   borrow(input: InCurrencyInput): Float!
 
-  """The total liquidity in the market"""
+  """
+  The total liquidity in the market
+  """
   liquidity(input: InCurrencyInput): Float!
   supplyAPY: Float!
   borrowAPY: Float!
   lqSupplyAPY: Float!
 
-  """Market utilization in percentage"""
+  """
+  Market utilization in percentage
+  """
   utilization: Float!
 
-  """Exchange rate between the qToken and the asset"""
+  """
+  Exchange rate between the qToken and the asset
+  """
   exchangeRate: Float!
 
-  """The market parameters"""
+  """
+  The market parameters
+  """
   parameters: MarketParameters!
 
-  """Boolean indicating if the market is batching"""
+  """
+  Boolean indicating if the market is batching
+  """
   batching: Boolean!
   batchExpired: Boolean!
 
-  """Boolean indiciating if the market is paused due to an epoch transition"""
+  """
+  Boolean indiciating if the market is paused due to an epoch transition
+  """
   batchEpochPause: Boolean!
 
-  """The timestamp of the most recent batch"""
+  """
+  The timestamp of the most recent batch
+  """
   lastBatch: String!
   frozen: Boolean!
 
@@ -1123,7 +1249,9 @@ type Market {
   """
   loanOriginationFeePercentage: Float!
 
-  """The market is considered Prime when it's a direct lending"""
+  """
+  The market is considered Prime when it's a direct lending
+  """
   prime: Boolean!
 
   """
@@ -1133,7 +1261,9 @@ type Market {
   utilizationApy: UtilizationApy!
   registry: MarketRegistry!
 
-  """The timestamp of the last update update"""
+  """
+  The timestamp of the last update update
+  """
   updatedAt: String!
 }
 
@@ -1192,7 +1322,9 @@ input AssetsInput {
   search: String
 }
 
-"""Information about the asset"""
+"""
+Information about the asset
+"""
 type AssetExtra {
   bridge: Bridge
   maxSupply: Float
@@ -1228,17 +1360,23 @@ type Asset {
   displayName: String!
   decimals: Int!
 
-  """The PolicyId of the asset"""
+  """
+  The PolicyId of the asset
+  """
   currencySymbol: String!
   policyId: String!
   hexName: String!
 
-  """Path to access the asset logo in the API"""
+  """
+  Path to access the asset logo in the API
+  """
   logo: String
   price(input: InCurrencyInput): Float!
   priceUpdatedAt: String!
 
-  """Price boundaries beyond which the asset's oracle price cannot move"""
+  """
+  Price boundaries beyond which the asset's oracle price cannot move
+  """
   hardcap: Hardcap
   markets: [Market!]!
   extra: AssetExtra

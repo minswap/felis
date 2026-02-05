@@ -109,6 +109,30 @@ export const ErrorResponseSchema = Type.Object({
 
 export type ErrorResponseType = Static<typeof ErrorResponseSchema>;
 
+// Liqwid submit schemas
+export const LiqwidSubmitDataSchema = Type.Object({
+  raw_tx: Type.String({ minLength: 1, description: "Raw transaction CBOR hex" }),
+  witness_set: Type.String({ minLength: 1, description: "Witness set CBOR hex" }),
+});
+
+export type LiqwidSubmitDataType = Static<typeof LiqwidSubmitDataSchema>;
+
+export const AuthenLiqwidSubmitBodyTypeSchema = AuthenCommonSchema(LiqwidSubmitDataSchema);
+
+export type AuthenLiqwidSubmitBodyType = AuthenCommonType<LiqwidSubmitDataType>;
+
+export const LiqwidSubmitResponseSchema = Type.Object({
+  success: Type.Boolean(),
+  data: Type.Optional(
+    Type.Object({
+      tx_hash: Type.String({ description: "Submitted transaction hash" }),
+    }),
+  ),
+  error: Type.Optional(Type.String()),
+});
+
+export type LiqwidSubmitResponseType = Static<typeof LiqwidSubmitResponseSchema>;
+
 // Market config schemas
 export const MarketConfigResponseSchema = Type.Object({
   market_id: Type.String({ description: "Market identifier (e.g., ADA-MIN)" }),

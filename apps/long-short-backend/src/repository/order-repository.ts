@@ -104,7 +104,7 @@ export namespace OrderRepository {
     db: Kysely<DB> | Transaction<DB>,
     orderId: bigint,
     builtTxId: string,
-    builtOutputsHash: string,
+    builtOutputsHash: string | null | undefined,
     builtValidTo: Date,
   ): Promise<void> {
     await db

@@ -1,7 +1,7 @@
 import { DEXOrderTransaction } from "@minswap/felis-build-tx";
 import { DexVersion, OrderV2Direction, OrderV2StepType } from "@minswap/felis-dex-v2";
-import { Address, Asset, type NetworkEnvironment, Utxo } from "@minswap/felis-ledger-core";
-import { blake2b256, Duration, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
+import { Address, Asset, getTimeFromSlotMagic, type NetworkEnvironment, Utxo } from "@minswap/felis-ledger-core";
+import { Duration, Maybe, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
 import { LiqwidProvider } from "@minswap/felis-lending-market";
 import { CoinSelectionAlgorithm, EmulatorProvider } from "@minswap/felis-tx-builder";
 import invariant from "@minswap/tiny-invariant";
@@ -33,6 +33,13 @@ export namespace StateMachine {
     LONG_REPAY = "LONG_REPAY",
   }
 
+  export type BuiltResult = {
+    txRaw: string;
+    txId: string;
+    validTo: number;
+    outputsHash?: string;
+  };
+
   export type HandleLongBuyOptions = {
     order: {
       order_type: string;
@@ -51,7 +58,7 @@ export namespace StateMachine {
     utxos: string[];
   };
 
-  export const handleLongBuy = async (options: HandleLongBuyOptions) => {
+  export const handleLongBuy = async (options: HandleLongBuyOptions): Promise<BuiltResult> => {
     const { order, marketConfig, userAddress, networkEnv, utxos } = options;
     invariant(order.order_type === LongOrderType.LONG_BUY, "Invalid order type for handleLongBuy");
     invariant(order.asset_in, "asset_in is required for LONG_BUY order");
@@ -100,7 +107,6 @@ export namespace StateMachine {
     return {
       txRaw,
       txId: txId,
-      orderOutputIndex: 0,
       outputsHash,
       validTo,
     };
@@ -118,7 +124,7 @@ export namespace StateMachine {
     utxos: string[];
   };
 
-  export const handleLongSupply = async (options: HandleLongSupplyOptions) => {
+  export const handleLongSupply = async (options: HandleLongSupplyOptions): Promise<BuiltResult> => {
     const { order, userAddress, networkEnv, utxos } = options;
     invariant(order.order_type === LongOrderType.LONG_SUPPLY, "Invalid order type for handleLongSupply");
     invariant(order.asset_in, "asset_in is required for LONG_SUPPLY order");
@@ -143,30 +149,20 @@ export namespace StateMachine {
     }
 
     const txRaw = buildTxResult.value;
-
-    // Calculate transaction ID from transaction body hash
     const ECSL = RustModule.getE;
     const eTx = ECSL.Transaction.from_hex(txRaw);
     const txBody = eTx.body();
-    const txBodyBytes = txBody.to_bytes();
-    const txBodyHashBytes = blake2b256(Buffer.from(txBodyBytes));
-    const txBodyHash = ECSL.TransactionHash.from_bytes(Buffer.from(txBodyHashBytes));
-    const txId = txBodyHash.to_hex();
+    const ttl = txBody.ttl();
+    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
+    safeFreeRustObjects(eTx, txBody);
 
-    // Calculate outputs hash for transaction chaining
-    const outputsHash = HashUtils.sha256(utxos.join(","));
-
-    // Set valid_to to 3 minutes from now
-    const validTo = Date.now() + Duration.newMinutes(3).milliseconds;
-
-    safeFreeRustObjects(eTx, txBody, txBodyHash);
+    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    const txId = LiqwidProvider.getLiqwidTxHash(txRaw);
 
     return {
       txRaw,
       txId,
-      orderOutputIndex: 0,
-      outputsHash,
-      validTo,
+      validTo: validTo.getTime(),
     };
   };
 
