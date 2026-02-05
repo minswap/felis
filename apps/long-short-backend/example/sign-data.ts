@@ -3,6 +3,7 @@ import { NetworkEnvironment } from "@minswap/felis-ledger-core";
 import { signData, verifySignData } from "../src/utils/signature";
 import { RustModule } from "@minswap/felis-ledger-utils";
 import invariant from "@minswap/tiny-invariant";
+import { HashUtils } from "../src/utils";
 
 const main = async () => {
   await RustModule.load();
@@ -19,13 +20,14 @@ const main = async () => {
     amount: "500000000",
   };
   const message = Buffer.from(JSON.stringify(data)).toString("hex");
+  const hashMessage = HashUtils.sha256(message);
   console.log("json data", JSON.stringify(data));
   console.log(message);
   // Sign the message
   const { signature, key } = signData(
     wallet.paymentKey,
     wallet.address.bech32,
-    message,
+    hashMessage,
   );
 
   const result = {
@@ -39,7 +41,7 @@ const main = async () => {
   console.log(JSON.stringify(result, null, 4));
 
   const authenticated = verifySignData({
-    message,
+    message: hashMessage,
     address: wallet.address.bech32,
     key,
     signature,
