@@ -2,7 +2,7 @@ import { DEXOrderTransaction } from "@minswap/felis-build-tx";
 import { DexVersion, OrderV2Direction, OrderV2StepType } from "@minswap/felis-dex-v2";
 import { Address, Asset, getTimeFromSlotMagic, type NetworkEnvironment, Utxo } from "@minswap/felis-ledger-core";
 import { Duration, Maybe, RustModule, safeFreeRustObjects } from "@minswap/felis-ledger-utils";
-import { LiqwidProvider } from "@minswap/felis-lending-market";
+import { LiqwidProvider, LiqwidProviderV2 } from "@minswap/felis-lending-market";
 import { CoinSelectionAlgorithm, EmulatorProvider } from "@minswap/felis-tx-builder";
 import invariant from "@minswap/tiny-invariant";
 import type { MarketConfig } from "../config";
@@ -55,6 +55,8 @@ export namespace StateMachine {
     userAddress: string;
     networkEnv: NetworkEnvironment;
     utxos: string[];
+    /** Amount to borrow (used for LONG_BORROW) */
+    amountBorrow?: string;
   };
 
   export const handleLongBuy = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
@@ -153,95 +155,59 @@ export namespace StateMachine {
     };
   };
 
-  export type WaitingLongBuyOptions = {
-    marketConfig: MarketConfig;
-    txHash: string;
-    orderOutputIndex: number;
-    userAddress: Address;
-    assetOut: Asset;
-    cardanoscanProvider: CardanoscanProvider;
-  };
+  export const handleLongBorrow = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos, amountBorrow } = options;
+    invariant(order.orderType === LongOrderType.LONG_BORROW, "Invalid order type for handleLongBorrow");
+    invariant(order.assetIn, "assetIn is required for LONG_BORROW order");
+    invariant(order.amountIn, "amountIn is required for LONG_BORROW order");
+    invariant(amountBorrow, "amountBorrow is required for LONG_BORROW order");
 
-  export type WaitingLongBuyResult =
-    | { isSpent: false }
-    | {
-        isSpent: true;
-        nextOrderType: LongOrderType;
-        assetIn: string;
-        amountIn: string;
-        assetOut: string;
-      };
+    const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
 
-  /**
-   * Check if the order output has been spent (consumed by a subsequent transaction)
-   * and prepare the next order details
-   * @param options - Options containing transaction details and cardanoscan provider
-   * @returns Result with next order details if spent, or isSpent: false if not yet processed
-   */
-  export const waitingLongBuy = async (options: WaitingLongBuyOptions): Promise<WaitingLongBuyResult> => {
-    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, assetOut } = options;
+    const buildTxResult = await LiqwidProviderV2.Transactions.borrow(apiConfig, {
+      address: userAddress,
+      utxos,
+      marketId: marketConfig.borrowMarketIdLong as LiqwidProviderV2.MarketId,
+      amount: Number(amountBorrow),
+      collaterals: [
+        {
+          id: marketConfig.assetBQTokenTicker,
+          amount: Number(order.amountIn),
+        },
+      ],
+    });
 
-    // Cache hex conversion of user address
-    const userAddressHex = userAddress.toHex();
-
-    // Search for the transaction that spent this UTXO
-    const spendingTx = await cardanoscanProvider.findTransactionHasSpent(
-      userAddress,
-      txHash,
-      orderOutputIndex,
-      5, // pageSize - search 50 transactions per page
-      10, // maxPage - search up to 10 pages (500 transactions total)
-    );
-
-    if (spendingTx) {
-      // Order output has been spent
-      // Now find the output that belongs to the user and contains the assetOut token
-      const assetOutUnit = assetOut.toBlockFrostString();
-
-      // Search through the spending transaction's outputs
-      for (const output of spendingTx.outputs) {
-        // Check if output address matches user address (in hex)
-        if (output.address === userAddressHex) {
-          // Check if output contains the assetOut token
-          if (output.tokens && output.tokens.length > 0) {
-            const matchingToken = output.tokens.find((token) => token.assetId === assetOutUnit);
-            if (matchingToken) {
-              // Found the output with the matching token
-              // Prepare next order: LONG_SUPPLY
-              const amountOut = BigInt(matchingToken.value);
-              return {
-                isSpent: true,
-                nextOrderType: LongOrderType.LONG_SUPPLY,
-                assetIn: assetOut.toString(), // The asset we received becomes input for next order
-                amountIn: amountOut.toString(), // The amount we received becomes input amount
-                assetOut: marketConfig.collateralMarketId, // Supply to get collateral token
-              };
-            }
-          }
-        }
-      }
-
-      // Transaction found but couldn't find matching output
-      // This is an error condition - the order was processed but we can't find the result
-      throw new Error(
-        `Order output spent (tx: ${spendingTx.hash}) but could not find matching output with asset ${assetOut.toString()}`,
-      );
+    if (buildTxResult.type === "err") {
+      throw new Error(`Failed to build borrow transaction: ${buildTxResult.error.message}`);
     }
 
-    // Order output has not been spent yet
+    const txRaw = buildTxResult.value;
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const txBody = eTx.body();
+    const ttl = txBody.ttl();
+    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
+    safeFreeRustObjects(eTx, txBody);
+
+    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    const txId = LiqwidProviderV2.getTxHash(txRaw);
+
     return {
-      isSpent: false,
+      txRaw,
+      txId,
+      validTo: validTo.getTime(),
     };
   };
 
-  export type WaitingLongSupplyOptions = {
-    marketConfig: MarketConfig;
-    txHash: string;
-    userAddress: Address;
-    cardanoscanProvider: CardanoscanProvider;
+  /** Map of order types to their build transaction functions */
+  export const MAP_BUILD_TX_FN: Record<string, (options: HandleBuildTxOptions) => Promise<BuiltResult>> = {
+    [LongOrderType.LONG_BUY]: handleLongBuy,
+    [LongOrderType.LONG_SUPPLY]: handleLongSupply,
+    [LongOrderType.LONG_BORROW]: handleLongBorrow,
   };
 
-  export type WaitingLongSupplyResult =
+  // Common waiting result type for all waiting functions
+  export type WaitingResult =
     | { isConfirmed: false }
     | {
         isConfirmed: true;
@@ -251,59 +217,138 @@ export namespace StateMachine {
         assetOut: string;
       };
 
-  /**
-   * Wait for LONG_SUPPLY transaction to be confirmed and prepare the next LONG_BORROW order
-   * @param options - Options containing transaction details and cardanoscan provider
-   * @returns Result with next order details if confirmed, or isConfirmed: false if not yet confirmed
-   */
-  export const waitingLongSupply = async (options: WaitingLongSupplyOptions): Promise<WaitingLongSupplyResult> => {
-    const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
+  export type WaitingOptions = {
+    marketConfig: MarketConfig;
+    txHash: string;
+    userAddress: Address;
+    cardanoscanProvider: CardanoscanProvider;
+    /** Order output index (used for LONG_BUY to check if output is spent) */
+    orderOutputIndex?: number;
+    /** Asset out from order (used for LONG_BUY to find the received token) */
+    assetOut?: Asset;
+    /** Position amount_in (used for LONG_BORROW to calculate borrow amount) */
+    positionAmountIn?: string;
+  };
 
-    // Search for the transaction to confirm it's on chain
-    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+  /**
+   * Wait for LONG_BUY order output to be spent (consumed by DEX)
+   * and prepare the next LONG_SUPPLY order details
+   */
+  export const waitingLongBuy = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, assetOut } = options;
+    invariant(orderOutputIndex !== undefined, "orderOutputIndex is required for waitingLongBuy");
+    invariant(assetOut, "assetOut is required for waitingLongBuy");
+
+    const userAddressHex = userAddress.toHex();
+
+    // Search for the transaction that spent this UTXO
+    const spendingTx = await cardanoscanProvider.findTransactionHasSpent(
       userAddress,
       txHash,
-      50, // pageSize
+      orderOutputIndex,
+      5, // pageSize
       10, // maxPage
     );
 
-    if (txFoundOnChain) {
-      // Transaction is confirmed on chain
-      // Find the output that belongs to the user and contains the qToken (asset_b_q_token_raw)
-      const userAddressHex = userAddress.toHex();
-      const qTokenAsset = Asset.fromString(marketConfig.assetBQTokenRaw);
-      const qTokenUnit = qTokenAsset.toBlockFrostString();
+    if (spendingTx) {
+      const assetOutUnit = assetOut.toBlockFrostString();
 
-      // Search through the transaction outputs
-      for (const output of txFoundOnChain.outputs) {
+      for (const output of spendingTx.outputs) {
         if (output.address === userAddressHex) {
           if (output.tokens && output.tokens.length > 0) {
-            const matchingToken = output.tokens.find((token) => token.assetId === qTokenUnit);
+            const matchingToken = output.tokens.find((token) => token.assetId === assetOutUnit);
             if (matchingToken) {
-              // Found the output with the qToken
-              // Prepare next order: LONG_BORROW
-              const amountReceived = BigInt(matchingToken.value);
+              const amountOut = BigInt(matchingToken.value);
               return {
                 isConfirmed: true,
-                nextOrderType: LongOrderType.LONG_BORROW,
-                assetIn: marketConfig.assetBQTokenRaw, // qToken (qMIN) becomes input for borrow
-                amountIn: amountReceived.toString(),
-                assetOut: marketConfig.assetA.toString(), // Borrow asset A (ADA)
+                nextOrderType: LongOrderType.LONG_SUPPLY,
+                assetIn: assetOut.toString(),
+                amountIn: amountOut.toString(),
+                assetOut: marketConfig.collateralMarketId,
               };
             }
           }
         }
       }
 
-      // Transaction found but couldn't find matching qToken output
+      throw new Error(
+        `Order output spent (tx: ${spendingTx.hash}) but could not find matching output with asset ${assetOut.toString()}`,
+      );
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Wait for LONG_SUPPLY transaction to be confirmed
+   * and prepare the next LONG_BORROW order details
+   */
+  export const waitingLongSupply = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
+
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+
+    if (txFoundOnChain) {
+      const userAddressHex = userAddress.toHex();
+      const qTokenAsset = Asset.fromString(marketConfig.assetBQTokenRaw);
+      const qTokenUnit = qTokenAsset.toBlockFrostString();
+
+      for (const output of txFoundOnChain.outputs) {
+        if (output.address === userAddressHex) {
+          if (output.tokens && output.tokens.length > 0) {
+            const matchingToken = output.tokens.find((token) => token.assetId === qTokenUnit);
+            if (matchingToken) {
+              const amountReceived = BigInt(matchingToken.value);
+              return {
+                isConfirmed: true,
+                nextOrderType: LongOrderType.LONG_BORROW,
+                assetIn: marketConfig.assetBQTokenRaw,
+                amountIn: amountReceived.toString(),
+                assetOut: marketConfig.assetA.toString(),
+              };
+            }
+          }
+        }
+      }
+
       throw new Error(
         `LONG_SUPPLY tx confirmed (${txHash}) but could not find output with qToken ${marketConfig.assetBQTokenRaw}`,
       );
     }
 
-    // Transaction not yet confirmed
-    return {
-      isConfirmed: false,
-    };
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Wait for LONG_BORROW transaction to be confirmed
+   * and prepare the next LONG_BUY_MORE order details
+   */
+  export const waitingLongBorrow = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, userAddress, cardanoscanProvider, positionAmountIn } = options;
+    invariant(positionAmountIn, "positionAmountIn is required for waitingLongBorrow");
+
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+
+    if (txFoundOnChain) {
+      // Calculate borrow amount: position.amount_in * (market_config.leverage - 1)
+      const amountBorrow = BigInt(Math.floor(Number(positionAmountIn) * (marketConfig.leverage - 1)));
+
+      return {
+        isConfirmed: true,
+        nextOrderType: LongOrderType.LONG_BUY_MORE,
+        assetIn: marketConfig.assetA.toString(),
+        amountIn: amountBorrow.toString(),
+        assetOut: marketConfig.assetB.toString(),
+      };
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /** Map of order types to their waiting functions */
+  export const MAP_WAITING_FN: Record<string, (options: WaitingOptions) => Promise<WaitingResult>> = {
+    [LongOrderType.LONG_BUY]: waitingLongBuy,
+    [LongOrderType.LONG_SUPPLY]: waitingLongSupply,
+    [LongOrderType.LONG_BORROW]: waitingLongBorrow,
   };
 }

@@ -73,8 +73,10 @@ export class PositionService {
     }
 
     // Calculate amount_borrow = amount_in * (leverage - 1)
-    const amountBorrow = BigInt(Math.floor(Number(amountIn) * (marketConfig.leverage - 1)));
-
+    let amountBorrow = BigInt(Math.floor(Number(amountIn) * (marketConfig.leverage - 1)));
+    if (side === StateMachine.PositionSide.LONG) {
+      amountBorrow += 4_000_000n; //extra ada for fee
+    }
     // Execute transaction: create position + 4 orders
     const position = await this.db.transaction().execute(async (trx) => {
       const pos = await PositionRepository.createPosition(trx, {
@@ -139,7 +141,7 @@ export class PositionService {
       // STEP 1: Check if there's a waiting order (created_tx_id not null, waiting = true)
       const waitingOrder = await OrderRepository.getWaitingOrder(this.db, position.id);
       if (waitingOrder) {
-        logger.info("Found waiting order, checking if output is spent", {
+        logger.info("Found waiting order, checking status", {
           orderId: waitingOrder.id,
           orderType: waitingOrder.orderType,
           createdTxId: waitingOrder.createdTxId,
@@ -147,142 +149,58 @@ export class PositionService {
         invariant(waitingOrder.assetOut, "Waiting order must have assetOut defined");
         invariant(waitingOrder.createdTxId, "Waiting order must have createdTxId defined");
 
-        const address = Address.fromBech32(userAddress);
-
-        // Call appropriate waiting function based on order type
-        if (waitingOrder.orderType === StateMachine.LongOrderType.LONG_BUY) {
-          const waitingResult = await StateMachine.waitingLongBuy({
-            marketConfig,
-            txHash: waitingOrder.createdTxId,
-            orderOutputIndex: waitingOrder.createdTxIndex ?? 0,
-            userAddress: address,
-            assetOut: Asset.fromString(waitingOrder.assetOut),
-            cardanoscanProvider: this.cardanoscanProvider,
-          });
-
-          if (waitingResult.isSpent) {
-            // Order output has been spent - find and update the next order
-            logger.info("Order output spent, updating next order", {
-              orderId: waitingOrder.id,
-              nextOrderType: waitingResult.nextOrderType,
-            });
-
-            // Find the order with the next order type
-            const nextOrder = await OrderRepository.getOrderByPositionAndType(
-              this.db,
-              waitingOrder.positionId,
-              waitingResult.nextOrderType,
-            );
-
-            if (!nextOrder) {
-              logger.error("Next order not found", {
-                positionId: waitingOrder.positionId,
-                nextOrderType: waitingResult.nextOrderType,
-              });
-              return {
-                success: false,
-                error: `Next order with type "${waitingResult.nextOrderType}" not found`,
-              };
-            }
-
-            // Update the next order with details and set current order waiting = false
-            await OrderRepository.updateOrderNextDetails(
-              this.db,
-              nextOrder.id,
-              waitingResult.assetIn,
-              waitingResult.amountIn,
-              waitingResult.assetOut,
-            );
-            await OrderRepository.setOrderWaiting(this.db, waitingOrder.id, false);
-
-            logger.info("Next order updated, current order no longer waiting", {
-              currentOrderId: waitingOrder.id,
-              nextOrderId: nextOrder.id,
-              assetIn: waitingResult.assetIn,
-              amountIn: waitingResult.amountIn,
-              assetOut: waitingResult.assetOut,
-            });
-
-            return {
-              success: false,
-              error: "Order processed. Next order details updated. Call build-tx again to continue.",
-            };
-          } else {
-            // Order output not spent yet
-            return {
-              success: false,
-              error: "Transaction confirmed on chain. Waiting for order to be processed.",
-            };
-          }
-        } else if (waitingOrder.orderType === StateMachine.LongOrderType.LONG_SUPPLY) {
-          // LONG_SUPPLY is simpler - just wait for tx confirmation (already confirmed since we're here)
-          // Then check for qToken output and prepare LONG_BORROW
-          const waitingResult = await StateMachine.waitingLongSupply({
-            marketConfig,
-            txHash: waitingOrder.createdTxId,
-            userAddress: address,
-            cardanoscanProvider: this.cardanoscanProvider,
-          });
-
-          if (waitingResult.isConfirmed) {
-            // Transaction is confirmed - update next order
-            logger.info("LONG_SUPPLY confirmed, updating next LONG_BORROW order", {
-              orderId: waitingOrder.id,
-              nextOrderType: waitingResult.nextOrderType,
-            });
-
-            // Find the LONG_BORROW order
-            const nextOrder = await OrderRepository.getOrderByPositionAndType(
-              this.db,
-              waitingOrder.positionId,
-              waitingResult.nextOrderType,
-            );
-
-            if (!nextOrder) {
-              logger.error("Next order not found", {
-                positionId: waitingOrder.positionId,
-                nextOrderType: waitingResult.nextOrderType,
-              });
-              return {
-                success: false,
-                error: `Next order with type "${waitingResult.nextOrderType}" not found`,
-              };
-            }
-
-            // Update the next order with details and set current order waiting = false
-            await OrderRepository.updateOrderNextDetails(
-              this.db,
-              nextOrder.id,
-              waitingResult.assetIn,
-              waitingResult.amountIn,
-              waitingResult.assetOut,
-            );
-            await OrderRepository.setOrderWaiting(this.db, waitingOrder.id, false);
-
-            logger.info("LONG_BORROW order updated, LONG_SUPPLY no longer waiting", {
-              currentOrderId: waitingOrder.id,
-              nextOrderId: nextOrder.id,
-              assetIn: waitingResult.assetIn,
-              amountIn: waitingResult.amountIn,
-              assetOut: waitingResult.assetOut,
-            });
-
-            return {
-              success: false,
-              error: "LONG_SUPPLY completed. LONG_BORROW order ready. Call build-tx again to continue.",
-            };
-          } else {
-            // Transaction not confirmed yet (shouldn't happen since we check waiting=true)
-            return {
-              success: false,
-              error: "LONG_SUPPLY transaction not yet confirmed on chain.",
-            };
-          }
-        } else {
-          // Other order types not implemented yet
+        // Get the waiting function for this order type
+        const waitingFn = StateMachine.MAP_WAITING_FN[waitingOrder.orderType];
+        if (!waitingFn) {
           return {
             success: false,
             error: `Waiting logic for order type "${waitingOrder.orderType}" is not implemented yet`,
+          };
+        }
+
+        // Build common waiting options
+        const waitingOptions: StateMachine.WaitingOptions = {
+          marketConfig,
+          txHash: waitingOrder.createdTxId,
+          userAddress: Address.fromBech32(userAddress),
+          cardanoscanProvider: this.cardanoscanProvider,
+          orderOutputIndex: waitingOrder.createdTxIndex ?? 0,
+          assetOut: Asset.fromString(waitingOrder.assetOut),
+          positionAmountIn: position.amountIn,
+        };
+
+        const waitingResult = await waitingFn(waitingOptions);
+
+        if (waitingResult.isConfirmed) {
+          const transitionResult = await OrderRepository.transitionToNextOrder(this.db, {
+            currentOrderId: waitingOrder.id,
+            positionId: waitingOrder.positionId,
+            nextOrderType: waitingResult.nextOrderType,
+            assetIn: waitingResult.assetIn,
+            amountIn: waitingResult.amountIn,
+            assetOut: waitingResult.assetOut,
+          });
+
+          if (!transitionResult.success) {
+            logger.error("Failed to transition to next order", { error: transitionResult.error });
+            return { success: false, error: transitionResult.error };
+          }
+
+          logger.info("Order completed, transitioned to next order", {
+            currentOrderId: waitingOrder.id,
+            currentOrderType: waitingOrder.orderType,
+            nextOrderId: transitionResult.nextOrder.id,
+            nextOrderType: waitingResult.nextOrderType,
+          });
+
+          return {
+            success: false,
+            error: `${waitingOrder.orderType} completed. ${waitingResult.nextOrderType} order ready. Call build-tx again to continue.`,
+          };
+        } else {
+          return {
+            success: false,
+            error: `${waitingOrder.orderType} transaction not yet confirmed on chain.`,
           };
         }
       }
@@ -381,39 +299,28 @@ export class PositionService {
         hasPreviousBuild: !!order.builtTxId,
       });
 
-      // Convert Order to OrderData for StateMachine handlers
-      const orderData: StateMachine.OrderData = {
-        orderType: order.orderType,
-        assetIn: order.assetIn,
-        amountIn: order.amountIn,
-        assetOut: order.assetOut,
+      // Get the build function for this order type
+      const buildFn = StateMachine.MAP_BUILD_TX_FN[order.orderType];
+      if (!buildFn) {
+        return { success: false, error: `Order type "${order.orderType}" is not implemented` };
+      }
+
+      // Build common options
+      const buildOptions: StateMachine.HandleBuildTxOptions = {
+        order: {
+          orderType: order.orderType,
+          assetIn: order.assetIn,
+          amountIn: order.amountIn,
+          assetOut: order.assetOut,
+        },
+        marketConfig,
+        userAddress,
+        networkEnv: this.networkEnv,
+        utxos,
+        amountBorrow: position.amountBorrow,
       };
 
-      // Build transaction based on order type
-      let txResult: StateMachine.BuiltResult;
-
-      switch (order.orderType) {
-        case StateMachine.LongOrderType.LONG_BUY:
-          txResult = await StateMachine.handleLongBuy({
-            order: orderData,
-            marketConfig,
-            userAddress,
-            networkEnv: this.networkEnv,
-            utxos,
-          });
-          break;
-        case StateMachine.LongOrderType.LONG_SUPPLY:
-          txResult = await StateMachine.handleLongSupply({
-            order: orderData,
-            marketConfig,
-            userAddress,
-            networkEnv: this.networkEnv,
-            utxos,
-          });
-          break;
-        default:
-          return { success: false, error: `Order type "${order.orderType}" is not implemented` };
-      }
+      const txResult = await buildFn(buildOptions);
 
       // Update order built_tx fields
       await OrderRepository.updateOrderBuiltTx(

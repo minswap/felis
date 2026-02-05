@@ -213,6 +213,56 @@ export namespace OrderRepository {
     return result ? mapOrderRow(result) : null;
   }
 
+  export type TransitionToNextOrderParams = {
+    currentOrderId: bigint;
+    positionId: bigint;
+    nextOrderType: string;
+    assetIn: string;
+    amountIn: string;
+    assetOut: string;
+  };
+
+  export type TransitionToNextOrderResult = { success: true; nextOrder: Order } | { success: false; error: string };
+
+  /**
+   * Transition from current order to next order:
+   * 1. Find the next order by position and type
+   * 2. Update next order with assetIn, amountIn, assetOut
+   * 3. Set current order waiting = false
+   */
+  export async function transitionToNextOrder(
+    db: Kysely<DB> | Transaction<DB>,
+    params: TransitionToNextOrderParams,
+  ): Promise<TransitionToNextOrderResult> {
+    const { currentOrderId, positionId, nextOrderType, assetIn, amountIn, assetOut } = params;
+
+    // Find the next order
+    const nextOrder = await getOrderByPositionAndType(db, positionId, nextOrderType);
+    if (!nextOrder) {
+      return {
+        success: false,
+        error: `Next order with type "${nextOrderType}" not found`,
+      };
+    }
+
+    // Update next order details
+    await updateOrderNextDetails(db, nextOrder.id, assetIn, amountIn, assetOut);
+
+    // Set current order waiting = false
+    await setOrderWaiting(db, currentOrderId, false);
+
+    // Return updated next order
+    return {
+      success: true,
+      nextOrder: {
+        ...nextOrder,
+        assetIn,
+        amountIn,
+        assetOut,
+      },
+    };
+  }
+
   // biome-ignore lint/suspicious/noExplicitAny: DB row type
   function mapOrderRow(row: any): Order {
     return {
