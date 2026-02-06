@@ -30,6 +30,7 @@ export namespace StateMachine {
     LONG_SELL = "LONG_SELL",
     LONG_REPAY = "LONG_REPAY",
     LONG_WITHDRAW = "LONG_WITHDRAW",
+    LONG_SELL_ALL = "LONG_SELL_ALL",
   }
 
   export type BuiltResult = {
@@ -56,6 +57,14 @@ export namespace StateMachine {
     utxos: string[];
     /** Amount to borrow (used for LONG_BORROW) */
     amountBorrow?: string;
+    /** Loan transaction ID (used for LONG_REPAY to identify the loan) */
+    loanTxId?: string;
+    /** Loan output index (used for LONG_REPAY, format: "{txHash}-{outputIndex}") */
+    loanOutputIndex?: number;
+    /** Collateral qToken amount (used for LONG_REPAY to redeem collateral) */
+    collateralAmount?: string;
+    /** Supply amountOut from LONG_SUPPLY order (used for LONG_WITHDRAW) */
+    supplyAmountOut?: string;
   };
 
   export const handleLongBuy = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
@@ -201,12 +210,170 @@ export namespace StateMachine {
     };
   };
 
-  /** Map of order types to their build transaction functions */
-  export const MAP_BUILD_TX_FN: Record<string, (options: HandleBuildTxOptions) => Promise<BuiltResult>> = {
-    [LongOrderType.LONG_BUY]: handleLongBuy,
-    [LongOrderType.LONG_SUPPLY]: handleLongSupply,
-    [LongOrderType.LONG_BORROW]: handleLongBorrow,
-    [LongOrderType.LONG_BUY_MORE]: handleLongBuy, // Reuse handleLongBuy
+  /**
+   * Build LONG_SELL or LONG_SELL_ALL transaction: Sell asset B for asset A (B_TO_A swap via DEX)
+   */
+  export const handleLongSell = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
+    invariant(
+      order.orderType === LongOrderType.LONG_SELL || order.orderType === LongOrderType.LONG_SELL_ALL,
+      "Invalid order type for handleLongSell",
+    );
+    invariant(order.assetIn, "assetIn is required for LONG_SELL order");
+    invariant(order.amountIn, "amountIn is required for LONG_SELL order");
+    invariant(order.assetOut, "assetOut is required for LONG_SELL order");
+
+    const walletUtxos: Utxo[] = utxos.map((u) => Utxo.fromHex(u));
+    const sender = Address.fromBech32(userAddress);
+
+    const txb = DEXOrderTransaction.createBulkOrdersTx({
+      networkEnv,
+      sender,
+      orderOptions: [
+        {
+          lpAsset: Asset.fromString(marketConfig.ammLpAsset),
+          version: DexVersion.DEX_V2,
+          type: OrderV2StepType.SWAP_EXACT_IN,
+          assetIn: marketConfig.assetB,
+          amountIn: BigInt(order.amountIn),
+          minimumAmountOut: 1n,
+          direction: OrderV2Direction.B_TO_A,
+          killOnFailed: false,
+          isLimitOrder: false,
+        },
+      ],
+    });
+    const validTo = Date.now() + Duration.newMinutes(3).milliseconds;
+    txb.validToUnixTime(validTo);
+
+    const {
+      txComplete,
+      txId,
+      newUtxoState: { changeUtxos },
+    } = await txb.completeUnsafeForTxChaining({
+      coinSelectionAlgorithm: CoinSelectionAlgorithm.SPEND_ALL,
+      walletUtxos,
+      changeAddress: sender,
+      provider: new EmulatorProvider(networkEnv),
+    });
+    const txRaw = txComplete.complete();
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const outputsHash = HashUtils.sha256(changeUtxos.map((u) => Utxo.toHex(u)).join(","));
+
+    safeFreeRustObjects(eTx);
+
+    return {
+      txRaw,
+      txId: txId,
+      outputsHash,
+      validTo,
+    };
+  };
+
+  /**
+   * Build LONG_REPAY transaction: Repay loan to Liqwid and redeem collateral
+   * Uses repayLoan API with loanUtxoId format: "{txHash}-{outputIndex}"
+   */
+  export const handleLongRepay = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos, loanTxId, loanOutputIndex, collateralAmount } =
+      options;
+    invariant(order.orderType === LongOrderType.LONG_REPAY, "Invalid order type for handleLongRepay");
+    invariant(order.assetIn, "assetIn is required for LONG_REPAY order");
+    invariant(order.amountIn, "amountIn is required for LONG_REPAY order");
+    invariant(loanTxId, "loanTxId is required for LONG_REPAY order");
+    invariant(loanOutputIndex !== undefined, "loanOutputIndex is required for LONG_REPAY order");
+    invariant(collateralAmount, "collateralAmount is required for LONG_REPAY order");
+
+    const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+
+    // Format loanUtxoId as "{txHash}-{outputIndex}"
+    const loanUtxoId = `${loanTxId}-${loanOutputIndex}`;
+
+    // Format collateral ID as "{MarketId}.{policyId}"
+    // assetBQTokenTicker is the market ID (e.g., "MIN")
+    // We need the policy ID from assetBQTokenRaw (format: "policyId.assetName" or "policyId")
+    const qTokenParts = marketConfig.assetBQTokenRaw.split(".");
+    const qTokenPolicyId = qTokenParts[0];
+    const collateralId = `${marketConfig.borrowMarketIdLong}.${qTokenPolicyId}`;
+
+    console.log("collateralId", collateralId);
+    console.log("amount colla", collateralAmount);
+
+    const buildTxResult = await LiqwidProviderV2.Transactions.repayLoan(apiConfig, {
+      address: userAddress,
+      utxos,
+      loanUtxoId,
+      collaterals: [
+        {
+          id: collateralId,
+          amount: Number(collateralAmount),
+        },
+      ],
+    });
+
+    if (buildTxResult.type === "err") {
+      throw new Error(`Failed to build repay transaction: ${buildTxResult.error.message}`);
+    }
+
+    const txRaw = buildTxResult.value;
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const txBody = eTx.body();
+    const ttl = txBody.ttl();
+    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
+    safeFreeRustObjects(eTx, txBody);
+
+    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    const txId = LiqwidProviderV2.getTxHash(txRaw);
+
+    return {
+      txRaw,
+      txId,
+      validTo: validTo.getTime(),
+    };
+  };
+
+  /**
+   * Build LONG_WITHDRAW transaction: Withdraw underlying asset from Liqwid
+   * Uses the amountOut from LONG_SUPPLY order as the withdraw amount
+   */
+  export const handleLongWithdraw = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos, supplyAmountOut } = options;
+    invariant(order.orderType === LongOrderType.LONG_WITHDRAW, "Invalid order type for handleLongWithdraw");
+    invariant(order.assetIn, "assetIn is required for LONG_WITHDRAW order");
+    invariant(order.amountIn, "amountIn is required for LONG_WITHDRAW order");
+    invariant(supplyAmountOut, "supplyAmountOut is required for LONG_WITHDRAW order");
+
+    const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+
+    const buildTxResult = await LiqwidProviderV2.Transactions.withdraw(apiConfig, {
+      address: userAddress,
+      utxos,
+      marketId: marketConfig.collateralMarketId as LiqwidProviderV2.MarketId,
+      amount: Number(supplyAmountOut),
+    });
+
+    if (buildTxResult.type === "err") {
+      throw new Error(`Failed to build withdraw transaction: ${buildTxResult.error.message}`);
+    }
+
+    const txRaw = buildTxResult.value;
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const txBody = eTx.body();
+    const ttl = txBody.ttl();
+    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
+    safeFreeRustObjects(eTx, txBody);
+
+    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    const txId = LiqwidProviderV2.getTxHash(txRaw);
+
+    return {
+      txRaw,
+      txId,
+      validTo: validTo.getTime(),
+    };
   };
 
   // Common waiting result type for all waiting functions
@@ -242,6 +409,8 @@ export namespace StateMachine {
     assetOut?: Asset;
     /** Position amount_in (used for LONG_BORROW to calculate borrow amount) */
     positionAmountIn?: string;
+    /** Loan transaction ID (used for LONG_REPAY to identify the loan) */
+    loanTxId?: string;
   };
 
   /**
@@ -375,11 +544,166 @@ export namespace StateMachine {
     return { isConfirmed: false };
   };
 
+  /**
+   * Wait for LONG_SELL or LONG_SELL_ALL order output to be spent (consumed by DEX)
+   * - For LONG_SELL: prepare the next LONG_REPAY order details
+   * - For LONG_SELL_ALL: this is the final step, position becomes CLOSED
+   */
+  export const waitingLongSell = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, orderType } = options;
+    invariant(orderOutputIndex !== undefined, "orderOutputIndex is required for waitingLongSell");
+
+    const userAddressHex = userAddress.toHex();
+
+    // Search for the transaction that spent this UTXO
+    const spendingTx = await cardanoscanProvider.findTransactionHasSpent(
+      userAddress,
+      txHash,
+      orderOutputIndex,
+      5, // pageSize
+      10, // maxPage
+    );
+
+    if (spendingTx) {
+      // For LONG_SELL/LONG_SELL_ALL, assetOut is asset A (ADA), so we look for ADA in outputs
+      // ADA is represented as "lovelace" in the output value
+      for (const output of spendingTx.outputs) {
+        if (output.address === userAddressHex) {
+          // For ADA, the value is in the output.value field directly
+          const amountOut = BigInt(output.value);
+
+          // For LONG_SELL_ALL, this is the final step - position becomes CLOSED
+          if (orderType === LongOrderType.LONG_SELL_ALL) {
+            return {
+              isConfirmed: true,
+              isFinal: true,
+              positionStatus: PositionStatus.CLOSED,
+              amountOut: amountOut.toString(),
+            };
+          }
+
+          // For LONG_SELL, transition to LONG_REPAY
+          return {
+            isConfirmed: true,
+            nextOrderType: LongOrderType.LONG_REPAY,
+            assetIn: marketConfig.assetA.toString(),
+            amountIn: amountOut.toString(),
+            assetOut: marketConfig.assetBQTokenRaw, // qToken to be redeemed
+            amountOut: amountOut.toString(),
+          };
+        }
+      }
+
+      throw new Error(`Order output spent (tx: ${spendingTx.hash}) but could not find matching output for user`);
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Wait for LONG_REPAY transaction to be confirmed
+   * and prepare the next LONG_WITHDRAW order details
+   */
+  export const waitingLongRepay = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
+
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+
+    if (txFoundOnChain) {
+      const userAddressHex = userAddress.toHex();
+      const qTokenAsset = Asset.fromString(marketConfig.assetBQTokenRaw);
+      const qTokenUnit = qTokenAsset.toBlockFrostString();
+
+      // Find qToken received after repaying (collateral redeemed)
+      for (const output of txFoundOnChain.outputs) {
+        if (output.address === userAddressHex) {
+          if (output.tokens && output.tokens.length > 0) {
+            const matchingToken = output.tokens.find((token) => token.assetId === qTokenUnit);
+            if (matchingToken) {
+              const qTokenAmount = BigInt(matchingToken.value);
+              return {
+                isConfirmed: true,
+                nextOrderType: LongOrderType.LONG_WITHDRAW,
+                assetIn: marketConfig.assetBQTokenRaw,
+                amountIn: qTokenAmount.toString(),
+                assetOut: marketConfig.assetB.toString(),
+                amountOut: qTokenAmount.toString(),
+              };
+            }
+          }
+        }
+      }
+
+      throw new Error(
+        `LONG_REPAY tx confirmed (${txHash}) but could not find output with qToken ${marketConfig.assetBQTokenRaw}`,
+      );
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Wait for LONG_WITHDRAW transaction to be confirmed
+   * and prepare the next LONG_SELL_ALL order details
+   */
+  export const waitingLongWithdraw = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
+
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+
+    if (txFoundOnChain) {
+      const userAddressHex = userAddress.toHex();
+      const assetBUnit = marketConfig.assetB.toBlockFrostString();
+
+      // Find asset B received after withdraw
+      for (const output of txFoundOnChain.outputs) {
+        if (output.address === userAddressHex) {
+          if (output.tokens && output.tokens.length > 0) {
+            const matchingToken = output.tokens.find((token) => token.assetId === assetBUnit);
+            if (matchingToken) {
+              const amountOut = BigInt(matchingToken.value);
+              return {
+                isConfirmed: true,
+                nextOrderType: LongOrderType.LONG_SELL_ALL,
+                assetIn: marketConfig.assetB.toString(),
+                amountIn: amountOut.toString(),
+                assetOut: marketConfig.assetA.toString(),
+                amountOut: amountOut.toString(),
+              };
+            }
+          }
+        }
+      }
+
+      throw new Error(
+        `LONG_WITHDRAW tx confirmed (${txHash}) but could not find output with asset ${marketConfig.assetB.toString()}`,
+      );
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /** Map of order types to their build transaction functions */
+  export const MAP_BUILD_TX_FN: Record<string, (options: HandleBuildTxOptions) => Promise<BuiltResult>> = {
+    [LongOrderType.LONG_BUY]: handleLongBuy,
+    [LongOrderType.LONG_SUPPLY]: handleLongSupply,
+    [LongOrderType.LONG_BORROW]: handleLongBorrow,
+    [LongOrderType.LONG_BUY_MORE]: handleLongBuy, // Reuse handleLongBuy
+    [LongOrderType.LONG_SELL]: handleLongSell,
+    [LongOrderType.LONG_REPAY]: handleLongRepay,
+    [LongOrderType.LONG_WITHDRAW]: handleLongWithdraw,
+    [LongOrderType.LONG_SELL_ALL]: handleLongSell, // Reuse handleLongSell
+  };
+
   /** Map of order types to their waiting functions */
   export const MAP_WAITING_FN: Record<string, (options: WaitingOptions) => Promise<WaitingResult>> = {
     [LongOrderType.LONG_BUY]: waitingLongBuy,
     [LongOrderType.LONG_SUPPLY]: waitingLongSupply,
     [LongOrderType.LONG_BORROW]: waitingLongBorrow,
     [LongOrderType.LONG_BUY_MORE]: waitingLongBuy, // Reuse waitingLongBuy
+    [LongOrderType.LONG_SELL]: waitingLongSell,
+    [LongOrderType.LONG_REPAY]: waitingLongRepay,
+    [LongOrderType.LONG_WITHDRAW]: waitingLongWithdraw,
+    [LongOrderType.LONG_SELL_ALL]: waitingLongSell, // Reuse waitingLongSell
   };
 }

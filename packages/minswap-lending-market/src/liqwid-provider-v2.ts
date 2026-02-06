@@ -97,6 +97,17 @@ export namespace LiqwidProviderV2 {
     loanPrincipalAndCollateralDeltasDestination?: CustomOutput;
   };
 
+  /**
+   * Input for repaying a loan (full repay)
+   * Based on Liqwid's GetRepayTransactionInput
+   */
+  export type RepayLoanTransactionInput = UserAddressInput & {
+    /** Loan transaction ID with output index, format: "{txHash}-{outputIndex}" */
+    loanUtxoId: string;
+    /** Collaterals to redeem after repaying, format: [{id: "MarketId.policyId", amount: qTokenAmount}] */
+    collaterals: BorrowCollateralInput[];
+  };
+
   export type SubmitTransactionInput = {
     transaction: string;
     signature: string;
@@ -524,6 +535,26 @@ export namespace LiqwidProviderV2 {
         },
       );
       return result.type === "ok" ? Result.ok(result.value.liqwid.transactions.modifyBorrow.cbor) : result;
+    };
+
+    /**
+     * Build a repay loan transaction (full repay with collateral redemption)
+     * Uses modifyBorrow internally with amount=0 to trigger full repay
+     */
+    export const repayLoan = async (
+      config: ApiConfig,
+      input: RepayLoanTransactionInput,
+    ): Promise<Result<string, Error>> => {
+      const modifyBorrowInput: ModifyBorrowTransactionInput = {
+        address: input.address,
+        changeAddress: input.changeAddress,
+        otherAddresses: input.otherAddresses,
+        utxos: input.utxos,
+        txId: input.loanUtxoId,
+        amount: 0, // Full repay
+        collaterals: input.collaterals,
+      };
+      return modifyBorrow(config, modifyBorrowInput);
     };
 
     /** Submit a signed transaction */

@@ -352,6 +352,37 @@ export class PositionService {
         amountBorrow: position.amountBorrow,
       };
 
+      // For LONG_REPAY, we need the loan transaction ID, output index, and collateral amount from LONG_BORROW
+      if (order.orderType === StateMachine.LongOrderType.LONG_REPAY) {
+        const borrowOrder = await OrderRepository.getOrderByPositionAndType(
+          this.db,
+          position.id,
+          StateMachine.LongOrderType.LONG_BORROW,
+        );
+        if (!borrowOrder?.createdTxId) {
+          return { success: false, error: "LONG_BORROW order not found or not confirmed yet" };
+        }
+        if (!borrowOrder.amountIn) {
+          return { success: false, error: "LONG_BORROW order amountIn (collateral amount) not set" };
+        }
+        buildOptions.loanTxId = borrowOrder.createdTxId;
+        buildOptions.loanOutputIndex = borrowOrder.createdTxIndex ?? 0;
+        buildOptions.collateralAmount = borrowOrder.amountIn; // qToken amount used as collateral
+      }
+
+      // For LONG_WITHDRAW, we need the amountOut from LONG_SUPPLY order
+      if (order.orderType === StateMachine.LongOrderType.LONG_WITHDRAW) {
+        const supplyOrder = await OrderRepository.getOrderByPositionAndType(
+          this.db,
+          position.id,
+          StateMachine.LongOrderType.LONG_SUPPLY,
+        );
+        if (!supplyOrder?.amountOut) {
+          return { success: false, error: "LONG_SUPPLY order not found or amountOut not set" };
+        }
+        buildOptions.supplyAmountOut = supplyOrder.amountOut;
+      }
+
       const txResult = await buildFn(buildOptions);
 
       // Update order built_tx fields
@@ -442,6 +473,10 @@ export class PositionService {
         {
           positionId: position.id,
           orderType: StateMachine.LongOrderType.LONG_WITHDRAW,
+        },
+        {
+          positionId: position.id,
+          orderType: StateMachine.LongOrderType.LONG_SELL_ALL,
         },
       ]);
 
