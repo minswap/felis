@@ -27,10 +27,9 @@ export namespace StateMachine {
     LONG_SUPPLY = "LONG_SUPPLY",
     LONG_BORROW = "LONG_BORROW",
     LONG_BUY_MORE = "LONG_BUY_MORE",
-    LONG_SUPPLY_MORE = "LONG_SUPPLY_MORE",
-    LONG_WITHDRAW = "LONG_WITHDRAW",
     LONG_SELL = "LONG_SELL",
     LONG_REPAY = "LONG_REPAY",
+    LONG_WITHDRAW = "LONG_WITHDRAW",
   }
 
   export type BuiltResult = {
@@ -219,11 +218,15 @@ export namespace StateMachine {
         assetIn: string;
         amountIn: string;
         assetOut: string;
+        /** Amount received from this order (to update order.amount_out) */
+        amountOut: string;
       }
     | {
         isConfirmed: true;
         isFinal: true;
         positionStatus: PositionStatus;
+        /** Amount received from this order (to update order.amount_out) */
+        amountOut: string;
       };
 
   export type WaitingOptions = {
@@ -278,6 +281,7 @@ export namespace StateMachine {
                   isConfirmed: true,
                   isFinal: true,
                   positionStatus: PositionStatus.OPEN,
+                  amountOut: amountOut.toString(),
                 };
               }
 
@@ -288,6 +292,7 @@ export namespace StateMachine {
                 assetIn: assetOut.toString(),
                 amountIn: amountOut.toString(),
                 assetOut: marketConfig.collateralMarketId,
+                amountOut: amountOut.toString(),
               };
             }
           }
@@ -328,6 +333,7 @@ export namespace StateMachine {
                 assetIn: marketConfig.assetBQTokenRaw,
                 amountIn: amountReceived.toString(),
                 assetOut: marketConfig.assetA.toString(),
+                amountOut: amountReceived.toString(),
               };
             }
           }
@@ -362,6 +368,7 @@ export namespace StateMachine {
         assetIn: marketConfig.assetA.toString(),
         amountIn: amountBorrow.toString(),
         assetOut: marketConfig.assetB.toString(),
+        amountOut: amountBorrow.toString(),
       };
     }
 

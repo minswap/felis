@@ -187,6 +187,32 @@ export namespace OrderRepository {
   }
 
   /**
+   * Update order amount_out after transaction is confirmed
+   */
+  export async function updateOrderAmountOut(
+    db: Kysely<DB> | Transaction<DB>,
+    orderId: bigint,
+    amountOut: string,
+  ): Promise<void> {
+    await db.updateTable("order").set({ amount_out: amountOut }).where("id", "=", orderId.toString()).execute();
+  }
+
+  /**
+   * Complete an order: set amount_out and waiting = false
+   */
+  export async function completeOrder(
+    db: Kysely<DB> | Transaction<DB>,
+    orderId: bigint,
+    amountOut: string,
+  ): Promise<void> {
+    await db
+      .updateTable("order")
+      .set({ amount_out: amountOut, waiting: false })
+      .where("id", "=", orderId.toString())
+      .execute();
+  }
+
+  /**
    * Get order by position ID and order type
    */
   export async function getOrderByPositionAndType(
@@ -220,6 +246,8 @@ export namespace OrderRepository {
     assetIn: string;
     amountIn: string;
     assetOut: string;
+    /** Amount out of current order (to update order.amount_out) */
+    amountOut: string;
   };
 
   export type TransitionToNextOrderResult = { success: true; nextOrder: Order } | { success: false; error: string };
@@ -227,14 +255,15 @@ export namespace OrderRepository {
   /**
    * Transition from current order to next order:
    * 1. Find the next order by position and type
-   * 2. Update next order with assetIn, amountIn, assetOut
-   * 3. Set current order waiting = false
+   * 2. Update current order amount_out (= next order amountIn)
+   * 3. Update next order with assetIn, amountIn, assetOut
+   * 4. Set current order waiting = false
    */
   export async function transitionToNextOrder(
     db: Kysely<DB> | Transaction<DB>,
     params: TransitionToNextOrderParams,
   ): Promise<TransitionToNextOrderResult> {
-    const { currentOrderId, positionId, nextOrderType, assetIn, amountIn, assetOut } = params;
+    const { currentOrderId, positionId, nextOrderType, assetIn, amountIn, assetOut, amountOut } = params;
 
     // Find the next order
     const nextOrder = await getOrderByPositionAndType(db, positionId, nextOrderType);
@@ -244,6 +273,9 @@ export namespace OrderRepository {
         error: `Next order with type "${nextOrderType}" not found`,
       };
     }
+
+    // Update current order amount_out
+    await updateOrderAmountOut(db, currentOrderId, amountOut);
 
     // Update next order details
     await updateOrderNextDetails(db, nextOrder.id, assetIn, amountIn, assetOut);

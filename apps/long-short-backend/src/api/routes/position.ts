@@ -7,10 +7,14 @@ import { ApiHelper } from "../helper";
 import {
   type AuthenBuildTxBodyType,
   AuthenBuildTxBodyTypeSchema,
+  type AuthenClosePositionBodyType,
+  AuthenClosePositionBodyTypeSchema,
   type AuthenCreatePositionBodyType,
   AuthenCreatePositionBodyTypeSchema,
   BuildTxResponseSchema,
   type BuildTxResponseType,
+  ClosePositionResponseSchema,
+  type ClosePositionResponseType,
   CreatePositionResponseSchema,
   type CreatePositionResponseType,
   ErrorResponseSchema,
@@ -178,6 +182,55 @@ export function registerPositionRoutes(fastify: FastifyInstance, positionService
           tx_id: result.txId,
           order_type: result.orderType,
         },
+      });
+    },
+  );
+
+  // POST /position/close
+  fastify.post<{
+    Body: AuthenClosePositionBodyType;
+    Reply: ClosePositionResponseType;
+  }>(
+    API_ENDPOINTS.POSITION_CLOSE,
+    {
+      schema: {
+        body: AuthenClosePositionBodyTypeSchema,
+        response: {
+          200: ClosePositionResponseSchema,
+          400: ErrorResponseSchema,
+          401: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { data, user_address, witness } = request.body;
+      const { market_id } = data;
+
+      // Authenticate request
+      const authResult = ApiHelper.authenticate(data, user_address, witness);
+      if (!authResult.success) {
+        return reply.status(401).send({
+          success: false,
+          error: authResult.error,
+        });
+      }
+
+      // Close position via service
+      const result = await positionService.closePosition({
+        userAddress: user_address,
+        marketId: market_id,
+      });
+
+      if (!result.success) {
+        return reply.status(400).send({
+          success: false,
+          error: result.error,
+        });
+      }
+
+      return reply.status(200).send({
+        success: true,
+        data: positionToResponse(result.position),
       });
     },
   );

@@ -102,6 +102,25 @@ export const BuildTxResponseSchema = Type.Object({
 
 export type BuildTxResponseType = Static<typeof BuildTxResponseSchema>;
 
+// Close position schemas
+export const ClosePositionDataSchema = Type.Object({
+  market_id: Type.String({ minLength: 1, description: "Market ID (e.g., ADA-MIN)" }),
+});
+
+export type ClosePositionDataType = Static<typeof ClosePositionDataSchema>;
+
+export const AuthenClosePositionBodyTypeSchema = AuthenCommonSchema(ClosePositionDataSchema);
+
+export type AuthenClosePositionBodyType = AuthenCommonType<ClosePositionDataType>;
+
+export const ClosePositionResponseSchema = Type.Object({
+  success: Type.Boolean(),
+  data: Type.Optional(PositionResponseSchema),
+  error: Type.Optional(Type.String()),
+});
+
+export type ClosePositionResponseType = Static<typeof ClosePositionResponseSchema>;
+
 // Error response
 export const ErrorResponseSchema = Type.Object({
   success: Type.Literal(false),

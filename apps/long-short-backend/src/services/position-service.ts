@@ -29,6 +29,13 @@ export type BuildTxResult =
   | { success: true; waiting: true; orderType: string; message: string }
   | { success: false; error: string };
 
+export type ClosePositionInput = {
+  userAddress: string;
+  marketId: string;
+};
+
+export type ClosePositionResult = { success: true; position: Position } | { success: false; error: string };
+
 export class PositionService {
   constructor(
     private readonly db: Kysely<DB>,
@@ -95,7 +102,6 @@ export class PositionService {
           assetIn: marketConfig.assetA.toString(),
           amountIn: pos.amountIn,
           assetOut: marketConfig.assetB.toString(),
-          amountOut: "1",
         },
         {
           positionId: pos.id,
@@ -182,6 +188,7 @@ export class PositionService {
               assetIn: waitingResult.assetIn,
               amountIn: waitingResult.amountIn,
               assetOut: waitingResult.assetOut,
+              amountOut: waitingResult.amountOut,
             });
 
             if (!transitionResult.success) {
@@ -203,17 +210,19 @@ export class PositionService {
           }
 
           // This is the final state (no more orders to process)
-          // Update position status to OPEN
-          await PositionRepository.updatePositionStatus(this.db, position.id, waitingResult.positionStatus);
-
-          // Set current order waiting = false
-          await OrderRepository.setOrderWaiting(this.db, waitingOrder.id, false);
+          await this.db.transaction().execute(async (trx) => {
+            // Update position status
+            await PositionRepository.updatePositionStatus(trx, position.id, waitingResult.positionStatus);
+            // Complete order: set amount_out and waiting = false
+            await OrderRepository.completeOrder(trx, waitingOrder.id, waitingResult.amountOut);
+          });
 
           logger.info("Position completed, status updated to OPEN", {
             positionId: position.id,
             currentOrderId: waitingOrder.id,
             currentOrderType: waitingOrder.orderType,
             newStatus: waitingResult.positionStatus,
+            amountOut: waitingResult.amountOut,
           });
 
           return {
@@ -372,5 +381,85 @@ export class PositionService {
 
   async getOpenPositionByUser(userAddress: string): Promise<Position | null> {
     return PositionRepository.getOpenPositionByUser(this.db, userAddress);
+  }
+
+  async closePosition(input: ClosePositionInput): Promise<ClosePositionResult> {
+    const { userAddress, marketId } = input;
+
+    // Validate market
+    if (!isSupportedMarket(marketId)) {
+      return { success: false, error: `Market "${marketId}" is not supported or disabled` };
+    }
+
+    const marketConfig = getMarketConfig(marketId);
+    if (!marketConfig) {
+      return { success: false, error: `Market "${marketId}" configuration not found` };
+    }
+
+    // Check if user has an open position for this market
+    const position = await PositionRepository.getOpenPositionByUserAndMarket(this.db, userAddress, marketId);
+
+    if (!position) {
+      return { success: false, error: "No open position found for this market" };
+    }
+
+    // Check if position is OPEN (only OPEN positions can be closed)
+    if (position.status !== StateMachine.PositionStatus.OPEN) {
+      return {
+        success: false,
+        error: `Position is in "${position.status}" status. Only OPEN positions can be closed.`,
+      };
+    }
+
+    // Get the LONG_BUY_MORE order to get the amountOut (total asset B received)
+    const longBuyMoreOrder = await OrderRepository.getOrderByPositionAndType(
+      this.db,
+      position.id,
+      StateMachine.LongOrderType.LONG_BUY_MORE,
+    );
+    if (!longBuyMoreOrder || !longBuyMoreOrder.amountOut) {
+      return { success: false, error: "LONG_BUY_MORE order not found or amountOut not set" };
+    }
+
+    // Execute transaction: update position status + create 3 closing orders
+    const updatedPosition = await this.db.transaction().execute(async (trx) => {
+      // Update position status to CLOSING
+      await PositionRepository.updatePositionStatus(trx, position.id, StateMachine.PositionStatus.CLOSING);
+
+      // Create 3 LONG closing orders: LONG_SELL, LONG_REPAY, LONG_WITHDRAW
+      await OrderRepository.createOrders(trx, [
+        {
+          positionId: position.id,
+          orderType: StateMachine.LongOrderType.LONG_SELL,
+          assetIn: marketConfig.assetB.toString(),
+          amountIn: longBuyMoreOrder.amountOut,
+          assetOut: marketConfig.assetA.toString(),
+        },
+        {
+          positionId: position.id,
+          orderType: StateMachine.LongOrderType.LONG_REPAY,
+        },
+        {
+          positionId: position.id,
+          orderType: StateMachine.LongOrderType.LONG_WITHDRAW,
+        },
+      ]);
+
+      // Return updated position
+      return {
+        ...position,
+        status: StateMachine.PositionStatus.CLOSING,
+      };
+    });
+
+    logger.info("Position close initiated", {
+      positionId: position.id,
+      userAddress,
+      marketId,
+      previousStatus: position.status,
+      newStatus: StateMachine.PositionStatus.CLOSING,
+    });
+
+    return { success: true, position: updatedPosition };
   }
 }
