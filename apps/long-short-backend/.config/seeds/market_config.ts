@@ -23,7 +23,8 @@ export async function seed(db: Kysely<any>): Promise<void> {
         asset_b_q_token_ticker: "qMIN",
         asset_b_q_token_raw: "TODO_QMIN_ASSET", // Liqwid qMIN token
         collateral_market_id: "ADA", // Liqwid market ID for collateral
-        leverage: 2,
+        long_leverage: 1.5,
+        short_leverage: 0.5,
         min_collateral: "100000000", // 100 ADA in lovelace
         enable: true,
       },

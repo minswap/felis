@@ -164,7 +164,8 @@ export const MarketConfigResponseSchema = Type.Object({
   asset_b_q_token_ticker: Type.String({ description: "Liqwid qToken ticker for asset B" }),
   asset_b_q_token_raw: Type.String({ description: "Liqwid qToken raw asset for asset B" }),
   collateral_market_id: Type.String({ description: "Liqwid market ID" }),
-  leverage: Type.Number({ description: "Leverage multiplier" }),
+  long_leverage: Type.Number({ description: "Long leverage multiplier" }),
+  short_leverage: Type.Number({ description: "Short leverage multiplier" }),
   min_collateral: Type.String({ description: "Minimum collateral in lovelace" }),
 });
 

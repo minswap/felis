@@ -17,7 +17,8 @@ export type MarketConfig = {
   collateralMarketId: string;
   borrowMarketIdLong: string;
   borrowMarketIdShort: string;
-  leverage: number;
+  longLeverage: number;
+  shortLeverage: number;
   minCollateral: bigint;
   enable: boolean;
 };
@@ -47,7 +48,8 @@ export async function loadMarketConfigs(db: Kysely<DB>): Promise<Map<string, Mar
       collateralMarketId: row.collateral_market_id,
       borrowMarketIdLong: row.borrow_market_id_long,
       borrowMarketIdShort: row.borrow_market_id_short,
-      leverage: Number(row.leverage),
+      longLeverage: Number(row.long_leverage),
+      shortLeverage: Number(row.short_leverage),
       minCollateral: BigInt(row.min_collateral),
       enable: row.enable,
     });

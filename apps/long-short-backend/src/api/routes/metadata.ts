@@ -14,7 +14,8 @@ function marketConfigToResponse(config: MarketConfig): MarketConfigResponseType 
     asset_b_q_token_ticker: config.assetBQTokenTicker,
     asset_b_q_token_raw: config.assetBQTokenRaw,
     collateral_market_id: config.collateralMarketId,
-    leverage: config.leverage,
+    long_leverage: config.longLeverage,
+    short_leverage: config.shortLeverage,
     min_collateral: config.minCollateral.toString(),
   };
 }

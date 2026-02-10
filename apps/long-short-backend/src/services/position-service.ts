@@ -80,7 +80,8 @@ export class PositionService {
     }
 
     // Calculate amount_borrow = amount_in * (leverage - 1)
-    let amountBorrow = BigInt(Math.floor(Number(amountIn) * (marketConfig.leverage - 1)));
+    const leverage = side === StateMachine.PositionSide.LONG ? marketConfig.longLeverage : marketConfig.shortLeverage;
+    let amountBorrow = BigInt(Math.floor(Number(amountIn) * (leverage - 1)));
     if (side === StateMachine.PositionSide.LONG) {
       amountBorrow += 4_000_000n; //extra ada for fee
     }

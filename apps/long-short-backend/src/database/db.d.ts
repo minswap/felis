@@ -27,9 +27,10 @@ export interface MarketConfig {
   borrow_market_id_short: Generated<string>;
   collateral_market_id: string;
   enable: Generated<boolean>;
-  leverage: Numeric;
+  long_leverage: Numeric;
   market_id: string;
   min_collateral: Numeric;
+  short_leverage: Generated<Numeric>;
 }
 
 export interface Order {

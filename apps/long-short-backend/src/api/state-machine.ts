@@ -528,8 +528,8 @@ export namespace StateMachine {
     const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
 
     if (txFoundOnChain) {
-      // Calculate borrow amount: position.amount_in * (market_config.leverage - 1)
-      const amountBorrow = BigInt(Math.floor(Number(positionAmountIn) * (marketConfig.leverage - 1)));
+      // Calculate borrow amount: position.amount_in * (leverage - 1)
+      const amountBorrow = BigInt(Math.floor(Number(positionAmountIn) * (marketConfig.longLeverage - 1)));
 
       return {
         isConfirmed: true,
