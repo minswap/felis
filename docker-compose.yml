@@ -28,11 +28,6 @@ services:
   long-short-backend:
     container_name: margin-api
     <<: *base-backend
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-      args:
-        APP_NAME: long-short-backend
     ports:
       - "9999:9999"
     command: ["pnpm", "--filter=long-short-backend", "start"]
