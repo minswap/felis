@@ -745,7 +745,7 @@ export namespace StateMachine {
                 nextOrderType: LongOrderType.LONG_SUPPLY,
                 assetIn: assetOut.toString(),
                 amountIn: amountOut.toString(),
-                assetOut: marketConfig.longCollateralMarketId,
+                assetOut: marketConfig.assetBQTokenRaw,
                 amountOut: amountOut.toString(),
               };
             }
