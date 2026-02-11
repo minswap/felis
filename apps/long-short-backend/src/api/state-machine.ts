@@ -33,6 +33,15 @@ export namespace StateMachine {
     LONG_SELL_ALL = "LONG_SELL_ALL",
   }
 
+  export enum ShortOrderType {
+    SHORT_SUPPLY = "SHORT_SUPPLY",
+    SHORT_BORROW = "SHORT_BORROW",
+    SHORT_SELL = "SHORT_SELL",
+    SHORT_BUY = "SHORT_BUY",
+    SHORT_REPAY = "SHORT_REPAY",
+    SHORT_WITHDRAW = "SHORT_WITHDRAW",
+  }
+
   export type BuiltResult = {
     txRaw: string;
     txId: string;
@@ -55,15 +64,15 @@ export namespace StateMachine {
     userAddress: string;
     networkEnv: NetworkEnvironment;
     utxos: string[];
-    /** Amount to borrow (used for LONG_BORROW) */
+    /** Amount to borrow (used for LONG_BORROW / SHORT_BORROW) */
     amountBorrow?: string;
-    /** Loan transaction ID (used for LONG_REPAY to identify the loan) */
+    /** Loan transaction ID (used for LONG_REPAY / SHORT_REPAY to identify the loan) */
     loanTxId?: string;
-    /** Loan output index (used for LONG_REPAY, format: "{txHash}-{outputIndex}") */
+    /** Loan output index (used for LONG_REPAY / SHORT_REPAY) */
     loanOutputIndex?: number;
-    /** Collateral qToken amount (used for LONG_REPAY to redeem collateral) */
+    /** Collateral qToken amount (used for LONG_REPAY / SHORT_REPAY to redeem collateral) */
     collateralAmount?: string;
-    /** Supply amountOut from LONG_SUPPLY order (used for LONG_WITHDRAW) */
+    /** Supply amountOut from SUPPLY order (used for LONG_WITHDRAW / SHORT_WITHDRAW) */
     supplyAmountOut?: string;
   };
 
@@ -376,12 +385,322 @@ export namespace StateMachine {
     };
   };
 
+  // ============================================================================
+  // SHORT Build Functions
+  // ============================================================================
+
+  /**
+   * Build SHORT_SUPPLY transaction: Supply asset A (ADA) to Liqwid, receive qADA
+   */
+  export const handleShortSupply = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, userAddress, networkEnv, utxos } = options;
+    invariant(order.orderType === ShortOrderType.SHORT_SUPPLY, "Invalid order type for handleShortSupply");
+    invariant(order.assetIn, "assetIn is required for SHORT_SUPPLY order");
+    invariant(order.amountIn, "amountIn is required for SHORT_SUPPLY order");
+    invariant(order.assetOut, "assetOut is required for SHORT_SUPPLY order");
+
+    // assetOut contains the lending market ID (e.g. "Ada")
+    const marketId = order.assetOut as LiqwidProvider.MarketId;
+
+    const buildTxResult = await LiqwidProvider.getSupplyTransaction({
+      marketId,
+      amount: Number(order.amountIn),
+      address: userAddress,
+      utxos,
+      networkEnv,
+    });
+
+    if (buildTxResult.type === "err") {
+      throw new Error(`Failed to build supply transaction: ${buildTxResult.error.message}`);
+    }
+
+    const txRaw = buildTxResult.value;
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const txBody = eTx.body();
+    const ttl = txBody.ttl();
+    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
+    safeFreeRustObjects(eTx, txBody);
+
+    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    const txId = LiqwidProvider.getLiqwidTxHash(txRaw);
+
+    return {
+      txRaw,
+      txId,
+      validTo: validTo.getTime(),
+    };
+  };
+
+  /**
+   * Build SHORT_BORROW transaction: Borrow asset B using qADA as collateral
+   */
+  export const handleShortBorrow = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos, amountBorrow } = options;
+    invariant(order.orderType === ShortOrderType.SHORT_BORROW, "Invalid order type for handleShortBorrow");
+    invariant(order.assetIn, "assetIn is required for SHORT_BORROW order");
+    invariant(order.amountIn, "amountIn is required for SHORT_BORROW order");
+    invariant(amountBorrow, "amountBorrow is required for SHORT_BORROW order");
+
+    const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+
+    const buildTxResult = await LiqwidProviderV2.Transactions.borrow(apiConfig, {
+      address: userAddress,
+      utxos,
+      marketId: marketConfig.borrowMarketIdShort as LiqwidProviderV2.MarketId,
+      amount: Number(amountBorrow),
+      collaterals: [
+        {
+          id: marketConfig.assetAQTokenTicker,
+          amount: Number(order.amountIn),
+        },
+      ],
+    });
+
+    if (buildTxResult.type === "err") {
+      throw new Error(`Failed to build borrow transaction: ${buildTxResult.error.message}`);
+    }
+
+    const txRaw = buildTxResult.value;
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const txBody = eTx.body();
+    const ttl = txBody.ttl();
+    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
+    safeFreeRustObjects(eTx, txBody);
+
+    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    const txId = LiqwidProviderV2.getTxHash(txRaw);
+
+    return {
+      txRaw,
+      txId,
+      validTo: validTo.getTime(),
+    };
+  };
+
+  /**
+   * Build SHORT_SELL transaction: Sell asset B for asset A via DEX (B_TO_A swap)
+   * Reuses the same DEX swap pattern as handleLongSell
+   */
+  export const handleShortSell = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
+    invariant(order.orderType === ShortOrderType.SHORT_SELL, "Invalid order type for handleShortSell");
+    invariant(order.assetIn, "assetIn is required for SHORT_SELL order");
+    invariant(order.amountIn, "amountIn is required for SHORT_SELL order");
+    invariant(order.assetOut, "assetOut is required for SHORT_SELL order");
+
+    const walletUtxos: Utxo[] = utxos.map((u) => Utxo.fromHex(u));
+    const sender = Address.fromBech32(userAddress);
+
+    const txb = DEXOrderTransaction.createBulkOrdersTx({
+      networkEnv,
+      sender,
+      orderOptions: [
+        {
+          lpAsset: Asset.fromString(marketConfig.ammLpAsset),
+          version: DexVersion.DEX_V2,
+          type: OrderV2StepType.SWAP_EXACT_IN,
+          assetIn: marketConfig.assetB,
+          amountIn: BigInt(order.amountIn),
+          minimumAmountOut: 1n,
+          direction: OrderV2Direction.B_TO_A,
+          killOnFailed: false,
+          isLimitOrder: false,
+        },
+      ],
+    });
+    const validTo = Date.now() + Duration.newMinutes(3).milliseconds;
+    txb.validToUnixTime(validTo);
+
+    const {
+      txComplete,
+      txId,
+      newUtxoState: { changeUtxos },
+    } = await txb.completeUnsafeForTxChaining({
+      coinSelectionAlgorithm: CoinSelectionAlgorithm.SPEND_ALL,
+      walletUtxos,
+      changeAddress: sender,
+      provider: new EmulatorProvider(networkEnv),
+    });
+    const txRaw = txComplete.complete();
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const outputsHash = HashUtils.sha256(changeUtxos.map((u) => Utxo.toHex(u)).join(","));
+
+    safeFreeRustObjects(eTx);
+
+    return {
+      txRaw,
+      txId: txId,
+      outputsHash,
+      validTo,
+    };
+  };
+
+  /**
+   * Build SHORT_BUY transaction: Buy asset B with asset A via DEX (A_TO_B swap)
+   * Reuses the same DEX swap pattern as handleLongBuy
+   */
+  export const handleShortBuy = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
+    invariant(order.orderType === ShortOrderType.SHORT_BUY, "Invalid order type for handleShortBuy");
+    invariant(order.assetIn, "assetIn is required for SHORT_BUY order");
+    invariant(order.amountIn, "amountIn is required for SHORT_BUY order");
+    invariant(order.assetOut, "assetOut is required for SHORT_BUY order");
+
+    const walletUtxos: Utxo[] = utxos.map((u) => Utxo.fromHex(u));
+    const sender = Address.fromBech32(userAddress);
+
+    const txb = DEXOrderTransaction.createBulkOrdersTx({
+      networkEnv,
+      sender,
+      orderOptions: [
+        {
+          lpAsset: Asset.fromString(marketConfig.ammLpAsset),
+          version: DexVersion.DEX_V2,
+          type: OrderV2StepType.SWAP_EXACT_IN,
+          assetIn: marketConfig.assetA,
+          amountIn: BigInt(order.amountIn),
+          minimumAmountOut: 1n,
+          direction: OrderV2Direction.A_TO_B,
+          killOnFailed: false,
+          isLimitOrder: false,
+        },
+      ],
+    });
+    const validTo = Date.now() + Duration.newMinutes(3).milliseconds;
+    txb.validToUnixTime(validTo);
+
+    const {
+      txComplete,
+      txId,
+      newUtxoState: { changeUtxos },
+    } = await txb.completeUnsafeForTxChaining({
+      coinSelectionAlgorithm: CoinSelectionAlgorithm.SPEND_ALL,
+      walletUtxos,
+      changeAddress: sender,
+      provider: new EmulatorProvider(networkEnv),
+    });
+    const txRaw = txComplete.complete();
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const outputsHash = HashUtils.sha256(changeUtxos.map((u) => Utxo.toHex(u)).join(","));
+
+    safeFreeRustObjects(eTx);
+
+    return {
+      txRaw,
+      txId: txId,
+      outputsHash,
+      validTo,
+    };
+  };
+
+  /**
+   * Build SHORT_REPAY transaction: Repay asset B loan to Liqwid and redeem qADA collateral
+   */
+  export const handleShortRepay = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos, loanTxId, loanOutputIndex, collateralAmount } =
+      options;
+    invariant(order.orderType === ShortOrderType.SHORT_REPAY, "Invalid order type for handleShortRepay");
+    invariant(order.assetIn, "assetIn is required for SHORT_REPAY order");
+    invariant(order.amountIn, "amountIn is required for SHORT_REPAY order");
+    invariant(loanTxId, "loanTxId is required for SHORT_REPAY order");
+    invariant(loanOutputIndex !== undefined, "loanOutputIndex is required for SHORT_REPAY order");
+    invariant(collateralAmount, "collateralAmount is required for SHORT_REPAY order");
+
+    const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+
+    // Format loanUtxoId as "{txHash}-{outputIndex}"
+    const loanUtxoId = `${loanTxId}-${loanOutputIndex}`;
+
+    // Format collateral ID: use assetAQTokenRaw (qADA) for SHORT
+    const qTokenParts = marketConfig.assetAQTokenRaw.split(".");
+    const qTokenPolicyId = qTokenParts[0];
+    const collateralId = `${marketConfig.borrowMarketIdShort}.${qTokenPolicyId}`;
+
+    const buildTxResult = await LiqwidProviderV2.Transactions.repayLoan(apiConfig, {
+      address: userAddress,
+      utxos,
+      loanUtxoId,
+      collaterals: [
+        {
+          id: collateralId,
+          amount: Number(collateralAmount),
+        },
+      ],
+    });
+
+    if (buildTxResult.type === "err") {
+      throw new Error(`Failed to build repay transaction: ${buildTxResult.error.message}`);
+    }
+
+    const txRaw = buildTxResult.value;
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const txBody = eTx.body();
+    const ttl = txBody.ttl();
+    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
+    safeFreeRustObjects(eTx, txBody);
+
+    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    const txId = LiqwidProviderV2.getTxHash(txRaw);
+
+    return {
+      txRaw,
+      txId,
+      validTo: validTo.getTime(),
+    };
+  };
+
+  /**
+   * Build SHORT_WITHDRAW transaction: Withdraw asset A (ADA) from Liqwid
+   */
+  export const handleShortWithdraw = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos, supplyAmountOut } = options;
+    invariant(order.orderType === ShortOrderType.SHORT_WITHDRAW, "Invalid order type for handleShortWithdraw");
+    invariant(order.assetIn, "assetIn is required for SHORT_WITHDRAW order");
+    invariant(order.amountIn, "amountIn is required for SHORT_WITHDRAW order");
+    invariant(supplyAmountOut, "supplyAmountOut is required for SHORT_WITHDRAW order");
+
+    const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+
+    const buildTxResult = await LiqwidProviderV2.Transactions.withdraw(apiConfig, {
+      address: userAddress,
+      utxos,
+      marketId: marketConfig.collateralMarketId as LiqwidProviderV2.MarketId,
+      amount: Number(supplyAmountOut),
+    });
+
+    if (buildTxResult.type === "err") {
+      throw new Error(`Failed to build withdraw transaction: ${buildTxResult.error.message}`);
+    }
+
+    const txRaw = buildTxResult.value;
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const txBody = eTx.body();
+    const ttl = txBody.ttl();
+    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
+    safeFreeRustObjects(eTx, txBody);
+
+    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    const txId = LiqwidProviderV2.getTxHash(txRaw);
+
+    return {
+      txRaw,
+      txId,
+      validTo: validTo.getTime(),
+    };
+  };
+
   // Common waiting result type for all waiting functions
   export type WaitingResult =
     | { isConfirmed: false }
     | {
         isConfirmed: true;
-        nextOrderType: LongOrderType;
+        nextOrderType: LongOrderType | ShortOrderType;
         assetIn: string;
         amountIn: string;
         assetOut: string;
@@ -683,16 +1002,256 @@ export namespace StateMachine {
     return { isConfirmed: false };
   };
 
+  // ============================================================================
+  // SHORT Waiting Functions
+  // ============================================================================
+
+  /**
+   * Wait for SHORT_SUPPLY transaction to be confirmed
+   * Extract qADA amount and transition to SHORT_BORROW
+   */
+  export const waitingShortSupply = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
+
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+
+    if (txFoundOnChain) {
+      const userAddressHex = userAddress.toHex();
+      const qTokenAsset = Asset.fromString(marketConfig.assetAQTokenRaw);
+      const qTokenUnit = qTokenAsset.toBlockFrostString();
+
+      for (const output of txFoundOnChain.outputs) {
+        if (output.address === userAddressHex) {
+          if (output.tokens && output.tokens.length > 0) {
+            const matchingToken = output.tokens.find((token) => token.assetId === qTokenUnit);
+            if (matchingToken) {
+              const amountReceived = BigInt(matchingToken.value);
+              return {
+                isConfirmed: true,
+                nextOrderType: ShortOrderType.SHORT_BORROW,
+                assetIn: marketConfig.assetAQTokenRaw,
+                amountIn: amountReceived.toString(),
+                assetOut: marketConfig.assetB.toString(),
+                amountOut: amountReceived.toString(),
+              };
+            }
+          }
+        }
+      }
+
+      throw new Error(
+        `SHORT_SUPPLY tx confirmed (${txHash}) but could not find output with qToken ${marketConfig.assetAQTokenRaw}`,
+      );
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Wait for SHORT_BORROW transaction to be confirmed
+   * Calculate borrowed amount and transition to SHORT_SELL
+   */
+  export const waitingShortBorrow = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, userAddress, cardanoscanProvider, positionAmountIn } = options;
+    invariant(positionAmountIn, "positionAmountIn is required for waitingShortBorrow");
+
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+
+    if (txFoundOnChain) {
+      const userAddressHex = userAddress.toHex();
+      const assetBUnit = marketConfig.assetB.toBlockFrostString();
+
+      // Find asset B (borrowed token) in outputs
+      for (const output of txFoundOnChain.outputs) {
+        if (output.address === userAddressHex) {
+          if (output.tokens && output.tokens.length > 0) {
+            const matchingToken = output.tokens.find((token) => token.assetId === assetBUnit);
+            if (matchingToken) {
+              const amountBorrowed = BigInt(matchingToken.value);
+              return {
+                isConfirmed: true,
+                nextOrderType: ShortOrderType.SHORT_SELL,
+                assetIn: marketConfig.assetB.toString(),
+                amountIn: amountBorrowed.toString(),
+                assetOut: marketConfig.assetA.toString(),
+                amountOut: amountBorrowed.toString(),
+              };
+            }
+          }
+        }
+      }
+
+      throw new Error(
+        `SHORT_BORROW tx confirmed (${txHash}) but could not find output with asset ${marketConfig.assetB.toString()}`,
+      );
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Wait for SHORT_SELL order output to be spent (consumed by DEX)
+   * This is the final opening step — position becomes OPEN
+   */
+  export const waitingShortSell = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { txHash, orderOutputIndex, userAddress, cardanoscanProvider } = options;
+    invariant(orderOutputIndex !== undefined, "orderOutputIndex is required for waitingShortSell");
+
+    const userAddressHex = userAddress.toHex();
+
+    const spendingTx = await cardanoscanProvider.findTransactionHasSpent(userAddress, txHash, orderOutputIndex, 5, 10);
+
+    if (spendingTx) {
+      // SHORT_SELL sells asset B for ADA, so we look for ADA in outputs
+      for (const output of spendingTx.outputs) {
+        if (output.address === userAddressHex) {
+          const amountOut = BigInt(output.value);
+          return {
+            isConfirmed: true,
+            isFinal: true,
+            positionStatus: PositionStatus.OPEN,
+            amountOut: amountOut.toString(),
+          };
+        }
+      }
+
+      throw new Error(`Order output spent (tx: ${spendingTx.hash}) but could not find matching output for user`);
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Wait for SHORT_BUY order output to be spent (consumed by DEX)
+   * Extract asset B received and transition to SHORT_REPAY
+   */
+  export const waitingShortBuy = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, assetOut } = options;
+    invariant(orderOutputIndex !== undefined, "orderOutputIndex is required for waitingShortBuy");
+    invariant(assetOut, "assetOut is required for waitingShortBuy");
+
+    const userAddressHex = userAddress.toHex();
+
+    const spendingTx = await cardanoscanProvider.findTransactionHasSpent(userAddress, txHash, orderOutputIndex, 5, 10);
+
+    if (spendingTx) {
+      const assetOutUnit = assetOut.toBlockFrostString();
+
+      for (const output of spendingTx.outputs) {
+        if (output.address === userAddressHex) {
+          if (output.tokens && output.tokens.length > 0) {
+            const matchingToken = output.tokens.find((token) => token.assetId === assetOutUnit);
+            if (matchingToken) {
+              const amountOut = BigInt(matchingToken.value);
+              return {
+                isConfirmed: true,
+                nextOrderType: ShortOrderType.SHORT_REPAY,
+                assetIn: assetOut.toString(),
+                amountIn: amountOut.toString(),
+                assetOut: marketConfig.assetAQTokenRaw, // qADA to be redeemed
+                amountOut: amountOut.toString(),
+              };
+            }
+          }
+        }
+      }
+
+      throw new Error(
+        `Order output spent (tx: ${spendingTx.hash}) but could not find matching output with asset ${assetOut.toString()}`,
+      );
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Wait for SHORT_REPAY transaction to be confirmed
+   * Extract redeemed qADA and transition to SHORT_WITHDRAW
+   */
+  export const waitingShortRepay = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
+
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+
+    if (txFoundOnChain) {
+      const userAddressHex = userAddress.toHex();
+      const qTokenAsset = Asset.fromString(marketConfig.assetAQTokenRaw);
+      const qTokenUnit = qTokenAsset.toBlockFrostString();
+
+      for (const output of txFoundOnChain.outputs) {
+        if (output.address === userAddressHex) {
+          if (output.tokens && output.tokens.length > 0) {
+            const matchingToken = output.tokens.find((token) => token.assetId === qTokenUnit);
+            if (matchingToken) {
+              const qTokenAmount = BigInt(matchingToken.value);
+              return {
+                isConfirmed: true,
+                nextOrderType: ShortOrderType.SHORT_WITHDRAW,
+                assetIn: marketConfig.assetAQTokenRaw,
+                amountIn: qTokenAmount.toString(),
+                assetOut: marketConfig.assetA.toString(),
+                amountOut: qTokenAmount.toString(),
+              };
+            }
+          }
+        }
+      }
+
+      throw new Error(
+        `SHORT_REPAY tx confirmed (${txHash}) but could not find output with qToken ${marketConfig.assetAQTokenRaw}`,
+      );
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Wait for SHORT_WITHDRAW transaction to be confirmed
+   * This is the final closing step — position becomes CLOSED
+   */
+  export const waitingShortWithdraw = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { txHash, userAddress, cardanoscanProvider } = options;
+
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+
+    if (txFoundOnChain) {
+      const userAddressHex = userAddress.toHex();
+
+      // For SHORT_WITHDRAW, we withdraw ADA — look for ADA value in outputs
+      for (const output of txFoundOnChain.outputs) {
+        if (output.address === userAddressHex) {
+          const amountOut = BigInt(output.value);
+          return {
+            isConfirmed: true,
+            isFinal: true,
+            positionStatus: PositionStatus.CLOSED,
+            amountOut: amountOut.toString(),
+          };
+        }
+      }
+
+      throw new Error(`SHORT_WITHDRAW tx confirmed (${txHash}) but could not find output for user ${userAddressHex}`);
+    }
+
+    return { isConfirmed: false };
+  };
+
   /** Map of order types to their build transaction functions */
   export const MAP_BUILD_TX_FN: Record<string, (options: HandleBuildTxOptions) => Promise<BuiltResult>> = {
     [LongOrderType.LONG_BUY]: handleLongBuy,
     [LongOrderType.LONG_SUPPLY]: handleLongSupply,
     [LongOrderType.LONG_BORROW]: handleLongBorrow,
-    [LongOrderType.LONG_BUY_MORE]: handleLongBuy, // Reuse handleLongBuy
+    [LongOrderType.LONG_BUY_MORE]: handleLongBuy,
     [LongOrderType.LONG_SELL]: handleLongSell,
     [LongOrderType.LONG_REPAY]: handleLongRepay,
     [LongOrderType.LONG_WITHDRAW]: handleLongWithdraw,
-    [LongOrderType.LONG_SELL_ALL]: handleLongSell, // Reuse handleLongSell
+    [LongOrderType.LONG_SELL_ALL]: handleLongSell,
+    [ShortOrderType.SHORT_SUPPLY]: handleShortSupply,
+    [ShortOrderType.SHORT_BORROW]: handleShortBorrow,
+    [ShortOrderType.SHORT_SELL]: handleShortSell,
+    [ShortOrderType.SHORT_BUY]: handleShortBuy,
+    [ShortOrderType.SHORT_REPAY]: handleShortRepay,
+    [ShortOrderType.SHORT_WITHDRAW]: handleShortWithdraw,
   };
 
   /** Map of order types to their waiting functions */
@@ -704,6 +1263,12 @@ export namespace StateMachine {
     [LongOrderType.LONG_SELL]: waitingLongSell,
     [LongOrderType.LONG_REPAY]: waitingLongRepay,
     [LongOrderType.LONG_WITHDRAW]: waitingLongWithdraw,
-    [LongOrderType.LONG_SELL_ALL]: waitingLongSell, // Reuse waitingLongSell
+    [LongOrderType.LONG_SELL_ALL]: waitingLongSell,
+    [ShortOrderType.SHORT_SUPPLY]: waitingShortSupply,
+    [ShortOrderType.SHORT_BORROW]: waitingShortBorrow,
+    [ShortOrderType.SHORT_SELL]: waitingShortSell,
+    [ShortOrderType.SHORT_BUY]: waitingShortBuy,
+    [ShortOrderType.SHORT_REPAY]: waitingShortRepay,
+    [ShortOrderType.SHORT_WITHDRAW]: waitingShortWithdraw,
   };
 }

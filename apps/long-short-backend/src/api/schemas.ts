@@ -28,7 +28,7 @@ export const PositionStatusSchema = Type.Union(Object.values(StateMachine.Positi
 
 export const CreatePositionDataSchema = Type.Object({
   market_id: Type.String({ minLength: 1, description: "Market ID (e.g., ADA-MIN)" }),
-  side: Type.Literal("LONG", { description: "Position side (only LONG supported)" }),
+  side: Type.Union([Type.Literal("LONG"), Type.Literal("SHORT")], { description: "Position side" }),
   amount_in: Type.String({ pattern: "^[0-9]+$", description: "Collateral amount in lovelace" }),
 });
 

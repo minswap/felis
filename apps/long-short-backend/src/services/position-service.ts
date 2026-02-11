@@ -12,7 +12,7 @@ import { logger } from "../utils";
 export type CreatePositionInput = {
   userAddress: string;
   marketId: string;
-  side: "LONG";
+  side: "LONG" | "SHORT";
   amountIn: bigint;
 };
 
@@ -46,9 +46,9 @@ export class PositionService {
   async createPosition(input: CreatePositionInput): Promise<CreatePositionResult> {
     const { userAddress, marketId, side, amountIn } = input;
 
-    // Only LONG side is supported
-    if (side !== "LONG") {
-      return { success: false, error: "Only LONG side is supported" };
+    // Validate side
+    if (side !== "LONG" && side !== "SHORT") {
+      return { success: false, error: "Side must be LONG or SHORT" };
     }
 
     // Validate market
@@ -85,7 +85,7 @@ export class PositionService {
     if (side === StateMachine.PositionSide.LONG) {
       amountBorrow += 4_000_000n; //extra ada for fee
     }
-    // Execute transaction: create position + 4 orders
+    // Execute transaction: create position + orders
     const position = await this.db.transaction().execute(async (trx) => {
       const pos = await PositionRepository.createPosition(trx, {
         marketId,
@@ -95,28 +95,49 @@ export class PositionService {
         amountBorrow: amountBorrow.toString(),
       });
 
-      // Create 4 LONG orders
-      await OrderRepository.createOrders(trx, [
-        {
-          positionId: pos.id,
-          orderType: StateMachine.LongOrderType.LONG_BUY,
-          assetIn: marketConfig.assetA.toString(),
-          amountIn: pos.amountIn,
-          assetOut: marketConfig.assetB.toString(),
-        },
-        {
-          positionId: pos.id,
-          orderType: StateMachine.LongOrderType.LONG_SUPPLY,
-        },
-        {
-          positionId: pos.id,
-          orderType: StateMachine.LongOrderType.LONG_BORROW,
-        },
-        {
-          positionId: pos.id,
-          orderType: StateMachine.LongOrderType.LONG_BUY_MORE,
-        },
-      ]);
+      if (side === "LONG") {
+        // Create 4 LONG opening orders
+        await OrderRepository.createOrders(trx, [
+          {
+            positionId: pos.id,
+            orderType: StateMachine.LongOrderType.LONG_BUY,
+            assetIn: marketConfig.assetA.toString(),
+            amountIn: pos.amountIn,
+            assetOut: marketConfig.assetB.toString(),
+          },
+          {
+            positionId: pos.id,
+            orderType: StateMachine.LongOrderType.LONG_SUPPLY,
+          },
+          {
+            positionId: pos.id,
+            orderType: StateMachine.LongOrderType.LONG_BORROW,
+          },
+          {
+            positionId: pos.id,
+            orderType: StateMachine.LongOrderType.LONG_BUY_MORE,
+          },
+        ]);
+      } else {
+        // Create 3 SHORT opening orders: supply ADA → borrow asset B → sell asset B
+        await OrderRepository.createOrders(trx, [
+          {
+            positionId: pos.id,
+            orderType: StateMachine.ShortOrderType.SHORT_SUPPLY,
+            assetIn: marketConfig.assetA.toString(),
+            amountIn: pos.amountIn,
+            assetOut: marketConfig.assetAQTokenTicker,
+          },
+          {
+            positionId: pos.id,
+            orderType: StateMachine.ShortOrderType.SHORT_BORROW,
+          },
+          {
+            positionId: pos.id,
+            orderType: StateMachine.ShortOrderType.SHORT_SELL,
+          },
+        ]);
+      }
 
       return pos;
     });
@@ -384,6 +405,37 @@ export class PositionService {
         buildOptions.supplyAmountOut = supplyOrder.amountOut;
       }
 
+      // For SHORT_REPAY, we need the loan transaction ID, output index, and collateral amount from SHORT_BORROW
+      if (order.orderType === StateMachine.ShortOrderType.SHORT_REPAY) {
+        const borrowOrder = await OrderRepository.getOrderByPositionAndType(
+          this.db,
+          position.id,
+          StateMachine.ShortOrderType.SHORT_BORROW,
+        );
+        if (!borrowOrder?.createdTxId) {
+          return { success: false, error: "SHORT_BORROW order not found or not confirmed yet" };
+        }
+        if (!borrowOrder.amountIn) {
+          return { success: false, error: "SHORT_BORROW order amountIn (collateral amount) not set" };
+        }
+        buildOptions.loanTxId = borrowOrder.createdTxId;
+        buildOptions.loanOutputIndex = borrowOrder.createdTxIndex ?? 0;
+        buildOptions.collateralAmount = borrowOrder.amountIn; // qADA amount used as collateral
+      }
+
+      // For SHORT_WITHDRAW, we need the amountOut from SHORT_SUPPLY order
+      if (order.orderType === StateMachine.ShortOrderType.SHORT_WITHDRAW) {
+        const supplyOrder = await OrderRepository.getOrderByPositionAndType(
+          this.db,
+          position.id,
+          StateMachine.ShortOrderType.SHORT_SUPPLY,
+        );
+        if (!supplyOrder?.amountOut) {
+          return { success: false, error: "SHORT_SUPPLY order not found or amountOut not set" };
+        }
+        buildOptions.supplyAmountOut = supplyOrder.amountOut;
+      }
+
       const txResult = await buildFn(buildOptions);
 
       // Update order built_tx fields
@@ -443,43 +495,74 @@ export class PositionService {
       };
     }
 
-    // Get the LONG_BUY_MORE order to get the amountOut (total asset B received)
-    const longBuyMoreOrder = await OrderRepository.getOrderByPositionAndType(
-      this.db,
-      position.id,
-      StateMachine.LongOrderType.LONG_BUY_MORE,
-    );
-    if (!longBuyMoreOrder || !longBuyMoreOrder.amountOut) {
-      return { success: false, error: "LONG_BUY_MORE order not found or amountOut not set" };
-    }
-
-    // Execute transaction: update position status + create 3 closing orders
+    // Execute transaction: update position status + create closing orders
     const updatedPosition = await this.db.transaction().execute(async (trx) => {
       // Update position status to CLOSING
       await PositionRepository.updatePositionStatus(trx, position.id, StateMachine.PositionStatus.CLOSING);
 
-      // Create 3 LONG closing orders: LONG_SELL, LONG_REPAY, LONG_WITHDRAW
-      await OrderRepository.createOrders(trx, [
-        {
-          positionId: position.id,
-          orderType: StateMachine.LongOrderType.LONG_SELL,
-          assetIn: marketConfig.assetB.toString(),
-          amountIn: longBuyMoreOrder.amountOut,
-          assetOut: marketConfig.assetA.toString(),
-        },
-        {
-          positionId: position.id,
-          orderType: StateMachine.LongOrderType.LONG_REPAY,
-        },
-        {
-          positionId: position.id,
-          orderType: StateMachine.LongOrderType.LONG_WITHDRAW,
-        },
-        {
-          positionId: position.id,
-          orderType: StateMachine.LongOrderType.LONG_SELL_ALL,
-        },
-      ]);
+      if (position.side === StateMachine.PositionSide.LONG) {
+        // Get the LONG_BUY_MORE order to get the amountOut (total asset B received)
+        const longBuyMoreOrder = await OrderRepository.getOrderByPositionAndType(
+          this.db,
+          position.id,
+          StateMachine.LongOrderType.LONG_BUY_MORE,
+        );
+        if (!longBuyMoreOrder || !longBuyMoreOrder.amountOut) {
+          throw new Error("LONG_BUY_MORE order not found or amountOut not set");
+        }
+
+        // Create 4 LONG closing orders
+        await OrderRepository.createOrders(trx, [
+          {
+            positionId: position.id,
+            orderType: StateMachine.LongOrderType.LONG_SELL,
+            assetIn: marketConfig.assetB.toString(),
+            amountIn: longBuyMoreOrder.amountOut,
+            assetOut: marketConfig.assetA.toString(),
+          },
+          {
+            positionId: position.id,
+            orderType: StateMachine.LongOrderType.LONG_REPAY,
+          },
+          {
+            positionId: position.id,
+            orderType: StateMachine.LongOrderType.LONG_WITHDRAW,
+          },
+          {
+            positionId: position.id,
+            orderType: StateMachine.LongOrderType.LONG_SELL_ALL,
+          },
+        ]);
+      } else {
+        // Get the SHORT_SELL order to get the amountOut (ADA received from selling)
+        const shortSellOrder = await OrderRepository.getOrderByPositionAndType(
+          this.db,
+          position.id,
+          StateMachine.ShortOrderType.SHORT_SELL,
+        );
+        if (!shortSellOrder || !shortSellOrder.amountOut) {
+          throw new Error("SHORT_SELL order not found or amountOut not set");
+        }
+
+        // Create 3 SHORT closing orders: buy asset B → repay loan → withdraw ADA
+        await OrderRepository.createOrders(trx, [
+          {
+            positionId: position.id,
+            orderType: StateMachine.ShortOrderType.SHORT_BUY,
+            assetIn: marketConfig.assetA.toString(),
+            amountIn: shortSellOrder.amountOut,
+            assetOut: marketConfig.assetB.toString(),
+          },
+          {
+            positionId: position.id,
+            orderType: StateMachine.ShortOrderType.SHORT_REPAY,
+          },
+          {
+            positionId: position.id,
+            orderType: StateMachine.ShortOrderType.SHORT_WITHDRAW,
+          },
+        ]);
+      }
 
       // Return updated position
       return {
