@@ -7,8 +7,6 @@ import { CoinSelectionAlgorithm, EmulatorProvider } from "@minswap/felis-tx-buil
 import invariant from "@minswap/tiny-invariant";
 import type { MarketConfig } from "../config";
 import type { CardanoscanProvider } from "../provider";
-import { HashUtils } from "../utils";
-
 export namespace StateMachine {
   export enum PositionSide {
     LONG = "LONG",
@@ -46,7 +44,6 @@ export namespace StateMachine {
     txRaw: string;
     txId: string;
     validTo: number;
-    outputsHash?: string;
   };
 
   // Common order data type for all Handle functions
@@ -108,11 +105,7 @@ export namespace StateMachine {
     const validTo = Date.now() + Duration.newMinutes(3).milliseconds;
     txb.validToUnixTime(validTo);
 
-    const {
-      txComplete,
-      txId,
-      newUtxoState: { changeUtxos },
-    } = await txb.completeUnsafeForTxChaining({
+    const { txComplete, txId } = await txb.completeUnsafeForTxChaining({
       coinSelectionAlgorithm: CoinSelectionAlgorithm.SPEND_ALL,
       walletUtxos,
       changeAddress: sender,
@@ -121,14 +114,11 @@ export namespace StateMachine {
     const txRaw = txComplete.complete();
     const ECSL = RustModule.getE;
     const eTx = ECSL.Transaction.from_hex(txRaw);
-    const outputsHash = HashUtils.sha256(changeUtxos.map((u) => Utxo.toHex(u)).join(","));
-
     safeFreeRustObjects(eTx);
 
     return {
       txRaw,
       txId: txId,
-      outputsHash,
       validTo,
     };
   };
@@ -255,11 +245,7 @@ export namespace StateMachine {
     const validTo = Date.now() + Duration.newMinutes(3).milliseconds;
     txb.validToUnixTime(validTo);
 
-    const {
-      txComplete,
-      txId,
-      newUtxoState: { changeUtxos },
-    } = await txb.completeUnsafeForTxChaining({
+    const { txComplete, txId } = await txb.completeUnsafeForTxChaining({
       coinSelectionAlgorithm: CoinSelectionAlgorithm.SPEND_ALL,
       walletUtxos,
       changeAddress: sender,
@@ -268,14 +254,11 @@ export namespace StateMachine {
     const txRaw = txComplete.complete();
     const ECSL = RustModule.getE;
     const eTx = ECSL.Transaction.from_hex(txRaw);
-    const outputsHash = HashUtils.sha256(changeUtxos.map((u) => Utxo.toHex(u)).join(","));
-
     safeFreeRustObjects(eTx);
 
     return {
       txRaw,
       txId: txId,
-      outputsHash,
       validTo,
     };
   };
@@ -510,11 +493,7 @@ export namespace StateMachine {
     const validTo = Date.now() + Duration.newMinutes(3).milliseconds;
     txb.validToUnixTime(validTo);
 
-    const {
-      txComplete,
-      txId,
-      newUtxoState: { changeUtxos },
-    } = await txb.completeUnsafeForTxChaining({
+    const { txComplete, txId } = await txb.completeUnsafeForTxChaining({
       coinSelectionAlgorithm: CoinSelectionAlgorithm.SPEND_ALL,
       walletUtxos,
       changeAddress: sender,
@@ -523,14 +502,11 @@ export namespace StateMachine {
     const txRaw = txComplete.complete();
     const ECSL = RustModule.getE;
     const eTx = ECSL.Transaction.from_hex(txRaw);
-    const outputsHash = HashUtils.sha256(changeUtxos.map((u) => Utxo.toHex(u)).join(","));
-
     safeFreeRustObjects(eTx);
 
     return {
       txRaw,
       txId: txId,
-      outputsHash,
       validTo,
     };
   };
@@ -569,11 +545,7 @@ export namespace StateMachine {
     const validTo = Date.now() + Duration.newMinutes(3).milliseconds;
     txb.validToUnixTime(validTo);
 
-    const {
-      txComplete,
-      txId,
-      newUtxoState: { changeUtxos },
-    } = await txb.completeUnsafeForTxChaining({
+    const { txComplete, txId } = await txb.completeUnsafeForTxChaining({
       coinSelectionAlgorithm: CoinSelectionAlgorithm.SPEND_ALL,
       walletUtxos,
       changeAddress: sender,
@@ -582,14 +554,11 @@ export namespace StateMachine {
     const txRaw = txComplete.complete();
     const ECSL = RustModule.getE;
     const eTx = ECSL.Transaction.from_hex(txRaw);
-    const outputsHash = HashUtils.sha256(changeUtxos.map((u) => Utxo.toHex(u)).join(","));
-
     safeFreeRustObjects(eTx);
 
     return {
       txRaw,
       txId: txId,
-      outputsHash,
       validTo,
     };
   };

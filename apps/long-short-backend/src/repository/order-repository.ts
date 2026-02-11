@@ -23,7 +23,6 @@ export type Order = {
   assetOut: string | null;
   amountOut: string | null;
   builtTxId: string | null;
-  builtOutputsHash: string | null;
   builtValidTo: Date | null;
   waiting: boolean;
 };
@@ -104,14 +103,12 @@ export namespace OrderRepository {
     db: Kysely<DB> | Transaction<DB>,
     orderId: bigint,
     builtTxId: string,
-    builtOutputsHash: string | null | undefined,
     builtValidTo: Date,
   ): Promise<void> {
     await db
       .updateTable("order")
       .set({
         built_tx_id: builtTxId,
-        built_outputs_hash: builtOutputsHash,
         built_valid_to: builtValidTo,
       })
       .where("id", "=", orderId.toString())
@@ -308,7 +305,6 @@ export namespace OrderRepository {
       assetOut: row.asset_out,
       amountOut: row.amount_out,
       builtTxId: row.built_tx_id,
-      builtOutputsHash: row.built_outputs_hash,
       builtValidTo: row.built_valid_to ? new Date(row.built_valid_to) : null,
       waiting: row.waiting,
     };

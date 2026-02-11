@@ -454,7 +454,6 @@ export class PositionService {
         this.db,
         order.id,
         txResult.txId,
-        txResult.outputsHash,
         new Date(txResult.validTo),
       );
 

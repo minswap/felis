@@ -39,7 +39,6 @@ export interface Order {
   amount_out: Numeric | null;
   asset_in: string | null;
   asset_out: string | null;
-  built_outputs_hash: string | null;
   built_tx_id: string | null;
   built_valid_to: Timestamp | null;
   created_tx_id: string | null;
