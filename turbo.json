@@ -117,7 +117,8 @@
         "@minswap/felis-dex-v2#build",
         "@minswap/felis-ledger-core#build",
         "@minswap/felis-ledger-utils#build",
-        "@minswap/felis-tx-builder#build"
+        "@minswap/felis-tx-builder#build",
+        "@minswap/felis-lending-market"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
