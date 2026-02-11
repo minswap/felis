@@ -13,6 +13,10 @@ x-base-backend: &base-backend
   environment:
     DATABASE_URL: postgres://postgres:JBNGlQ9wNFLlYWc2mG@postgres:5432/margin
     REDIS_URL: redis://default:7obaQyYSDDLDk3ECYA@redis:6379
+    API_PORT: 9999
+    API_HOST: 0.0.0.0
+    NETWORK: testnet-preview
+    CARDANOSCAN_API_KEY: ${CARDANOSCAN_API_KEY}
   healthcheck:
     test: ["CMD-SHELL", "curl -f http://localhost:9999/health || exit 1"]
     interval: 10s
@@ -21,23 +25,17 @@ x-base-backend: &base-backend
     start_period: 10s
 
 services:
-  # Long-Short Backend API Service
-  # long-short-backend:
-  #   <<: *base-backend
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.backend
-  #     args:
-  #       APP_NAME: long-short-backend
-  #   ports:
-  #     - "127.0.0.1:9999:9999"
-  #   environment:
-  #     NETWORK: mainnet
-  #     DATABASE_URL: postgres://postgres:JBNGlQ9wNFLlYWc2mG@postgres:5432/margin
-  #     REDIS_URL: redis://default:7obaQyYSDDLDk3ECYA@redis:6379
-  #     API_PORT: 9999
-  #     API_HOST: 0.0.0.0
-  #   command: ["pnpm", "--filter=long-short-backend", "start"]
+  long-short-backend:
+    container_name: margin-api
+    <<: *base-backend
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      args:
+        APP_NAME: long-short-backend
+    ports:
+      - "9999:9999"
+    command: ["pnpm", "--filter=long-short-backend", "start"]
 
   # web:
   #   build:
@@ -54,10 +52,11 @@ services:
 
   redis:
     image: redis:8
+    container_name: margin-redis
     restart: always
     command: --requirepass 7obaQyYSDDLDk3ECYA
     ports:
-      - "127.0.0.1:6379:6379"
+      - "6380:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -68,9 +67,10 @@ services:
 
   postgres:
     image: postgres:18
+    container_name: margin-postgres
     restart: always
     ports:
-      - "127.0.0.1:5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_PASSWORD: JBNGlQ9wNFLlYWc2mG
       POSTGRES_DB: margin
