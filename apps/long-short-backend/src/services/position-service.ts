@@ -4,7 +4,7 @@ import type { Kysely } from "kysely";
 import { StateMachine } from "../api/state-machine";
 import { getMarketConfig, isSupportedMarket } from "../config/market";
 import type { DB } from "../database";
-import type { CardanoscanProvider } from "../provider";
+import type { CardanoscanProvider, MinswapAggregatorProvider } from "../provider";
 import { OrderRepository } from "../repository/order-repository";
 import { type Position, PositionRepository } from "../repository/position-repository";
 import { logger } from "../utils";
@@ -41,6 +41,7 @@ export class PositionService {
     private readonly db: Kysely<DB>,
     private readonly networkEnv: NetworkEnvironment,
     private readonly cardanoscanProvider: CardanoscanProvider,
+    private readonly aggregatorProvider: MinswapAggregatorProvider,
   ) {}
 
   async createPosition(input: CreatePositionInput): Promise<CreatePositionResult> {
@@ -79,11 +80,21 @@ export class PositionService {
       };
     }
 
-    // Calculate amount_borrow = amount_in * (leverage - 1)
-    const leverage = side === StateMachine.PositionSide.LONG ? marketConfig.longLeverage : marketConfig.shortLeverage;
-    let amountBorrow = BigInt(Math.floor(Number(amountIn) * (leverage - 1)));
+    // Calculate amount_borrow
+    let amountBorrow: bigint;
     if (side === StateMachine.PositionSide.LONG) {
-      amountBorrow += 4_000_000n; //extra ada for fee
+      // LONG: borrow ADA = amountIn * (leverage - 1) + fee
+      amountBorrow = BigInt(Math.floor(Number(amountIn) * (marketConfig.longLeverage - 1))) + 4_000_000n;
+    } else {
+      // SHORT: borrow asset B equivalent to amountIn * shortLeverage ADA
+      // e.g. short 600 ADA with leverage 0.5 => estimate 300 ADA worth of asset B
+      const adaAmountToEstimate = BigInt(Math.floor(Number(amountIn) * marketConfig.shortLeverage));
+      const estimate = await this.aggregatorProvider.estimate({
+        amount: adaAmountToEstimate.toString(),
+        tokenIn: marketConfig.assetA.toBlockFrostString(),
+        tokenOut: marketConfig.assetB.toBlockFrostString(),
+      });
+      amountBorrow = BigInt(estimate.amountOut);
     }
     // Execute transaction: create position + orders
     const position = await this.db.transaction().execute(async (trx) => {
@@ -126,7 +137,7 @@ export class PositionService {
             orderType: StateMachine.ShortOrderType.SHORT_SUPPLY,
             assetIn: marketConfig.assetA.toString(),
             amountIn: pos.amountIn,
-            assetOut: marketConfig.assetAQTokenTicker,
+            assetOut: marketConfig.assetAQTokenRaw,
           },
           {
             positionId: pos.id,
@@ -423,17 +434,17 @@ export class PositionService {
         buildOptions.collateralAmount = borrowOrder.amountIn; // qADA amount used as collateral
       }
 
-      // For SHORT_WITHDRAW, we need the amountOut from SHORT_SUPPLY order
+      // For SHORT_WITHDRAW, we need the amountIn from SHORT_SUPPLY order (original ADA supplied, not qADA)
       if (order.orderType === StateMachine.ShortOrderType.SHORT_WITHDRAW) {
         const supplyOrder = await OrderRepository.getOrderByPositionAndType(
           this.db,
           position.id,
           StateMachine.ShortOrderType.SHORT_SUPPLY,
         );
-        if (!supplyOrder?.amountOut) {
-          return { success: false, error: "SHORT_SUPPLY order not found or amountOut not set" };
+        if (!supplyOrder?.amountIn) {
+          return { success: false, error: "SHORT_SUPPLY order not found or amountIn not set" };
         }
-        buildOptions.supplyAmountOut = supplyOrder.amountOut;
+        buildOptions.supplyAmountOut = supplyOrder.amountIn;
       }
 
       const txResult = await buildFn(buildOptions);

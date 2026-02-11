@@ -359,7 +359,7 @@ export namespace StateMachine {
     const buildTxResult = await LiqwidProviderV2.Transactions.withdraw(apiConfig, {
       address: userAddress,
       utxos,
-      marketId: marketConfig.collateralMarketId as LiqwidProviderV2.MarketId,
+      marketId: marketConfig.longCollateralMarketId as LiqwidProviderV2.MarketId,
       amount: Number(supplyAmountOut),
     });
 
@@ -393,15 +393,12 @@ export namespace StateMachine {
    * Build SHORT_SUPPLY transaction: Supply asset A (ADA) to Liqwid, receive qADA
    */
   export const handleShortSupply = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
-    const { order, userAddress, networkEnv, utxos } = options;
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
     invariant(order.orderType === ShortOrderType.SHORT_SUPPLY, "Invalid order type for handleShortSupply");
     invariant(order.assetIn, "assetIn is required for SHORT_SUPPLY order");
     invariant(order.amountIn, "amountIn is required for SHORT_SUPPLY order");
-    invariant(order.assetOut, "assetOut is required for SHORT_SUPPLY order");
 
-    // assetOut contains the lending market ID (e.g. "Ada")
-    const marketId = order.assetOut as LiqwidProvider.MarketId;
-
+    const marketId = marketConfig.shortCollateralMarketId as LiqwidProvider.MarketId;
     const buildTxResult = await LiqwidProvider.getSupplyTransaction({
       marketId,
       amount: Number(order.amountIn),
@@ -669,7 +666,7 @@ export namespace StateMachine {
     const buildTxResult = await LiqwidProviderV2.Transactions.withdraw(apiConfig, {
       address: userAddress,
       utxos,
-      marketId: marketConfig.collateralMarketId as LiqwidProviderV2.MarketId,
+      marketId: marketConfig.shortCollateralMarketId as LiqwidProviderV2.MarketId,
       amount: Number(supplyAmountOut),
     });
 
@@ -779,7 +776,7 @@ export namespace StateMachine {
                 nextOrderType: LongOrderType.LONG_SUPPLY,
                 assetIn: assetOut.toString(),
                 amountIn: amountOut.toString(),
-                assetOut: marketConfig.collateralMarketId,
+                assetOut: marketConfig.longCollateralMarketId,
                 amountOut: amountOut.toString(),
               };
             }

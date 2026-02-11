@@ -25,11 +25,12 @@ export interface MarketConfig {
   asset_b_q_token_ticker: string;
   borrow_market_id_long: Generated<string>;
   borrow_market_id_short: Generated<string>;
-  collateral_market_id: string;
   enable: Generated<boolean>;
+  long_collateral_market_id: string;
   long_leverage: Numeric;
   market_id: string;
   min_collateral: Numeric;
+  short_collateral_market_id: Generated<string>;
   short_leverage: Generated<Numeric>;
 }
 

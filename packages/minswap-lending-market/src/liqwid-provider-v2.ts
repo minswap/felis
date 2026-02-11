@@ -391,13 +391,16 @@ export namespace LiqwidProviderV2 {
     variables: TVariables,
   ): Promise<Result<TData, Error>> => {
     try {
+      const requestBody = JSON.stringify({ operationName, query, variables });
+      // console.log(`[LiqwidProviderV2] ${operationName} request:`, requestBody);
+
       const response = await fetch(getApiUrl(config), {
         method: "POST",
         headers: {
           accept: "application/json",
           "content-type": "application/json",
         },
-        body: JSON.stringify({ operationName, query, variables }),
+        body: requestBody,
       });
 
       if (!response.ok) {
@@ -405,6 +408,7 @@ export namespace LiqwidProviderV2 {
       }
 
       const json = (await response.json()) as GraphQLResponse<TData>;
+      // console.log(`[LiqwidProviderV2] ${operationName} response:`, JSON.stringify(json));
 
       if (json.errors?.length) {
         return Result.err(new Error(`GraphQL error: ${XJSON.stringify(json.errors)}`));

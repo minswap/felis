@@ -14,7 +14,8 @@ export type MarketConfig = {
   assetAQTokenRaw: string;
   assetBQTokenTicker: string;
   assetBQTokenRaw: string;
-  collateralMarketId: string;
+  longCollateralMarketId: string;
+  shortCollateralMarketId: string;
   borrowMarketIdLong: string;
   borrowMarketIdShort: string;
   longLeverage: number;
@@ -45,7 +46,8 @@ export async function loadMarketConfigs(db: Kysely<DB>): Promise<Map<string, Mar
       assetAQTokenRaw: row.asset_a_q_token_raw,
       assetBQTokenTicker: row.asset_b_q_token_ticker,
       assetBQTokenRaw: row.asset_b_q_token_raw,
-      collateralMarketId: row.collateral_market_id,
+      longCollateralMarketId: row.long_collateral_market_id,
+      shortCollateralMarketId: row.short_collateral_market_id,
       borrowMarketIdLong: row.borrow_market_id_long,
       borrowMarketIdShort: row.borrow_market_id_short,
       longLeverage: Number(row.long_leverage),

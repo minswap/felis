@@ -4,7 +4,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type { Kysely } from "kysely";
 import { API_ENDPOINTS } from "../constants";
 import type { DB } from "../database";
-import type { CardanoscanProvider } from "../provider";
+import { type CardanoscanProvider, MinswapAggregatorProvider } from "../provider";
 import { PositionService } from "../services/position-service";
 import { logger } from "../utils";
 import { registerLiqwidRoutes } from "./routes/liqwid";
@@ -40,7 +40,8 @@ export async function createApiServer(options: ApiServerOptions): Promise<Fastif
   });
 
   // Create services
-  const positionService = new PositionService(db, networkEnv, cardanoscanProvider);
+  const aggregatorProvider = new MinswapAggregatorProvider(networkEnv);
+  const positionService = new PositionService(db, networkEnv, cardanoscanProvider, aggregatorProvider);
 
   // Register routes
   registerLiqwidRoutes(fastify, networkEnv);
