@@ -88,6 +88,9 @@ export type GetTransactionListOptions = {
  * Provides access to Cardano blockchain data via Cardanoscan API
  */
 export class CardanoscanProvider {
+  public static readonly MAINNET_URL = "https://api.cardanoscan.io/api/v1";
+  public static readonly PREVIEW_URL = "https://api-preview.cardanoscan.io/api/v1";
+
   private readonly baseUrl: string;
   private readonly apiKey: string;
 

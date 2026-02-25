@@ -41,7 +41,8 @@ async function main() {
   logger.info(`Loaded ${marketConfigs.size} market configs`);
 
   // Create Cardanoscan provider
-  const cardanoscanProvider = new CardanoscanProvider("https://api.cardanoscan.io/api/v1", CARDANOSCAN_API_KEY);
+  const cardanoScanBaseUrl = networkEnv === NetworkEnvironment.MAINNET ? CardanoscanProvider.MAINNET_URL : CardanoscanProvider.PREVIEW_URL;
+  const cardanoscanProvider = new CardanoscanProvider(cardanoScanBaseUrl, CARDANOSCAN_API_KEY);
 
   // Start API server
   logger.info("Starting API server...");
