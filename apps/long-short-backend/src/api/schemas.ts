@@ -168,6 +168,18 @@ export const MarketConfigResponseSchema = Type.Object({
   long_leverage: Type.Number({ description: "Long leverage multiplier" }),
   short_leverage: Type.Number({ description: "Short leverage multiplier" }),
   min_collateral: Type.String({ description: "Minimum collateral in lovelace" }),
+  asset_a_borrow_apy: Type.Union([Type.Number(), Type.Null()], {
+    description: "Liqwid borrow APY for asset A",
+  }),
+  asset_a_supply_apy: Type.Union([Type.Number(), Type.Null()], {
+    description: "Liqwid supply APY for asset A",
+  }),
+  asset_b_borrow_apy: Type.Union([Type.Number(), Type.Null()], {
+    description: "Liqwid borrow APY for asset B",
+  }),
+  asset_b_supply_apy: Type.Union([Type.Number(), Type.Null()], {
+    description: "Liqwid supply APY for asset B",
+  }),
 });
 
 export type MarketConfigResponseType = Static<typeof MarketConfigResponseSchema>;

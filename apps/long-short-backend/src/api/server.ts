@@ -45,7 +45,7 @@ export async function createApiServer(options: ApiServerOptions): Promise<Fastif
 
   // Register routes
   registerLiqwidRoutes(fastify, networkEnv);
-  registerMetadataRoutes(fastify);
+  registerMetadataRoutes(fastify, networkEnv);
   registerPositionRoutes(fastify, positionService);
 
   // Start server
