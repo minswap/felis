@@ -4,7 +4,7 @@ import type { Kysely } from "kysely";
 import { StateMachine } from "../api/state-machine";
 import { getMarketConfig, isSupportedMarket } from "../config/market";
 import type { DB } from "../database";
-import type { CardanoscanProvider, MinswapAggregatorProvider } from "../provider";
+import { CardanoscanProvider, MinswapAggregatorProvider } from "../provider";
 import { OrderRepository } from "../repository/order-repository";
 import { type Position, PositionRepository } from "../repository/position-repository";
 import { logger } from "../utils";
@@ -303,8 +303,8 @@ export class PositionService {
         const txFoundOnChain = await this.cardanoscanProvider.findTransactionByHash(
           address,
           order.builtTxId,
-          50, // pageSize
-          10, // maxPage - search up to 10 pages (500 transactions)
+          CardanoscanProvider.PAGE_SIZE,
+          CardanoscanProvider.MAX_PAGE,
         );
 
         if (txFoundOnChain) {
