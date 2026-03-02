@@ -124,16 +124,12 @@ export namespace StateMachine {
   };
 
   export const handleLongSupply = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
-    const { order, userAddress, networkEnv, utxos } = options;
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
     invariant(order.orderType === LongOrderType.LONG_SUPPLY, "Invalid order type for handleLongSupply");
     invariant(order.assetIn, "assetIn is required for LONG_SUPPLY order");
     invariant(order.amountIn, "amountIn is required for LONG_SUPPLY order");
-    invariant(order.assetOut, "assetOut is required for LONG_SUPPLY order");
 
-    // assetOut contains the lending market ID (collateral token qMIN or qADA)
-    // We need to extract the market ID from the assetOut
-    // For example: "186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0" -> "MIN"
-    const marketId = order.assetOut as LiqwidProvider.MarketId;
+    const marketId = marketConfig.longCollateralMarketId as LiqwidProvider.MarketId;
 
     const buildTxResult = await LiqwidProvider.getSupplyTransaction({
       marketId,
