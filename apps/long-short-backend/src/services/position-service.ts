@@ -450,12 +450,7 @@ export class PositionService {
       const txResult = await buildFn(buildOptions);
 
       // Update order built_tx fields
-      await OrderRepository.updateOrderBuiltTx(
-        this.db,
-        order.id,
-        txResult.txId,
-        new Date(txResult.validTo),
-      );
+      await OrderRepository.updateOrderBuiltTx(this.db, order.id, txResult.txId, new Date(txResult.validTo));
 
       logger.info("Transaction built successfully", {
         orderId: order.id,

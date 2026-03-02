@@ -6,7 +6,7 @@ import { LiqwidProvider, LiqwidProviderV2 } from "@minswap/felis-lending-market"
 import { CoinSelectionAlgorithm, EmulatorProvider } from "@minswap/felis-tx-builder";
 import invariant from "@minswap/tiny-invariant";
 import type { MarketConfig } from "../config";
-import type { CardanoscanProvider } from "../provider";
+import { CardanoscanProvider } from "../provider";
 export namespace StateMachine {
   export enum PositionSide {
     LONG = "LONG",
@@ -711,8 +711,8 @@ export namespace StateMachine {
       userAddress,
       txHash,
       orderOutputIndex,
-      5, // pageSize
-      10, // maxPage
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
     );
 
     if (spendingTx) {
@@ -764,7 +764,12 @@ export namespace StateMachine {
   export const waitingLongSupply = async (options: WaitingOptions): Promise<WaitingResult> => {
     const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
 
-    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
 
     if (txFoundOnChain) {
       const userAddressHex = userAddress.toHex();
@@ -806,7 +811,12 @@ export namespace StateMachine {
     const { marketConfig, txHash, userAddress, cardanoscanProvider, positionAmountIn } = options;
     invariant(positionAmountIn, "positionAmountIn is required for waitingLongBorrow");
 
-    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
 
     if (txFoundOnChain) {
       // Calculate borrow amount: position.amount_in * (leverage - 1)
@@ -841,8 +851,8 @@ export namespace StateMachine {
       userAddress,
       txHash,
       orderOutputIndex,
-      5, // pageSize
-      10, // maxPage
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
     );
 
     if (spendingTx) {
@@ -888,7 +898,12 @@ export namespace StateMachine {
   export const waitingLongRepay = async (options: WaitingOptions): Promise<WaitingResult> => {
     const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
 
-    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
 
     if (txFoundOnChain) {
       const userAddressHex = userAddress.toHex();
@@ -930,7 +945,12 @@ export namespace StateMachine {
   export const waitingLongWithdraw = async (options: WaitingOptions): Promise<WaitingResult> => {
     const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
 
-    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
 
     if (txFoundOnChain) {
       const userAddressHex = userAddress.toHex();
@@ -975,7 +995,12 @@ export namespace StateMachine {
   export const waitingShortSupply = async (options: WaitingOptions): Promise<WaitingResult> => {
     const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
 
-    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
 
     if (txFoundOnChain) {
       const userAddressHex = userAddress.toHex();
@@ -1017,7 +1042,12 @@ export namespace StateMachine {
     const { marketConfig, txHash, userAddress, cardanoscanProvider, positionAmountIn } = options;
     invariant(positionAmountIn, "positionAmountIn is required for waitingShortBorrow");
 
-    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
 
     if (txFoundOnChain) {
       const userAddressHex = userAddress.toHex();
@@ -1061,7 +1091,13 @@ export namespace StateMachine {
 
     const userAddressHex = userAddress.toHex();
 
-    const spendingTx = await cardanoscanProvider.findTransactionHasSpent(userAddress, txHash, orderOutputIndex, 5, 10);
+    const spendingTx = await cardanoscanProvider.findTransactionHasSpent(
+      userAddress,
+      txHash,
+      orderOutputIndex,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
 
     if (spendingTx) {
       // SHORT_SELL sells asset B for ADA, so we look for ADA in outputs
@@ -1094,7 +1130,13 @@ export namespace StateMachine {
 
     const userAddressHex = userAddress.toHex();
 
-    const spendingTx = await cardanoscanProvider.findTransactionHasSpent(userAddress, txHash, orderOutputIndex, 5, 10);
+    const spendingTx = await cardanoscanProvider.findTransactionHasSpent(
+      userAddress,
+      txHash,
+      orderOutputIndex,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
 
     if (spendingTx) {
       const assetOutUnit = assetOut.toBlockFrostString();
@@ -1133,7 +1175,12 @@ export namespace StateMachine {
   export const waitingShortRepay = async (options: WaitingOptions): Promise<WaitingResult> => {
     const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
 
-    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
 
     if (txFoundOnChain) {
       const userAddressHex = userAddress.toHex();
@@ -1174,7 +1221,12 @@ export namespace StateMachine {
   export const waitingShortWithdraw = async (options: WaitingOptions): Promise<WaitingResult> => {
     const { txHash, userAddress, cardanoscanProvider } = options;
 
-    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(userAddress, txHash, 50, 10);
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
 
     if (txFoundOnChain) {
       const userAddressHex = userAddress.toHex();
