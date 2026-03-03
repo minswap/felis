@@ -285,9 +285,6 @@ export namespace StateMachine {
     const qTokenPolicyId = qTokenParts[0];
     const collateralId = `${marketConfig.borrowMarketIdLong}.${qTokenPolicyId}`;
 
-    console.log("collateralId", collateralId);
-    console.log("amount colla", collateralAmount);
-
     const buildTxResult = await LiqwidProviderV2.Transactions.repayLoan(apiConfig, {
       address: userAddress,
       utxos,
