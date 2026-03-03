@@ -7,6 +7,7 @@ import { CoinSelectionAlgorithm, EmulatorProvider } from "@minswap/felis-tx-buil
 import invariant from "@minswap/tiny-invariant";
 import type { MarketConfig } from "../config";
 import { CardanoscanProvider } from "../provider";
+import { logger } from "../utils";
 export namespace StateMachine {
   export enum PositionSide {
     LONG = "LONG",
@@ -27,6 +28,9 @@ export namespace StateMachine {
     LONG_BUY_MORE = "LONG_BUY_MORE",
     LONG_SELL = "LONG_SELL",
     LONG_REPAY = "LONG_REPAY",
+    LONG_REPAY_FRACTION = "LONG_REPAY_FRACTION",
+    LONG_WITHDRAW_FRACTION = "LONG_WITHDRAW_FRACTION",
+    LONG_SELL_FREED = "LONG_SELL_FREED",
     LONG_WITHDRAW = "LONG_WITHDRAW",
     LONG_SELL_ALL = "LONG_SELL_ALL",
   }
@@ -63,11 +67,11 @@ export namespace StateMachine {
     utxos: string[];
     /** Amount to borrow (used for LONG_BORROW / SHORT_BORROW) */
     amountBorrow?: string;
-    /** Loan transaction ID (used for LONG_REPAY / SHORT_REPAY to identify the loan) */
+    /** Loan transaction ID (used for SHORT_REPAY to identify the loan) */
     loanTxId?: string;
-    /** Loan output index (used for LONG_REPAY / SHORT_REPAY) */
+    /** Loan output index (used for SHORT_REPAY) */
     loanOutputIndex?: number;
-    /** Collateral qToken amount (used for LONG_REPAY / SHORT_REPAY to redeem collateral) */
+    /** Collateral qToken amount (used for SHORT_REPAY to redeem collateral) */
     collateralAmount?: string;
     /** Supply amountOut from SUPPLY order (used for LONG_WITHDRAW / SHORT_WITHDRAW) */
     supplyAmountOut?: string;
@@ -259,31 +263,67 @@ export namespace StateMachine {
     };
   };
 
+  const checkLongRepayFunds = async (
+    networkEnv: NetworkEnvironment,
+    userAddress: string,
+    marketConfig: MarketConfig,
+    availableADA: number,
+  ): Promise<{ canFullRepay: boolean; loan: LiqwidProviderV2.Loan; loanAmount: bigint }> => {
+    const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+    const userAddr = Address.fromBech32(userAddress);
+    const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
+    invariant(pkh, "Failed to extract public key hash from user address");
+    const loansResult = await LiqwidProviderV2.Data.loansForUser(apiConfig, [pkh]);
+    if (loansResult.type === "err") {
+      throw new Error(`Failed to fetch loans before repay: ${loansResult.error.message}`);
+    }
+    const loan = loansResult.value.find((l) => l.marketId === marketConfig.borrowMarketIdLong);
+    invariant(loan, `No active loan found for market ${marketConfig.borrowMarketIdLong}`);
+    const loanAmount = BigInt(Math.round(loan.amount * 1_000_000)); // ADA → Lovelace (Math.round avoids BigInt non-integer rejection)
+    return { canFullRepay: BigInt(availableADA) >= loanAmount, loan, loanAmount };
+  };
+
   /**
-   * Build LONG_REPAY transaction: Repay loan to Liqwid and redeem collateral
-   * Uses repayLoan API with loanUtxoId format: "{txHash}-{outputIndex}"
+   * Build LONG_REPAY transaction: Full repay — pay off entire loan and redeem all collateral.
+   * Only called when waitingLongSell / waitingLongSellFreed confirmed canFullRepay = true.
+   * Fetches loan from Liqwid API to get current UTXO and collateral info.
    */
   export const handleLongRepay = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
-    const { order, marketConfig, userAddress, networkEnv, utxos, loanTxId, loanOutputIndex, collateralAmount } =
-      options;
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
     invariant(order.orderType === LongOrderType.LONG_REPAY, "Invalid order type for handleLongRepay");
     invariant(order.assetIn, "assetIn is required for LONG_REPAY order");
     invariant(order.amountIn, "amountIn is required for LONG_REPAY order");
-    invariant(loanTxId, "loanTxId is required for LONG_REPAY order");
-    invariant(loanOutputIndex !== undefined, "loanOutputIndex is required for LONG_REPAY order");
-    invariant(collateralAmount, "collateralAmount is required for LONG_REPAY order");
 
     const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
 
-    // Format loanUtxoId as "{txHash}-{outputIndex}"
-    const loanUtxoId = `${loanTxId}-${loanOutputIndex}`;
+    // Fetch current loan from API (always up-to-date)
+    const userAddr = Address.fromBech32(userAddress);
+    const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
+    invariant(pkh, "Failed to extract public key hash from user address");
+    const loansResult = await LiqwidProviderV2.Data.loansForUser(apiConfig, [pkh]);
+    if (loansResult.type === "err") {
+      throw new Error(`Failed to fetch loans for full repay: ${loansResult.error.message}`);
+    }
+    const loan = loansResult.value.find((l) => l.marketId === marketConfig.borrowMarketIdLong);
+    invariant(loan, `No active loan found for market ${marketConfig.borrowMarketIdLong}`);
+
+    const loanUtxoId = `${loan.transactionId}-${loan.transactionIndex}`;
 
     // Format collateral ID as "{MarketId}.{policyId}"
-    // assetBQTokenTicker is the market ID (e.g., "MIN")
-    // We need the policy ID from assetBQTokenRaw (format: "policyId.assetName" or "policyId")
     const qTokenParts = marketConfig.assetBQTokenRaw.split(".");
     const qTokenPolicyId = qTokenParts[0];
     const collateralId = `${marketConfig.borrowMarketIdLong}.${qTokenPolicyId}`;
+
+    const qTokenAmountFloat = loan.collaterals[0]?.qTokenAmount;
+    invariant(qTokenAmountFloat !== undefined, "Loan has no collateral");
+    const qTokenAmountRaw = Math.round(qTokenAmountFloat * 1_000_000);
+
+    logger.info("handleLongRepay: full repay", {
+      loanId: loan.id,
+      loanAmount: loan.amount,
+      qTokenAmountRaw,
+      loanUtxoId,
+    });
 
     const buildTxResult = await LiqwidProviderV2.Transactions.repayLoan(apiConfig, {
       address: userAddress,
@@ -292,7 +332,7 @@ export namespace StateMachine {
       collaterals: [
         {
           id: collateralId,
-          amount: Number(collateralAmount),
+          amount: qTokenAmountRaw,
         },
       ],
     });
@@ -317,6 +357,378 @@ export namespace StateMachine {
       txId,
       validTo: validTo.getTime(),
     };
+  };
+
+  // ============================================================================
+  // FRACTIONAL LONG REPAY FLOW
+  // ============================================================================
+  //
+  // Triggered when LONG_SELL output (ADA received) < current loan amount.
+  //
+  // Full cycle until position is fully closed:
+  //
+  //   LONG_SELL
+  //      │ (ADA received < loan)
+  //      ▼
+  //   LONG_REPAY_FRACTION  ──── modifyBorrow(newDebt, reducedCollateral, redeemCollateral=true)
+  //      │
+  //      ▼
+  //   LONG_WITHDRAW_FRACTION ── withdraw freed qTokens → assetB
+  //      │
+  //      ▼
+  //   LONG_SELL_FREED  ────────── sell freed assetB → ADA
+  //      │
+  //      ├── accumulated ADA < remaining loan? ──► loop back to LONG_REPAY_FRACTION
+  //      │
+  //      └── accumulated ADA >= remaining loan? ──► LONG_REPAY (full repay)
+  //                                                       │
+  //                                                  LONG_WITHDRAW
+  //                                                       │
+  //                                                  LONG_SELL_ALL
+  //
+  // Key constraints:
+  //   1. newDebt = currentDebt - partialRepayAmount, must satisfy newDebt >= market.parameters.minValue.
+  //      If loanAmount - availableADA < minValue, target newDebt = minValue instead
+  //      (repay less this round so the position stays legal), then on the next
+  //      LONG_SELL_FREED the remaining minValue will be fully repayable.
+  //   2. newCollateral is proportionally reduced:
+  //      newCollateral = floor(totalCollateral * newDebt / currentDebt)
+  //   3. The loan UTXO ID changes after each modifyBorrow. Handlers fetch the current
+  //      loan from the Liqwid API (always up-to-date).
+  //   4. Decision to enter fractional flow is made in waitingLongSell / waitingLongSellFreed
+  //      (each function does only one thing: handleLongRepay = full repay only).
+  // ============================================================================
+
+  /**
+   * Build LONG_REPAY_FRACTION: Partial debt repay via modifyBorrow.
+   * Self-contained — fetches current loan from Liqwid API.
+   * Reduces debt by available ADA while keeping full collateral unchanged.
+   * Step 2 (LONG_WITHDRAW_FRACTION) reduces collateral proportionally in a separate tx.
+   */
+  export const handleLongRepayFraction = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
+    invariant(order.orderType === LongOrderType.LONG_REPAY_FRACTION, "Invalid order type for handleLongRepayFraction");
+    invariant(order.assetIn, "assetIn is required for LONG_REPAY_FRACTION order");
+    invariant(order.amountIn, "amountIn (ADA available to repay) is required for LONG_REPAY_FRACTION order");
+
+    const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+
+    // Fetch current loan from API (always up-to-date, even after prior modifyBorrow calls)
+    const userAddr = Address.fromBech32(userAddress);
+    const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
+    invariant(pkh, "Failed to extract public key hash from user address");
+    const loansResult = await LiqwidProviderV2.Data.loansForUser(apiConfig, [pkh]);
+    if (loansResult.type === "err") {
+      throw new Error(`Failed to fetch loans for partial repay: ${loansResult.error.message}`);
+    }
+    const loan = loansResult.value.find((l) => l.marketId === marketConfig.borrowMarketIdLong);
+    invariant(loan, `No active loan found for market ${marketConfig.borrowMarketIdLong}`);
+
+    const loanUtxoId = `${loan.transactionId}-${loan.transactionIndex}`;
+
+    // Fetch market to get minimum borrow amount constraint.
+    const marketResult = await LiqwidProviderV2.Data.market(
+      apiConfig,
+      marketConfig.borrowMarketIdLong as LiqwidProviderV2.MarketId,
+    );
+    if (marketResult.type === "err") {
+      throw new Error(`Failed to fetch market for partial repay: ${marketResult.error.message}`);
+    }
+    invariant(marketResult.value, `Market ${marketConfig.borrowMarketIdLong} not found`);
+    const minValueLovelace = Math.round(marketResult.value.parameters.minValue * 1_000_000); // ADA → Lovelace
+
+    // loan.amount is in ADA (float); convert to Lovelace to match order.amountIn and API expectations.
+    const currentDebtLovelace = Math.round(loan.amount * 1_000_000);
+    const availableLovelace = Number(order.amountIn); // already in Lovelace
+    const qTokenAmountFloat = loan.collaterals[0]?.qTokenAmount;
+    invariant(qTokenAmountFloat !== undefined, "Loan has no collateral — cannot compute partial repay");
+    // qTokenAmount from API is human-readable (divided by 10^6), convert to raw on-chain amount
+    const qTokenAmountRaw = Math.round(qTokenAmountFloat * 1_000_000);
+
+    // Remaining debt must stay >= minValue so the position stays protocol-legal.
+    const newDebt = Math.max(currentDebtLovelace - availableLovelace, minValueLovelace);
+
+    logger.info("handleLongRepayFraction", {
+      currentDebtLovelace,
+      availableLovelace,
+      minValueLovelace,
+      qTokenAmountRaw,
+      newDebt,
+      loanId: loan.id,
+    });
+
+    const qTokenParts = marketConfig.assetBQTokenRaw.split(".");
+    const qTokenPolicyId = qTokenParts[0];
+    const collateralId = `${marketConfig.borrowMarketIdLong}.${qTokenPolicyId}`;
+
+    // Step 1 of fractional close: reduce debt only, keep FULL collateral unchanged.
+    // Step 2 (LONG_WITHDRAW_FRACTION) will reduce collateral proportionally in a separate tx.
+    const buildTxResult = await LiqwidProviderV2.Transactions.repayLoanFraction(apiConfig, {
+      address: userAddress,
+      utxos,
+      loanUtxoId,
+      amount: newDebt,
+      collaterals: [{ id: collateralId, amount: qTokenAmountRaw }],
+    });
+
+    if (buildTxResult.type === "err") {
+      throw new Error(`Failed to build repay-fraction transaction: ${buildTxResult.error.message}`);
+    }
+
+    const txRaw = buildTxResult.value;
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const txBody = eTx.body();
+    const ttl = txBody.ttl();
+    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
+    safeFreeRustObjects(eTx, txBody);
+
+    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    const txId = LiqwidProviderV2.getTxHash(txRaw);
+
+    return { txRaw, txId, validTo: validTo.getTime() };
+  };
+
+  /**
+   * Wait for LONG_REPAY_FRACTION tx confirmation.
+   *
+   * LONG_REPAY_FRACTION is a Liqwid modifyBorrow tx that reduces debt while keeping
+   * full collateral. No tokens are returned to the user (ADA is consumed as repayment).
+   *
+   * On confirmation → transition to LONG_WITHDRAW_FRACTION:
+   *   amountIn = originalDebtLovelace (for proportional collateral calc in handleLongWithdrawFraction)
+   */
+  export const waitingLongRepayFraction = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, userAddress, cardanoscanProvider, originalDebtLovelace } = options;
+    invariant(originalDebtLovelace, "originalDebtLovelace is required for waitingLongRepayFraction");
+
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
+
+    if (txFoundOnChain) {
+      // LONG_REPAY_FRACTION has no output (ADA consumed as repayment) → no amountOut
+      return {
+        isConfirmed: true,
+        nextOrderType: LongOrderType.LONG_WITHDRAW_FRACTION,
+        assetIn: marketConfig.assetA.toString(), // placeholder (handler fetches loan from API)
+        amountIn: originalDebtLovelace, // original debt for proportional collateral calc
+        assetOut: marketConfig.assetB.toString(), // asset B will be received after withdraw
+      };
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Build LONG_WITHDRAW_FRACTION: Reduce collateral via modifyBorrow after a partial repay.
+   * Keeps the same debt level, reduces collateral proportionally, and redeems freed qTokens
+   * to the underlying asset (sent to wallet for selling in LONG_SELL_FREED).
+   */
+  export const handleLongWithdrawFraction = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
+    invariant(
+      order.orderType === LongOrderType.LONG_WITHDRAW_FRACTION,
+      "Invalid order type for handleLongWithdrawFraction",
+    );
+
+    const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+
+    // Fetch current loan state (after LONG_REPAY_FRACTION: debt reduced, collateral unchanged)
+    const userAddr = Address.fromBech32(userAddress);
+    const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
+    invariant(pkh, "Failed to extract public key hash from user address");
+    const loansResult = await LiqwidProviderV2.Data.loansForUser(apiConfig, [pkh]);
+    if (loansResult.type === "err") {
+      throw new Error(`Failed to fetch loans for withdraw fraction: ${loansResult.error.message}`);
+    }
+    const loan = loansResult.value.find((l) => l.marketId === marketConfig.borrowMarketIdLong);
+    invariant(loan, `No active loan found for market ${marketConfig.borrowMarketIdLong}`);
+
+    // Use loan UTXO info from the API (always up-to-date after modifyBorrow calls)
+    const loanUtxoId = `${loan.transactionId}-${loan.transactionIndex}`;
+
+    const currentDebtLovelace = Math.round(loan.amount * 1_000_000);
+    const qTokenAmountFloat = loan.collaterals[0]?.qTokenAmount;
+    invariant(qTokenAmountFloat !== undefined, "Loan has no collateral");
+    const qTokenAmountRaw = Math.round(qTokenAmountFloat * 1_000_000);
+
+    // Fetch market to compute proportional collateral based on original debt ratio.
+    // order.amountIn stores the original debt (before LONG_REPAY_FRACTION) for proportional calc.
+    const originalDebtLovelace = order.amountIn ? Number(order.amountIn) : currentDebtLovelace;
+    const proportionalCollateral = Math.floor(qTokenAmountRaw * (currentDebtLovelace / originalDebtLovelace));
+
+    logger.info("handleLongWithdrawFraction", {
+      currentDebtLovelace,
+      originalDebtLovelace,
+      qTokenAmountRaw,
+      proportionalCollateral,
+      freedCollateral: qTokenAmountRaw - proportionalCollateral,
+      loanId: loan.id,
+    });
+
+    const qTokenParts = marketConfig.assetBQTokenRaw.split(".");
+    const qTokenPolicyId = qTokenParts[0];
+    const collateralId = `${marketConfig.borrowMarketIdLong}.${qTokenPolicyId}`;
+
+    // Step 2: keep same debt, reduce collateral proportionally, redeem freed qTokens to underlying.
+    const buildTxResult = await LiqwidProviderV2.Transactions.repayLoanFraction(apiConfig, {
+      address: userAddress,
+      utxos,
+      loanUtxoId,
+      amount: currentDebtLovelace,
+      collaterals: [{ id: collateralId, amount: proportionalCollateral }],
+      redeemCollateral: true,
+    });
+
+    if (buildTxResult.type === "err") {
+      throw new Error(`Failed to build withdraw-fraction transaction: ${buildTxResult.error.message}`);
+    }
+
+    const txRaw = buildTxResult.value;
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const txBody = eTx.body();
+    const ttl = txBody.ttl();
+    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
+    safeFreeRustObjects(eTx, txBody);
+
+    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    const txId = LiqwidProviderV2.getTxHash(txRaw);
+
+    return { txRaw, txId, validTo: validTo.getTime() };
+  };
+
+  /**
+   * Wait for LONG_WITHDRAW_FRACTION tx confirmation.
+   * Finds asset B received (freed collateral redeemed to underlying) and transitions to LONG_SELL_FREED.
+   */
+  export const waitingLongWithdrawFraction = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
+
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
+
+    if (txFoundOnChain) {
+      const userAddressHex = userAddress.toHex();
+      const assetBUnit = marketConfig.assetB.toBlockFrostString();
+
+      for (const output of txFoundOnChain.outputs) {
+        if (output.address === userAddressHex) {
+          if (output.tokens && output.tokens.length > 0) {
+            const matchingToken = output.tokens.find((token) => token.assetId === assetBUnit);
+            if (matchingToken) {
+              const amountOut = BigInt(matchingToken.value);
+              return {
+                isConfirmed: true,
+                nextOrderType: LongOrderType.LONG_SELL_FREED,
+                assetIn: marketConfig.assetB.toString(),
+                amountIn: amountOut.toString(),
+                assetOut: marketConfig.assetA.toString(),
+                amountOut: amountOut.toString(),
+              };
+            }
+          }
+        }
+      }
+
+      throw new Error(
+        `LONG_WITHDRAW_FRACTION tx confirmed (${txHash}) but could not find output with asset ${marketConfig.assetB.toString()}`,
+      );
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Build LONG_SELL_FREED: Sell freed assetB for ADA. Same DEX swap as handleLongSell.
+   */
+  export const handleLongSellFreed = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    invariant(options.order.orderType === LongOrderType.LONG_SELL_FREED, "Invalid order type for handleLongSellFreed");
+    return handleLongSell({ ...options, order: { ...options.order, orderType: LongOrderType.LONG_SELL } });
+  };
+
+  /**
+   * Wait for LONG_SELL_FREED order output to be spent (DEX consumed).
+   *
+   * On confirmation, transitions to LONG_REPAY (full repay) with the ADA received.
+   * The LONG_REPAY handler will check if funds are sufficient; if not, it will
+   * trigger another fractional cycle automatically.
+   */
+  export const waitingLongSellFreed = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, networkEnv } = options;
+    invariant(orderOutputIndex !== undefined, "orderOutputIndex is required for waitingLongSellFreed");
+
+    const userAddressHex = userAddress.toHex();
+
+    const spendingTx = await cardanoscanProvider.findTransactionHasSpent(
+      userAddress,
+      txHash,
+      orderOutputIndex,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
+
+    if (spendingTx) {
+      for (const output of spendingTx.outputs) {
+        if (output.address === userAddressHex) {
+          const amountOut = BigInt(output.value);
+
+          // Check if we now have enough ADA to fully repay the remaining loan.
+          const { canFullRepay, loanAmount } = await checkLongRepayFunds(
+            networkEnv,
+            userAddress.bech32,
+            marketConfig,
+            Number(amountOut),
+          );
+
+          logger.info("waitingLongSellFreed: canFullRepay check", {
+            available: amountOut.toString(),
+            loanAmount: loanAmount.toString(),
+            canFullRepay,
+          });
+
+          if (canFullRepay) {
+            // Enough ADA → transition to existing LONG_REPAY (from closePosition)
+            return {
+              isConfirmed: true,
+              nextOrderType: LongOrderType.LONG_REPAY,
+              assetIn: marketConfig.assetA.toString(),
+              amountIn: amountOut.toString(),
+              assetOut: marketConfig.assetBQTokenRaw,
+              amountOut: amountOut.toString(),
+            };
+          }
+
+          // Still not enough → loop: create another fractional cycle
+          // LONG_REPAY_FRACTION has no output (ADA is consumed as repayment), so no assetOut
+          return {
+            isConfirmed: true,
+            nextOrderType: LongOrderType.LONG_REPAY_FRACTION,
+            assetIn: marketConfig.assetA.toString(),
+            amountIn: amountOut.toString(),
+            amountOut: amountOut.toString(),
+            additionalOrders: [
+              { orderType: LongOrderType.LONG_REPAY_FRACTION },
+              { orderType: LongOrderType.LONG_WITHDRAW_FRACTION },
+              { orderType: LongOrderType.LONG_SELL_FREED },
+            ],
+            originalDebtLovelace: loanAmount.toString(),
+          };
+        }
+      }
+
+      throw new Error(`LONG_SELL_FREED output spent (tx: ${spendingTx.hash}) but could not find ADA output for user`);
+    }
+
+    return { isConfirmed: false };
   };
 
   /**
@@ -662,9 +1074,14 @@ export namespace StateMachine {
         nextOrderType: LongOrderType | ShortOrderType;
         assetIn: string;
         amountIn: string;
-        assetOut: string;
-        /** Amount received from this order (to update order.amount_out) */
-        amountOut: string;
+        /** Expected output asset for the next order (undefined if the order has no output, e.g. LONG_REPAY_FRACTION) */
+        assetOut?: string;
+        /** Amount received from this order (to update order.amount_out). Undefined if no output (e.g. LONG_REPAY_FRACTION) */
+        amountOut?: string;
+        /** Orders to create for fractional repay flow (first one = nextOrderType) */
+        additionalOrders?: Array<{ orderType: string }>;
+        /** Debt in lovelace before fractional repay (stored in next order's amountOut for propagation) */
+        originalDebtLovelace?: string;
       }
     | {
         isConfirmed: true;
@@ -679,6 +1096,8 @@ export namespace StateMachine {
     txHash: string;
     userAddress: Address;
     cardanoscanProvider: CardanoscanProvider;
+    /** Network environment (needed for Liqwid API calls in waiting functions) */
+    networkEnv: NetworkEnvironment;
     /** Current order type being waited on */
     orderType: string;
     /** Order output index (used for LONG_BUY to check if output is spent) */
@@ -689,6 +1108,19 @@ export namespace StateMachine {
     positionAmountIn?: string;
     /** Loan transaction ID (used for LONG_REPAY to identify the loan) */
     loanTxId?: string;
+    /**
+     * Debt in lovelace before the partial repay (LONG_REPAY_FRACTION).
+     * Used by waitingLongRepayFraction to pass to LONG_WITHDRAW_FRACTION
+     * for proportional collateral calculation.
+     */
+    originalDebtLovelace?: string;
+    /**
+     * Running total of ADA accumulated across LONG_SELL + LONG_SELL_FREED iterations
+     * (used for LONG_SELL_FREED to decide whether to loop back to LONG_REPAY_FRACTION
+     * or transition to the final LONG_REPAY).
+     * Stored as a string to avoid BigInt serialisation issues.
+     */
+    accumulatedAda?: string;
   };
 
   /**
@@ -838,7 +1270,7 @@ export namespace StateMachine {
    * - For LONG_SELL_ALL: this is the final step, position becomes CLOSED
    */
   export const waitingLongSell = async (options: WaitingOptions): Promise<WaitingResult> => {
-    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, orderType } = options;
+    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, orderType, networkEnv } = options;
     invariant(orderOutputIndex !== undefined, "orderOutputIndex is required for waitingLongSell");
 
     const userAddressHex = userAddress.toHex();
@@ -870,14 +1302,46 @@ export namespace StateMachine {
             };
           }
 
-          // For LONG_SELL, transition to LONG_REPAY
+          // For LONG_SELL, check if we have enough ADA to fully repay the loan.
+          const { canFullRepay, loanAmount } = await checkLongRepayFunds(
+            networkEnv,
+            userAddress.bech32,
+            marketConfig,
+            Number(amountOut),
+          );
+
+          logger.info("waitingLongSell: canFullRepay check", {
+            available: amountOut.toString(),
+            loanAmount: loanAmount.toString(),
+            canFullRepay,
+          });
+
+          if (canFullRepay) {
+            // Happy path: enough ADA → full repay
+            return {
+              isConfirmed: true,
+              nextOrderType: LongOrderType.LONG_REPAY,
+              assetIn: marketConfig.assetA.toString(),
+              amountIn: amountOut.toString(),
+              assetOut: marketConfig.assetBQTokenRaw,
+              amountOut: amountOut.toString(),
+            };
+          }
+
+          // Insufficient ADA → start fractional repay cycle
+          // LONG_REPAY_FRACTION has no output (ADA is consumed as repayment), so no assetOut
           return {
             isConfirmed: true,
-            nextOrderType: LongOrderType.LONG_REPAY,
+            nextOrderType: LongOrderType.LONG_REPAY_FRACTION,
             assetIn: marketConfig.assetA.toString(),
             amountIn: amountOut.toString(),
-            assetOut: marketConfig.assetBQTokenRaw, // qToken to be redeemed
             amountOut: amountOut.toString(),
+            additionalOrders: [
+              { orderType: LongOrderType.LONG_REPAY_FRACTION },
+              { orderType: LongOrderType.LONG_WITHDRAW_FRACTION },
+              { orderType: LongOrderType.LONG_SELL_FREED },
+            ],
+            originalDebtLovelace: loanAmount.toString(),
           };
         }
       }
@@ -1255,6 +1719,9 @@ export namespace StateMachine {
     [LongOrderType.LONG_BUY_MORE]: handleLongBuy,
     [LongOrderType.LONG_SELL]: handleLongSell,
     [LongOrderType.LONG_REPAY]: handleLongRepay,
+    [LongOrderType.LONG_REPAY_FRACTION]: handleLongRepayFraction,
+    [LongOrderType.LONG_WITHDRAW_FRACTION]: handleLongWithdrawFraction,
+    [LongOrderType.LONG_SELL_FREED]: handleLongSellFreed,
     [LongOrderType.LONG_WITHDRAW]: handleLongWithdraw,
     [LongOrderType.LONG_SELL_ALL]: handleLongSell,
     [ShortOrderType.SHORT_SUPPLY]: handleShortSupply,
@@ -1273,6 +1740,9 @@ export namespace StateMachine {
     [LongOrderType.LONG_BUY_MORE]: waitingLongBuy, // Reuse waitingLongBuy
     [LongOrderType.LONG_SELL]: waitingLongSell,
     [LongOrderType.LONG_REPAY]: waitingLongRepay,
+    [LongOrderType.LONG_REPAY_FRACTION]: waitingLongRepayFraction,
+    [LongOrderType.LONG_WITHDRAW_FRACTION]: waitingLongWithdrawFraction,
+    [LongOrderType.LONG_SELL_FREED]: waitingLongSellFreed,
     [LongOrderType.LONG_WITHDRAW]: waitingLongWithdraw,
     [LongOrderType.LONG_SELL_ALL]: waitingLongSell,
     [ShortOrderType.SHORT_SUPPLY]: waitingShortSupply,

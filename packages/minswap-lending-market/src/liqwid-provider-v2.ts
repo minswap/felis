@@ -346,6 +346,39 @@ export namespace LiqwidProviderV2 {
     asset: Asset;
   };
 
+  export type MarketCollateralParameter = {
+    id: string;
+    maxLoanToValue: number;
+    weightedMaxLoanToValue: number;
+    liquidationThreshold: number;
+    weightedLiquidationThreshold: number;
+    liquidationPenalty: number | null;
+    liquidationProfitability: number | null;
+    collateralWeight: number | null;
+    collateral: {
+      id: string;
+      displayName: string;
+      symbol: string;
+      name: string;
+    };
+  };
+
+  export type MarketIncomeParameters = {
+    /** Protocol reserve share */
+    reserve: number;
+    supplier: number;
+    staker: number;
+    /** DAO treasury share */
+    treasury: number;
+  };
+
+  export type MarketInterestModelParameters = {
+    baseRate: number | null;
+    kinkRate: number | null;
+    utilMultiplier: number | null;
+    utilMultiplierJump: number | null;
+  };
+
   export type MarketParameters = {
     id: string;
     borrowCap: number | null;
@@ -358,6 +391,9 @@ export namespace LiqwidProviderV2 {
     maxBatchTime: number;
     minBatchSize: number;
     minBatchTime: number;
+    collateralParameters: MarketCollateralParameter[] | null;
+    incomeParameters: MarketIncomeParameters;
+    interestModelParameters: MarketInterestModelParameters;
   };
 
   export type YieldEarnedMarket = {
@@ -407,7 +443,9 @@ export namespace LiqwidProviderV2 {
   ): Promise<Result<TData, Error>> => {
     try {
       const requestBody = JSON.stringify({ operationName, query, variables });
-      // console.log(`[LiqwidProviderV2] ${operationName} request:`, requestBody);
+      console.log(
+        `[LiqwidProviderV2] ${operationName} curl:\ncurl '${getApiUrl(config)}' \\\n  -H 'content-type: application/json' \\\n  --data-raw '${requestBody}'`,
+      );
 
       const response = await fetch(getApiUrl(config), {
         method: "POST",
@@ -576,6 +614,27 @@ export namespace LiqwidProviderV2 {
       return modifyBorrow(config, modifyBorrowInput);
     };
 
+    /**
+     * Build a partial repay loan transaction (repay a fraction, not full repay)
+     * Uses modifyBorrow internally with a specific amount (new desired debt level)
+     */
+    export const repayLoanFraction = async (
+      config: ApiConfig,
+      input: RepayLoanTransactionInput & { amount: number; redeemCollateral?: boolean },
+    ): Promise<Result<string, Error>> => {
+      const modifyBorrowInput: ModifyBorrowTransactionInput = {
+        address: input.address,
+        changeAddress: input.changeAddress,
+        otherAddresses: input.otherAddresses,
+        utxos: input.utxos,
+        txId: input.loanUtxoId,
+        amount: input.amount,
+        collaterals: input.collaterals,
+        redeemCollateral: input.redeemCollateral,
+      };
+      return modifyBorrow(config, modifyBorrowInput);
+    };
+
     /** Submit a signed transaction */
     export const submit = async (config: ApiConfig, input: SubmitTransactionInput): Promise<Result<string, Error>> => {
       const result = await executeQuery<SubmitResponse, { input: SubmitTransactionInput }>(
@@ -706,7 +765,12 @@ export namespace LiqwidProviderV2 {
                 supplyAPY borrowAPY lqSupplyAPY utilization exchangeRate
                 batching batchExpired frozen private delisting prime
                 loanOriginationFeePercentage
-                parameters { id borrowCap supplyCap minValue minHealthFactor actionCount maxCollateralCount maxBatchTime minBatchSize minBatchTime }
+                parameters {
+                  id borrowCap supplyCap minValue minHealthFactor actionCount maxCollateralCount maxBatchTime minBatchSize minBatchTime
+                  collateralParameters { id maxLoanToValue weightedMaxLoanToValue liquidationThreshold weightedLiquidationThreshold liquidationPenalty liquidationProfitability collateralWeight collateral { id displayName symbol name } }
+                  incomeParameters { reserve supplier staker treasury }
+                  interestModelParameters { baseRate kinkRate utilMultiplier utilMultiplierJump }
+                }
                 asset { id name symbol displayName decimals currencySymbol policyId hexName logo price(input: $currency) priceUpdatedAt }
                 receiptAsset { id name symbol displayName decimals currencySymbol policyId hexName logo price(input: $currency) priceUpdatedAt }
               }
@@ -771,17 +835,8 @@ export namespace LiqwidProviderV2 {
     };
 
     /** Get loans (borrow positions) data */
-    export const loans = async (
-      config: ApiConfig,
-      input: LoansInput,
-      currency: Currency = "USD",
-    ): Promise<Result<Pagination<Loan>, Error>> => {
-      const result = await executeQuery<LoansResponse, { input: LoansInput; currency: InCurrencyInput }>(
-        config,
-        "Loans",
-        LOANS_QUERY,
-        { input, currency: { currency } },
-      );
+    export const loans = async (config: ApiConfig, input: LoansInput): Promise<Result<Pagination<Loan>, Error>> => {
+      const result = await executeQuery<LoansResponse, { input: LoansInput }>(config, "Loans", LOANS_QUERY, { input });
       return result.type === "ok" ? Result.ok(result.value.liqwid.data.loans) : result;
     };
 
@@ -801,22 +856,14 @@ export namespace LiqwidProviderV2 {
     };
 
     /** Get a single market by ID */
-    export const market = async (
-      config: ApiConfig,
-      marketId: MarketId,
-      currency: Currency = "USD",
-    ): Promise<Result<Market | null, Error>> => {
-      const result = await markets(config, { ids: [marketId], perPage: 1 }, currency);
+    export const market = async (config: ApiConfig, marketId: MarketId): Promise<Result<Market | null, Error>> => {
+      const result = await markets(config, { ids: [marketId], perPage: 1 });
       return result.type === "ok" ? Result.ok(result.value.results[0] ?? null) : result;
     };
 
     /** Get loans for specific payment keys */
-    export const loansForUser = async (
-      config: ApiConfig,
-      paymentKeys: string[],
-      currency: Currency = "USD",
-    ): Promise<Result<Loan[], Error>> => {
-      const result = await loans(config, { paymentKeys, perPage: 100 }, currency);
+    export const loansForUser = async (config: ApiConfig, paymentKeys: string[]): Promise<Result<Loan[], Error>> => {
+      const result = await loans(config, { paymentKeys, perPage: 100 });
       return result.type === "ok" ? Result.ok(result.value.results) : result;
     };
   }

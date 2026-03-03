@@ -203,17 +203,50 @@ export class PositionService {
           txHash: waitingOrder.createdTxId,
           userAddress: Address.fromBech32(userAddress),
           cardanoscanProvider: this.cardanoscanProvider,
+          networkEnv: this.networkEnv,
           orderType: waitingOrder.orderType,
           orderOutputIndex: waitingOrder.createdTxIndex ?? 0,
           assetOut: Asset.fromString(waitingOrder.assetOut),
           positionAmountIn: position.amountIn,
         };
 
+        // For LONG_REPAY_FRACTION, pass the original debt (stored in amountOut during creation)
+        if (waitingOrder.orderType === StateMachine.LongOrderType.LONG_REPAY_FRACTION) {
+          waitingOptions.originalDebtLovelace = waitingOrder.amountOut ?? undefined;
+        }
+
         const waitingResult = await waitingFn(waitingOptions);
 
         if (waitingResult.isConfirmed) {
           // Check if this is a transition state (has nextOrderType)
           if ("nextOrderType" in waitingResult) {
+            // If the waiting function signals a fractional flow, create the additional orders first
+            // so that transitionToNextOrder can find the next order by type.
+            if (waitingResult.additionalOrders && waitingResult.additionalOrders.length > 0) {
+              const newOrders = await OrderRepository.createOrders(
+                this.db,
+                waitingResult.additionalOrders.map((o) => ({
+                  positionId: waitingOrder.positionId,
+                  orderType: o.orderType,
+                })),
+              );
+
+              logger.info("Fractional flow: created additional orders", {
+                currentOrderId: waitingOrder.id,
+                additionalOrders: waitingResult.additionalOrders.map((o) => o.orderType),
+              });
+
+              // Store originalDebtLovelace in the first additional order's amountOut
+              // (LONG_REPAY_FRACTION — needed by waitingLongRepayFraction for proportional collateral calc)
+              if (waitingResult.originalDebtLovelace && newOrders.length > 0) {
+                await OrderRepository.updateOrderAmountOut(
+                  this.db,
+                  newOrders[0].id,
+                  waitingResult.originalDebtLovelace,
+                );
+              }
+            }
+
             const transitionResult = await OrderRepository.transitionToNextOrder(this.db, {
               currentOrderId: waitingOrder.id,
               positionId: waitingOrder.positionId,
@@ -225,8 +258,34 @@ export class PositionService {
             });
 
             if (!transitionResult.success) {
-              logger.error("Failed to transition to next order", { error: transitionResult.error });
-              return { success: false, error: transitionResult.error };
+              // Next order doesn't exist — create it dynamically.
+              logger.info("Next order not found, creating dynamically", {
+                currentOrderId: waitingOrder.id,
+                nextOrderType: waitingResult.nextOrderType,
+              });
+
+              const newOrder = await OrderRepository.createOrder(this.db, {
+                positionId: waitingOrder.positionId,
+                orderType: waitingResult.nextOrderType,
+                assetIn: waitingResult.assetIn,
+                amountIn: waitingResult.amountIn,
+                assetOut: waitingResult.assetOut,
+              });
+
+              // Complete current order
+              await OrderRepository.completeOrder(this.db, waitingOrder.id, waitingResult.amountOut);
+
+              logger.info("Order completed, created new order", {
+                currentOrderId: waitingOrder.id,
+                currentOrderType: waitingOrder.orderType,
+                nextOrderId: newOrder.id,
+                nextOrderType: waitingResult.nextOrderType,
+              });
+
+              return {
+                success: false,
+                error: `${waitingOrder.orderType} completed. ${waitingResult.nextOrderType} order ready. Call build-tx again to continue.`,
+              };
             }
 
             logger.info("Order completed, transitioned to next order", {
@@ -385,23 +444,8 @@ export class PositionService {
         amountBorrow: position.amountBorrow,
       };
 
-      // For LONG_REPAY, we need the loan transaction ID, output index, and collateral amount from LONG_BORROW
-      if (order.orderType === StateMachine.LongOrderType.LONG_REPAY) {
-        const borrowOrder = await OrderRepository.getOrderByPositionAndType(
-          this.db,
-          position.id,
-          StateMachine.LongOrderType.LONG_BORROW,
-        );
-        if (!borrowOrder?.createdTxId) {
-          return { success: false, error: "LONG_BORROW order not found or not confirmed yet" };
-        }
-        if (!borrowOrder.amountIn) {
-          return { success: false, error: "LONG_BORROW order amountIn (collateral amount) not set" };
-        }
-        buildOptions.loanTxId = borrowOrder.createdTxId;
-        buildOptions.loanOutputIndex = borrowOrder.createdTxIndex ?? 0;
-        buildOptions.collateralAmount = borrowOrder.amountIn; // qToken amount used as collateral
-      }
+      // LONG_REPAY and LONG_REPAY_FRACTION: no extra options needed — handlers fetch
+      // loan data directly from the Liqwid API (always up-to-date, even after modifyBorrow).
 
       // For LONG_WITHDRAW, we need the amountOut from LONG_SUPPLY order
       if (order.orderType === StateMachine.LongOrderType.LONG_WITHDRAW) {

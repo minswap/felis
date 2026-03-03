@@ -89,7 +89,6 @@ export namespace OrderRepository {
       .where((eb) => eb.or([eb("created_tx_id", "is", null), eb("created_tx_id", "=", "")]))
       .where("asset_in", "is not", null)
       .where("amount_in", "is not", null)
-      .where("asset_out", "is not", null)
       .orderBy("id", "asc")
       .executeTakeFirst();
 
@@ -142,17 +141,16 @@ export namespace OrderRepository {
     orderId: bigint,
     assetIn: string,
     amountIn: string,
-    assetOut: string,
+    assetOut?: string,
   ): Promise<void> {
-    await db
-      .updateTable("order")
-      .set({
-        asset_in: assetIn,
-        amount_in: amountIn,
-        asset_out: assetOut,
-      })
-      .where("id", "=", orderId.toString())
-      .execute();
+    const setValues: Record<string, string> = {
+      asset_in: assetIn,
+      amount_in: amountIn,
+    };
+    if (assetOut !== undefined) {
+      setValues.asset_out = assetOut;
+    }
+    await db.updateTable("order").set(setValues).where("id", "=", orderId.toString()).execute();
   }
 
   /**
@@ -189,8 +187,9 @@ export namespace OrderRepository {
   export async function updateOrderAmountOut(
     db: Kysely<DB> | Transaction<DB>,
     orderId: bigint,
-    amountOut: string,
+    amountOut?: string,
   ): Promise<void> {
+    if (amountOut === undefined) return;
     await db.updateTable("order").set({ amount_out: amountOut }).where("id", "=", orderId.toString()).execute();
   }
 
@@ -200,13 +199,13 @@ export namespace OrderRepository {
   export async function completeOrder(
     db: Kysely<DB> | Transaction<DB>,
     orderId: bigint,
-    amountOut: string,
+    amountOut?: string,
   ): Promise<void> {
-    await db
-      .updateTable("order")
-      .set({ amount_out: amountOut, waiting: false })
-      .where("id", "=", orderId.toString())
-      .execute();
+    const setValues: Record<string, string | boolean> = { waiting: false };
+    if (amountOut !== undefined) {
+      setValues.amount_out = amountOut;
+    }
+    await db.updateTable("order").set(setValues).where("id", "=", orderId.toString()).execute();
   }
 
   /**
@@ -242,9 +241,10 @@ export namespace OrderRepository {
     nextOrderType: string;
     assetIn: string;
     amountIn: string;
-    assetOut: string;
-    /** Amount out of current order (to update order.amount_out) */
-    amountOut: string;
+    /** Expected output asset for the next order (undefined if order has no output) */
+    assetOut?: string;
+    /** Amount out of current order (to update order.amount_out). Undefined if no output */
+    amountOut?: string;
   };
 
   export type TransitionToNextOrderResult = { success: true; nextOrder: Order } | { success: false; error: string };
@@ -287,7 +287,7 @@ export namespace OrderRepository {
         ...nextOrder,
         assetIn,
         amountIn,
-        assetOut,
+        assetOut: assetOut ?? nextOrder.assetOut,
       },
     };
   }
