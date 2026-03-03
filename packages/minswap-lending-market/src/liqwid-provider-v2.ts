@@ -305,6 +305,7 @@ export namespace LiqwidProviderV2 {
     delisting: boolean;
     prime: boolean;
     loanOriginationFeePercentage: number;
+    parameters: MarketParameters;
     asset: Asset;
     receiptAsset: Asset;
   };
@@ -343,6 +344,20 @@ export namespace LiqwidProviderV2 {
     collaterals: LoanCollateral[];
     market: Market;
     asset: Asset;
+  };
+
+  export type MarketParameters = {
+    id: string;
+    borrowCap: number | null;
+    supplyCap: number | null;
+    /** Minimum amount required for each action (supply/borrow/withdraw) */
+    minValue: number;
+    minHealthFactor: number;
+    actionCount: number;
+    maxCollateralCount: number;
+    maxBatchTime: number;
+    minBatchSize: number;
+    minBatchTime: number;
   };
 
   export type YieldEarnedMarket = {
@@ -691,6 +706,7 @@ export namespace LiqwidProviderV2 {
                 supplyAPY borrowAPY lqSupplyAPY utilization exchangeRate
                 batching batchExpired frozen private delisting prime
                 loanOriginationFeePercentage
+                parameters { id borrowCap supplyCap minValue minHealthFactor actionCount maxCollateralCount maxBatchTime minBatchSize minBatchTime }
                 asset { id name symbol displayName decimals currencySymbol policyId hexName logo price(input: $currency) priceUpdatedAt }
                 receiptAsset { id name symbol displayName decimals currencySymbol policyId hexName logo price(input: $currency) priceUpdatedAt }
               }
