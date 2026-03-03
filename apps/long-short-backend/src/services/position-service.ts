@@ -4,7 +4,7 @@ import type { Kysely } from "kysely";
 import { StateMachine } from "../api/state-machine";
 import { getMarketConfig, isSupportedMarket } from "../config/market";
 import type { DB } from "../database";
-import { CardanoscanProvider, type MinswapAggregatorProvider } from "../provider";
+import { CardanoscanProvider, MinswapAggregatorProvider } from "../provider";
 import { OrderRepository } from "../repository/order-repository";
 import { type Position, PositionRepository } from "../repository/position-repository";
 import { logger } from "../utils";
