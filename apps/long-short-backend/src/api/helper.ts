@@ -14,7 +14,10 @@ export namespace ApiHelper {
    * @param witness - The signed data (COSEKey and COSESign1)
    */
   export function authenticate(data: object, userAddress: string, witness: SignedDataType): AuthenticateResult {
-    const message = Buffer.from(JSON.stringify(data)).toString("hex");
+    const stringified = JSON.stringify(data);
+    console.log("message stringified", stringified);
+
+    const message = Buffer.from(stringified).toString("hex");
     const hashMessage = HashUtils.sha256(message);
 
     const isValid = verifySignData({
