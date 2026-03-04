@@ -44,7 +44,7 @@ export async function createApiServer(options: ApiServerOptions): Promise<Fastif
   const positionService = new PositionService(db, networkEnv, cardanoscanProvider, aggregatorProvider);
 
   // Register routes
-  registerLiqwidRoutes(fastify, networkEnv);
+  registerLiqwidRoutes(fastify, networkEnv, db);
   registerMetadataRoutes(fastify, networkEnv);
   registerPositionRoutes(fastify, positionService);
 

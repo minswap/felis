@@ -96,6 +96,23 @@ export namespace OrderRepository {
   }
 
   /**
+   * Clear built_tx fields so the order can be rebuilt with fresh data.
+   */
+  export async function clearOrderBuiltTx(
+    db: Kysely<DB> | Transaction<DB>,
+    orderId: bigint,
+  ): Promise<void> {
+    await db
+      .updateTable("order")
+      .set({
+        built_tx_id: null,
+        built_valid_to: null,
+      })
+      .where("id", "=", orderId.toString())
+      .execute();
+  }
+
+  /**
    * Update order built_tx fields after building transaction
    */
   export async function updateOrderBuiltTx(
