@@ -710,12 +710,12 @@ export namespace StateMachine {
           }
 
           // Still not enough → loop: create another fractional cycle
-          // LONG_REPAY_FRACTION has no output (ADA is consumed as repayment), so no assetOut
           return {
             isConfirmed: true,
             nextOrderType: LongOrderType.LONG_REPAY_FRACTION,
             assetIn: marketConfig.assetA.toString(),
             amountIn: amountOut.toString(),
+            assetOut: marketConfig.assetA.toString(),
             amountOut: amountOut.toString(),
             additionalOrders: [
               { orderType: LongOrderType.LONG_REPAY_FRACTION },
@@ -1331,12 +1331,12 @@ export namespace StateMachine {
           }
 
           // Insufficient ADA → start fractional repay cycle
-          // LONG_REPAY_FRACTION has no output (ADA is consumed as repayment), so no assetOut
           return {
             isConfirmed: true,
             nextOrderType: LongOrderType.LONG_REPAY_FRACTION,
             assetIn: marketConfig.assetA.toString(),
             amountIn: amountOut.toString(),
+            assetOut: marketConfig.assetA.toString(),
             amountOut: amountOut.toString(),
             additionalOrders: [
               { orderType: LongOrderType.LONG_REPAY_FRACTION },
