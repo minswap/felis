@@ -480,10 +480,12 @@ export namespace StateMachine {
     const eTx = ECSL.Transaction.from_hex(txRaw);
     const txBody = eTx.body();
     const ttl = txBody.ttl();
-    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
     safeFreeRustObjects(eTx, txBody);
 
-    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    // Liqwid may build repay-fraction tx without TTL; default to 3 minutes
+    const validTo = Maybe.isJust(ttl)
+      ? getTimeFromSlotMagic(networkEnv, ttl)
+      : new Date(Date.now() + 3 * 60 * 1000);
     const txId = LiqwidProviderV2.getTxHash(txRaw);
 
     return { txRaw, txId, validTo: validTo.getTime() };
