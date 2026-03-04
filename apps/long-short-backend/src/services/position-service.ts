@@ -447,18 +447,8 @@ export class PositionService {
       // LONG_REPAY and LONG_REPAY_FRACTION: no extra options needed — handlers fetch
       // loan data directly from the Liqwid API (always up-to-date, even after modifyBorrow).
 
-      // For LONG_WITHDRAW, we need the amountOut from LONG_SUPPLY order
-      if (order.orderType === StateMachine.LongOrderType.LONG_WITHDRAW) {
-        const supplyOrder = await OrderRepository.getOrderByPositionAndType(
-          this.db,
-          position.id,
-          StateMachine.LongOrderType.LONG_SUPPLY,
-        );
-        if (!supplyOrder?.amountOut) {
-          return { success: false, error: "LONG_SUPPLY order not found or amountOut not set" };
-        }
-        buildOptions.supplyAmountOut = supplyOrder.amountOut;
-      }
+      // LONG_WITHDRAW and SHORT_WITHDRAW: handlers compute withdraw amount dynamically
+      // from UTxO qToken balance and market exchange rate (no DB lookup needed).
 
       // For SHORT_REPAY, we need the loan transaction ID, output index, and collateral amount from SHORT_BORROW
       if (order.orderType === StateMachine.ShortOrderType.SHORT_REPAY) {
@@ -476,19 +466,6 @@ export class PositionService {
         buildOptions.loanTxId = borrowOrder.createdTxId;
         buildOptions.loanOutputIndex = borrowOrder.createdTxIndex ?? 0;
         buildOptions.collateralAmount = borrowOrder.amountIn; // qADA amount used as collateral
-      }
-
-      // For SHORT_WITHDRAW, we need the amountIn from SHORT_SUPPLY order (original ADA supplied, not qADA)
-      if (order.orderType === StateMachine.ShortOrderType.SHORT_WITHDRAW) {
-        const supplyOrder = await OrderRepository.getOrderByPositionAndType(
-          this.db,
-          position.id,
-          StateMachine.ShortOrderType.SHORT_SUPPLY,
-        );
-        if (!supplyOrder?.amountIn) {
-          return { success: false, error: "SHORT_SUPPLY order not found or amountIn not set" };
-        }
-        buildOptions.supplyAmountOut = supplyOrder.amountIn;
       }
 
       const txResult = await buildFn(buildOptions);

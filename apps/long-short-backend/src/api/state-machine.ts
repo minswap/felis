@@ -73,8 +73,6 @@ export namespace StateMachine {
     loanOutputIndex?: number;
     /** Collateral qToken amount (used for SHORT_REPAY to redeem collateral) */
     collateralAmount?: string;
-    /** Supply amountOut from SUPPLY order (used for LONG_WITHDRAW / SHORT_WITHDRAW) */
-    supplyAmountOut?: string;
   };
 
   export const handleLongBuy = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
@@ -738,19 +736,44 @@ export namespace StateMachine {
    * Uses the amountOut from LONG_SUPPLY order as the withdraw amount
    */
   export const handleLongWithdraw = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
-    const { order, marketConfig, userAddress, networkEnv, utxos, supplyAmountOut } = options;
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
     invariant(order.orderType === LongOrderType.LONG_WITHDRAW, "Invalid order type for handleLongWithdraw");
-    invariant(order.assetIn, "assetIn is required for LONG_WITHDRAW order");
-    invariant(order.amountIn, "amountIn is required for LONG_WITHDRAW order");
-    invariant(supplyAmountOut, "supplyAmountOut is required for LONG_WITHDRAW order");
 
     const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+    const marketId = marketConfig.longCollateralMarketId as LiqwidProviderV2.MarketId;
+
+    // Get current qToken balance from UTxOs (may differ from original supply after fractional cycles)
+    const qTokenAsset = Asset.fromString(marketConfig.assetBQTokenRaw);
+    let qTokenBalance = 0n;
+    for (const utxoHex of utxos) {
+      const utxo = Utxo.fromHex(utxoHex);
+      const amount = utxo.output.value.get(qTokenAsset);
+      if (amount > 0n) {
+        qTokenBalance += amount;
+      }
+    }
+    invariant(qTokenBalance > 0n, "No qToken balance found in user UTxOs for LONG_WITHDRAW");
+
+    // Convert qToken amount to underlying amount via market exchange rate
+    const marketResult = await LiqwidProviderV2.Data.market(apiConfig, marketId);
+    if (marketResult.type === "err") {
+      throw new Error(`Failed to fetch market data: ${marketResult.error.message}`);
+    }
+    const market = marketResult.value;
+    invariant(market, `Market ${marketId} not found`);
+    const withdrawAmount = Math.floor(Number(qTokenBalance) * market.exchangeRate);
+
+    logger.info("handleLongWithdraw", {
+      qTokenBalance: qTokenBalance.toString(),
+      exchangeRate: market.exchangeRate,
+      withdrawAmount,
+    });
 
     const buildTxResult = await LiqwidProviderV2.Transactions.withdraw(apiConfig, {
       address: userAddress,
       utxos,
-      marketId: marketConfig.longCollateralMarketId as LiqwidProviderV2.MarketId,
-      amount: Number(supplyAmountOut),
+      marketId,
+      amount: withdrawAmount,
     });
 
     if (buildTxResult.type === "err") {
@@ -1031,19 +1054,44 @@ export namespace StateMachine {
    * Build SHORT_WITHDRAW transaction: Withdraw asset A (ADA) from Liqwid
    */
   export const handleShortWithdraw = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
-    const { order, marketConfig, userAddress, networkEnv, utxos, supplyAmountOut } = options;
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
     invariant(order.orderType === ShortOrderType.SHORT_WITHDRAW, "Invalid order type for handleShortWithdraw");
-    invariant(order.assetIn, "assetIn is required for SHORT_WITHDRAW order");
-    invariant(order.amountIn, "amountIn is required for SHORT_WITHDRAW order");
-    invariant(supplyAmountOut, "supplyAmountOut is required for SHORT_WITHDRAW order");
 
     const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+    const marketId = marketConfig.shortCollateralMarketId as LiqwidProviderV2.MarketId;
+
+    // Get current qToken balance from UTxOs
+    const qTokenAsset = Asset.fromString(marketConfig.assetAQTokenRaw);
+    let qTokenBalance = 0n;
+    for (const utxoHex of utxos) {
+      const utxo = Utxo.fromHex(utxoHex);
+      const amount = utxo.output.value.get(qTokenAsset);
+      if (amount > 0n) {
+        qTokenBalance += amount;
+      }
+    }
+    invariant(qTokenBalance > 0n, "No qToken balance found in user UTxOs for SHORT_WITHDRAW");
+
+    // Convert qToken amount to underlying amount via market exchange rate
+    const marketResult = await LiqwidProviderV2.Data.market(apiConfig, marketId);
+    if (marketResult.type === "err") {
+      throw new Error(`Failed to fetch market data: ${marketResult.error.message}`);
+    }
+    const market = marketResult.value;
+    invariant(market, `Market ${marketId} not found`);
+    const withdrawAmount = Math.floor(Number(qTokenBalance) * market.exchangeRate);
+
+    logger.info("handleShortWithdraw", {
+      qTokenBalance: qTokenBalance.toString(),
+      exchangeRate: market.exchangeRate,
+      withdrawAmount,
+    });
 
     const buildTxResult = await LiqwidProviderV2.Transactions.withdraw(apiConfig, {
       address: userAddress,
       utxos,
-      marketId: marketConfig.shortCollateralMarketId as LiqwidProviderV2.MarketId,
-      amount: Number(supplyAmountOut),
+      marketId,
+      amount: withdrawAmount,
     });
 
     if (buildTxResult.type === "err") {
