@@ -39,3 +39,4 @@ yarn-error.log*
 
 schema.json
 .npmrc
+.claude/settings.json
