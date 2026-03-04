@@ -481,9 +481,7 @@ export namespace StateMachine {
     safeFreeRustObjects(eTx, txBody);
 
     // Liqwid may build repay-fraction tx without TTL; default to 3 minutes
-    const validTo = Maybe.isJust(ttl)
-      ? getTimeFromSlotMagic(networkEnv, ttl)
-      : new Date(Date.now() + 3 * 60 * 1000);
+    const validTo = Maybe.isJust(ttl) ? getTimeFromSlotMagic(networkEnv, ttl) : new Date(Date.now() + 3 * 60 * 1000);
     const txId = LiqwidProviderV2.getTxHash(txRaw);
 
     return { txRaw, txId, validTo: validTo.getTime() };
