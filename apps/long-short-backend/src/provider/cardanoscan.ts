@@ -325,4 +325,39 @@ export class CardanoscanProvider {
     logger.info("UTXO not spent yet", { txHash, outputIndex: index });
     return null;
   }
+
+  /**
+   * Submit a signed transaction to the Cardano network
+   * @param txCbor - Transaction CBOR hex string
+   * @returns Transaction hash on success
+   * @throws Error with details on failure
+   */
+  async submitTx(txCbor: string): Promise<string> {
+    const url = `${this.baseUrl}/transaction/submit`;
+    const txBytes = Buffer.from(txCbor, "hex");
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/cbor",
+        apiKey: this.apiKey,
+      },
+      body: txBytes,
+    });
+
+    if (response.status === 204) {
+      // Derive tx hash from the CBOR
+      const txHash = txCbor.length > 0 ? txCbor : "";
+      logger.info("Transaction submitted successfully via Cardanoscan");
+      return txHash;
+    }
+
+    const errorData = await response.json();
+    const errorMsg = (errorData as { error?: string }).error ?? response.statusText;
+    logger.error("Failed to submit transaction via Cardanoscan", {
+      status: response.status,
+      error: errorMsg,
+    });
+    throw new Error(`Transaction submit failed (${response.status}): ${errorMsg}`);
+  }
 }

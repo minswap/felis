@@ -1,6 +1,7 @@
 import { Address, type Asset, type Bytes, type KupoUtxo, type TxIn, Utxo, Value } from "@minswap/felis-ledger-core";
 import { type CborHex, type CSLTransactionUnspentOutput, Maybe } from "@minswap/felis-ledger-utils";
 import invariant from "@minswap/tiny-invariant";
+import JSONBig from "json-bigint";
 import * as R from "remeda";
 import { logger, uniq } from "../utils";
 
@@ -46,6 +47,18 @@ export type KupoUtxosResponse = {
     header_hash: string;
   } | null;
 };
+
+export async function fetchBigInt<T>(input: Request | URL | string, init?: RequestInit): Promise<T> {
+  const response = await fetch(input, init);
+  if (response.ok) {
+    const text = await response.text();
+    return JSONBig({
+      useNativeBigInt: true,
+    }).parse(text);
+  } else {
+    throw Error(`Unexpected error: ${response.statusText}`);
+  }
+}
 
 export class KupoService {
   static readonly MAX_REQUEST_THRESHOLD = 20;
@@ -200,8 +213,7 @@ export class KupoService {
 
   async getUtxosByMatches(matches: string): Promise<KupoUtxo[]> {
     const kupoUrl = `${this.kupoBaseUrl}/matches/${matches}`;
-    const fetchRes = await fetch(kupoUrl);
-    const data = (await fetchRes.json()) as KupoUtxosResponse[];
+    const data = await fetchBigInt<KupoUtxosResponse[]>(kupoUrl);
     return data.map((d) => ({
       ...d,
       transaction_index: Number(d.transaction_index.toString()),
@@ -250,8 +262,7 @@ export class KupoService {
       return null;
     }
     const kupoUrl = `${this.kupoBaseUrl}/datums/${datumHash}`;
-    const fetchRes = await fetch(kupoUrl);
-    const data = (await fetchRes.json()) as { datum: string } | null;
+    const data = await fetchBigInt<{ datum: string } | null>(kupoUrl);
     return data ? data.datum : null;
   }
 
