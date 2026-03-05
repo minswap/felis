@@ -60,9 +60,22 @@ export function registerPositionRoutes(fastify: FastifyInstance, positionService
 
       const position = await positionService.getOpenPositionByUser(user_address);
 
+      if (!position) {
+        return reply.status(200).send({ success: true, data: null });
+      }
+
+      const metrics = await positionService.getPositionMetrics(position);
+
       return reply.status(200).send({
         success: true,
-        data: position ? positionToResponse(position) : null,
+        data: {
+          ...positionToResponse(position),
+          entry_price: metrics.entryPrice,
+          liq_price: metrics.liqPrice,
+          interest: metrics.interest,
+          unrealized_pnl: metrics.unrealizedPnl,
+          health: metrics.health,
+        },
       });
     },
   );

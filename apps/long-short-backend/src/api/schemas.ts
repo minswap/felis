@@ -38,6 +38,8 @@ export const AuthenCreatePositionBodyTypeSchema = AuthenCommonSchema(CreatePosit
 
 export type AuthenCreatePositionBodyType = AuthenCommonType<CreatePositionDataType>;
 
+const NullableNumber = Type.Union([Type.Number(), Type.Null()]);
+
 export const PositionResponseSchema = Type.Object({
   id: Type.String({ description: "Position ID" }),
   market_id: Type.String(),
@@ -48,6 +50,12 @@ export const PositionResponseSchema = Type.Object({
   amount_borrow: Type.String(),
   created_at: Type.String({ format: "date-time" }),
   closed_at: Type.Union([Type.String({ format: "date-time" }), Type.Null()]),
+  // Trading metrics (populated for OPEN positions with active loans)
+  entry_price: Type.Optional(NullableNumber),
+  liq_price: Type.Optional(NullableNumber),
+  interest: Type.Optional(NullableNumber),
+  unrealized_pnl: Type.Optional(NullableNumber),
+  health: Type.Optional(NullableNumber),
 });
 
 export type PositionResponseType = Static<typeof PositionResponseSchema>;

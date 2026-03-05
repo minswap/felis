@@ -1,8 +1,9 @@
 import { Address, Asset, type NetworkEnvironment } from "@minswap/felis-ledger-core";
+import { LiqwidProviderV2 } from "@minswap/felis-lending-market";
 import invariant from "@minswap/tiny-invariant";
 import type { Kysely } from "kysely";
 import { StateMachine } from "../api/state-machine";
-import { getMarketConfig, isSupportedMarket } from "../config/market";
+import { type MarketConfig, getMarketConfig, isSupportedMarket } from "../config/market";
 import type { DB } from "../database";
 import { CardanoscanProvider, type MinswapAggregatorProvider } from "../provider";
 import { OrderRepository } from "../repository/order-repository";
@@ -35,6 +36,14 @@ export type ClosePositionInput = {
 };
 
 export type ClosePositionResult = { success: true; position: Position } | { success: false; error: string };
+
+export type PositionMetrics = {
+  entryPrice: number | null;
+  liqPrice: number | null;
+  interest: number | null;
+  unrealizedPnl: number | null;
+  health: number | null;
+};
 
 export class PositionService {
   constructor(
@@ -491,6 +500,140 @@ export class PositionService {
 
   async getOpenPositionByUser(userAddress: string): Promise<Position | null> {
     return PositionRepository.getOpenPositionByUser(this.db, userAddress);
+  }
+
+  /**
+   * Compute trading metrics for an OPEN position:
+   * entry_price, liq_price, interest, unrealized_pnl, health
+   */
+  async getPositionMetrics(
+    position: Position,
+  ): Promise<PositionMetrics> {
+    const empty: PositionMetrics = {
+      entryPrice: null,
+      liqPrice: null,
+      interest: null,
+      unrealizedPnl: null,
+      health: null,
+    };
+
+    if (position.status !== StateMachine.PositionStatus.OPEN) {
+      return empty;
+    }
+
+    const marketConfig = getMarketConfig(position.marketId);
+    if (!marketConfig) return empty;
+
+    try {
+      // 1. Entry price from completed orders
+      const entryPrice = await this.computeEntryPrice(position, marketConfig);
+
+      // 2. Loan data from Liqwid (health, interest)
+      const apiConfig = LiqwidProviderV2.createConfig(this.networkEnv);
+      const userAddr = Address.fromBech32(position.userAddress);
+      const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
+      if (!pkh) return { ...empty, entryPrice };
+
+      const borrowMarketId =
+        position.side === StateMachine.PositionSide.LONG
+          ? marketConfig.borrowMarketIdLong
+          : marketConfig.borrowMarketIdShort;
+
+      const loansResult = await LiqwidProviderV2.Data.loansForUser(apiConfig, [pkh]);
+      const loan =
+        loansResult.type === "ok"
+          ? loansResult.value.find((l) => l.marketId === borrowMarketId)
+          : undefined;
+
+      const health = loan?.healthFactor ?? null;
+      const interest = loan?.interest ?? null;
+
+      // 3. Current price from aggregator for unrealized PnL and liq price
+      let currentPrice: number | null = null;
+      try {
+        const estimate = await this.aggregatorProvider.estimate({
+          amount: "1000000", // 1 ADA
+          tokenIn: marketConfig.assetA.toBlockFrostString(),
+          tokenOut: marketConfig.assetB.toBlockFrostString(),
+        });
+        // currentPrice = ADA per token B = amountIn / amountOut
+        currentPrice = Number(estimate.amountIn) / Number(estimate.amountOut);
+      } catch {
+        // aggregator unavailable
+      }
+
+      // 4. Unrealized PnL
+      let unrealizedPnl: number | null = null;
+      if (entryPrice != null && currentPrice != null && loan) {
+        const collateralQty = loan.collaterals[0]?.amount ?? 0;
+        if (position.side === StateMachine.PositionSide.LONG) {
+          // LONG: profit when price goes up
+          unrealizedPnl = collateralQty * (currentPrice - entryPrice);
+        } else {
+          // SHORT: profit when price goes down
+          unrealizedPnl = collateralQty * (entryPrice - currentPrice);
+        }
+      }
+
+      // 5. Liquidation price
+      let liqPrice: number | null = null;
+      if (loan && health != null && currentPrice != null && health > 0) {
+        if (position.side === StateMachine.PositionSide.LONG) {
+          // When health = 1, price = liq_price. health = collateral_value / (debt * liq_threshold).
+          // liq_price ≈ current_price / health_factor
+          liqPrice = currentPrice / health;
+        } else {
+          liqPrice = currentPrice * health;
+        }
+      }
+
+      return { entryPrice, liqPrice, interest, unrealizedPnl, health };
+    } catch (error) {
+      logger.error("Failed to compute position metrics", { error, positionId: position.id.toString() });
+      return empty;
+    }
+  }
+
+  private async computeEntryPrice(position: Position, _marketConfig: MarketConfig): Promise<number | null> {
+    if (position.side === StateMachine.PositionSide.LONG) {
+      // Entry price = total ADA spent / total token B received (across LONG_BUY + LONG_BUY_MORE)
+      const buyOrder = await OrderRepository.getOrderByPositionAndType(
+        this.db,
+        position.id,
+        StateMachine.LongOrderType.LONG_BUY,
+      );
+      const buyMoreOrder = await OrderRepository.getOrderByPositionAndType(
+        this.db,
+        position.id,
+        StateMachine.LongOrderType.LONG_BUY_MORE,
+      );
+
+      let totalAdaIn = 0;
+      let totalTokenOut = 0;
+      if (buyOrder?.amountIn && buyOrder?.amountOut) {
+        totalAdaIn += Number(buyOrder.amountIn);
+        totalTokenOut += Number(buyOrder.amountOut);
+      }
+      if (buyMoreOrder?.amountIn && buyMoreOrder?.amountOut) {
+        totalAdaIn += Number(buyMoreOrder.amountIn);
+        totalTokenOut += Number(buyMoreOrder.amountOut);
+      }
+
+      return totalTokenOut > 0 ? totalAdaIn / totalTokenOut : null;
+    }
+
+    // SHORT: entry price = ADA received / token B sold
+    const sellOrder = await OrderRepository.getOrderByPositionAndType(
+      this.db,
+      position.id,
+      StateMachine.ShortOrderType.SHORT_SELL,
+    );
+    if (sellOrder?.amountIn && sellOrder?.amountOut) {
+      const tokenBIn = Number(sellOrder.amountIn);
+      const adaOut = Number(sellOrder.amountOut);
+      return tokenBIn > 0 ? adaOut / tokenBIn : null;
+    }
+    return null;
   }
 
   async closePosition(input: ClosePositionInput): Promise<ClosePositionResult> {
