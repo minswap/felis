@@ -72,8 +72,8 @@ export function registerPositionRoutes(fastify: FastifyInstance, positionService
           ...positionToResponse(position),
           entry_price: metrics.entryPrice,
           liq_price: metrics.liqPrice,
-          interest: metrics.interest,
-          unrealized_pnl: metrics.unrealizedPnl,
+          interest: metrics.interest != null ? metrics.interest.toString() : null,
+          unrealized_pnl: metrics.unrealizedPnl != null ? metrics.unrealizedPnl.toString() : null,
           health: metrics.health,
         },
       });

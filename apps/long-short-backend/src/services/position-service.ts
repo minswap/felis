@@ -40,8 +40,8 @@ export type ClosePositionResult = { success: true; position: Position } | { succ
 export type PositionMetrics = {
   entryPrice: number | null;
   liqPrice: number | null;
-  interest: number | null;
-  unrealizedPnl: number | null;
+  interest: bigint | null;
+  unrealizedPnl: bigint | null;
   health: number | null;
 };
 
@@ -547,7 +547,7 @@ export class PositionService {
           : undefined;
 
       const health = loan?.healthFactor ?? null;
-      const interest = loan?.interest ?? null;
+      const interest = loan?.interest != null ? BigInt(Math.floor(loan.interest * 1000000)) : null;
 
       // 3. Current asset value from aggregator for unrealized PnL and liq price
       // Estimate current value of totalTokenB in asset A (e.g. token B → ADA)
@@ -567,19 +567,16 @@ export class PositionService {
         // aggregator unavailable
       }
 
-      // 4. Unrealized PnL (in ADA, adjusted for token decimals)
-      let unrealizedPnl: number | null = null;
+      // 4. Unrealized PnL (in lovelace, using bigint for precision)
+      let unrealizedPnl: bigint | null = null;
       if (currentAssetValueInA != null) {
+        const currentValueBigInt = BigInt(currentAssetValueInA);
         if (position.side === StateMachine.PositionSide.LONG) {
-          // LONG: PnL = current token B value in ADA - (amount_in + amount_borrow)
-          // amount_in and amount_borrow are both in lovelace for LONG
-          unrealizedPnl =
-            (currentAssetValueInA - Number(position.amountIn) - Number(position.amountBorrow));
+          // LONG: PnL = current token B value - (amount_in + amount_borrow), all in lovelace
+          unrealizedPnl = currentValueBigInt - BigInt(position.amountIn) - BigInt(position.amountBorrow);
         } else {
           // SHORT: PnL = sale proceeds at entry - current buyback cost
-          // entryData.totalTokenB * entryData.entryPrice = lovelace received from selling token B
-          unrealizedPnl =
-            (entryData!.totalTokenB * entryData!.entryPrice - currentAssetValueInA);
+          unrealizedPnl = BigInt(entryData!.saleProceedsLovelace!) - currentValueBigInt;
         }
       }
             
@@ -605,7 +602,7 @@ export class PositionService {
   private async computeEntryData(
     position: Position,
     _marketConfig: MarketConfig,
-  ): Promise<{ entryPrice: number; totalTokenB: number } | null> {
+  ): Promise<{ entryPrice: number; totalTokenB: number; saleProceedsLovelace?: string } | null> {
     if (position.side === StateMachine.PositionSide.LONG) {
       // Entry price = total ADA spent / total token B received (across LONG_BUY + LONG_BUY_MORE)
       const buyOrder = await OrderRepository.getOrderByPositionAndType(
@@ -642,7 +639,9 @@ export class PositionService {
     if (sellOrder?.amountIn && sellOrder?.amountOut) {
       const tokenBIn = Number(sellOrder.amountIn);
       const adaOut = Number(sellOrder.amountOut);
-      return tokenBIn > 0 ? { entryPrice: adaOut / tokenBIn, totalTokenB: tokenBIn } : null;
+      return tokenBIn > 0
+        ? { entryPrice: adaOut / tokenBIn, totalTokenB: tokenBIn, saleProceedsLovelace: sellOrder.amountOut }
+        : null;
     }
     return null;
   }
