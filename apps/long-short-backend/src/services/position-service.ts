@@ -381,40 +381,37 @@ export class PositionService {
           };
         }
 
-        // Transaction not found on chain - check if expired.
-        // Grace period: wait 2 minutes past TTL before rebuilding, to give the
-        // network time to propagate a submitted tx.
-        const GRACE_PERIOD_MS = 2 * 60 * 1000;
-        const nowMs = Date.now();
+        // Transaction not found on chain - check if expired
+        const now = new Date();
         const validTo = order.builtValidTo;
-        const expiredBeyondGrace =
-          validTo != null && validTo.getTime() + GRACE_PERIOD_MS < nowMs;
 
-        logger.info("Checking built tx expiry", {
-          orderId: order.id,
-          builtTxId: order.builtTxId,
-          validToDate: validTo?.toISOString() ?? "null",
-          validToMs: validTo?.getTime() ?? "null",
-          nowDate: new Date(nowMs).toISOString(),
-          nowMs,
-          expiredBeyondGrace,
-        });
-
-        if (expiredBeyondGrace) {
-          logger.info("Transaction expired beyond grace period, rebuilding", {
+        if (!validTo) {
+          logger.warn("Order has built_tx_id but no built_valid_to, rebuilding", {
             orderId: order.id,
           });
           // Fall through to rebuild
+        } else if (validTo < now) {
+          // Transaction expired => rebuild
+          logger.info("Transaction expired, rebuilding", {
+            orderId: order.id,
+            validTo: validTo.toISOString(),
+            now: now.toISOString(),
+          });
+          // Fall through to rebuild
         } else {
-          // Transaction still within validity window (or no validTo) => wait
-          const remainingInfo = validTo
-            ? `Expires in ${Math.ceil((validTo.getTime() - nowMs) / 1000 / 60)} minutes.`
-            : "Waiting for confirmation.";
+          // Transaction not expired yet => wait
+          const remainingMs = validTo.getTime() - now.getTime();
+          const remainingMinutes = Math.ceil(remainingMs / 1000 / 60);
+          logger.info("Transaction not yet expired, waiting", {
+            orderId: order.id,
+            validTo: validTo.toISOString(),
+            remainingMinutes,
+          });
           return {
             success: true,
             waiting: true,
             orderType: order.orderType,
-            message: `Transaction already built and waiting for confirmation. ${remainingInfo}`,
+            message: `Transaction already built and waiting for confirmation. Expires in ${remainingMinutes} minutes.`,
           };
         }
       }
