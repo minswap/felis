@@ -3,7 +3,7 @@ import { NetworkEnvironment } from "./network-id";
 export const TIME_SLOT_MAGIC: Record<NetworkEnvironment, number> = {
   [NetworkEnvironment.MAINNET]: 1591566291,
   [NetworkEnvironment.TESTNET_PREPROD]: 1655683200,
-  [NetworkEnvironment.TESTNET_PREVIEW]: 1660003200,
+  [NetworkEnvironment.TESTNET_PREVIEW]: 1666656000,
 };
 
 // only for Shelley era onwards (1 slot = 1s)
