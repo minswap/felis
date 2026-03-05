@@ -525,8 +525,9 @@ export class PositionService {
     if (!marketConfig) return empty;
 
     try {
-      // 1. Entry price from completed orders
-      const entryPrice = await this.computeEntryPrice(position, marketConfig);
+      // 1. Entry price + total token quantity from completed orders
+      const entryData = await this.computeEntryData(position, marketConfig);
+      const entryPrice = entryData?.entryPrice ?? null;
 
       // 2. Loan data from Liqwid (health, interest)
       const apiConfig = LiqwidProviderV2.createConfig(this.networkEnv);
@@ -548,33 +549,40 @@ export class PositionService {
       const health = loan?.healthFactor ?? null;
       const interest = loan?.interest ?? null;
 
-      // 3. Current price from aggregator for unrealized PnL and liq price
+      // 3. Current asset value from aggregator for unrealized PnL and liq price
+      // Estimate current value of totalTokenB in asset A (e.g. token B → ADA)
       let currentPrice: number | null = null;
+      let currentAssetValueInA: number | null = null;
       try {
-        const estimate = await this.aggregatorProvider.estimate({
-          amount: "1000000", // 1 ADA
-          tokenIn: marketConfig.assetA.toBlockFrostString(),
-          tokenOut: marketConfig.assetB.toBlockFrostString(),
-        });
-        // currentPrice = ADA per token B = amountIn / amountOut
-        currentPrice = Number(estimate.amountIn) / Number(estimate.amountOut);
+        if (entryData != null) {
+          const estimate = await this.aggregatorProvider.estimate({
+            amount: String(Math.floor(entryData.totalTokenB)),
+            tokenIn: marketConfig.assetB.toBlockFrostString(),
+            tokenOut: marketConfig.assetA.toBlockFrostString(),
+          });
+          currentAssetValueInA = Number(estimate.amountOut);
+          currentPrice = Number(estimate.amountOut) / Number(estimate.amountIn);
+        }
       } catch {
         // aggregator unavailable
       }
 
-      // 4. Unrealized PnL
+      // 4. Unrealized PnL (in ADA, adjusted for token decimals)
       let unrealizedPnl: number | null = null;
-      if (entryPrice != null && currentPrice != null && loan) {
-        const collateralQty = loan.collaterals[0]?.amount ?? 0;
+      if (currentAssetValueInA != null) {
         if (position.side === StateMachine.PositionSide.LONG) {
-          // LONG: profit when price goes up
-          unrealizedPnl = collateralQty * (currentPrice - entryPrice);
+          // LONG: PnL = current token B value in ADA - (amount_in + amount_borrow)
+          // amount_in and amount_borrow are both in lovelace for LONG
+          unrealizedPnl =
+            (currentAssetValueInA - Number(position.amountIn) - Number(position.amountBorrow));
         } else {
-          // SHORT: profit when price goes down
-          unrealizedPnl = collateralQty * (entryPrice - currentPrice);
+          // SHORT: PnL = sale proceeds at entry - current buyback cost
+          // entryData.totalTokenB * entryData.entryPrice = lovelace received from selling token B
+          unrealizedPnl =
+            (entryData!.totalTokenB * entryData!.entryPrice - currentAssetValueInA);
         }
       }
-
+            
       // 5. Liquidation price
       let liqPrice: number | null = null;
       if (loan && health != null && currentPrice != null && health > 0) {
@@ -594,7 +602,10 @@ export class PositionService {
     }
   }
 
-  private async computeEntryPrice(position: Position, _marketConfig: MarketConfig): Promise<number | null> {
+  private async computeEntryData(
+    position: Position,
+    _marketConfig: MarketConfig,
+  ): Promise<{ entryPrice: number; totalTokenB: number } | null> {
     if (position.side === StateMachine.PositionSide.LONG) {
       // Entry price = total ADA spent / total token B received (across LONG_BUY + LONG_BUY_MORE)
       const buyOrder = await OrderRepository.getOrderByPositionAndType(
@@ -619,7 +630,7 @@ export class PositionService {
         totalTokenOut += Number(buyMoreOrder.amountOut);
       }
 
-      return totalTokenOut > 0 ? totalAdaIn / totalTokenOut : null;
+      return totalTokenOut > 0 ? { entryPrice: totalAdaIn / totalTokenOut, totalTokenB: totalTokenOut } : null;
     }
 
     // SHORT: entry price = ADA received / token B sold
@@ -631,7 +642,7 @@ export class PositionService {
     if (sellOrder?.amountIn && sellOrder?.amountOut) {
       const tokenBIn = Number(sellOrder.amountIn);
       const adaOut = Number(sellOrder.amountOut);
-      return tokenBIn > 0 ? adaOut / tokenBIn : null;
+      return tokenBIn > 0 ? { entryPrice: adaOut / tokenBIn, totalTokenB: tokenBIn } : null;
     }
     return null;
   }
