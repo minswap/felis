@@ -517,7 +517,7 @@ export class PositionService {
       health: null,
     };
 
-    if (position.status !== StateMachine.PositionStatus.OPEN) {
+    if (position.status === StateMachine.PositionStatus.PENDING) {
       return empty;
     }
 
