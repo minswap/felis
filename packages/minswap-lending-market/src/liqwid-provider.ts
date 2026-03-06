@@ -3,7 +3,7 @@ import { blake2b256, Result, RustModule } from "@minswap/felis-ledger-utils";
 import * as cbor from "cbor";
 
 export namespace LiqwidProvider {
-  export type MarketId = "MIN" | "Ada";
+  export type MarketId = "MIN" | "Ada" | "NIGHT";
   export type CollateralMarket =
     | "Ada.186cd98a29585651c89f05807a876cf26cdf47a7f86f70be3b9e4cc0"
     | "MIN.50e015ec8204db83a4f57aa9ee40ce6ea157e3b7335a149fafe3f370";

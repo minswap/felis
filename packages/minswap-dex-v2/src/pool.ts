@@ -24,7 +24,13 @@ import invariant from "@minswap/tiny-invariant";
 
 import { DEX_V2_DEFAULT_POOL_ADA, getDexV2Configs } from "./constants";
 import { OrderV2Direction } from "./order";
-import { normalizePair } from "./utils";
+
+function normalizePair([a, b]: [Asset, Asset]): [Asset, Asset] {
+  if (a.compare(b) > 0) {
+    return [b, a];
+  }
+  return [a, b];
+}
 
 export type PoolV2BaseFee = {
   feeANumerator: bigint;

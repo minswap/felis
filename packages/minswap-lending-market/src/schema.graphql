@@ -1,0 +1,1391 @@
+directive @priceConversion on FIELD_DEFINITION
+
+directive @cost(
+  """
+  Assumes the cost of the annotated component
+  """
+  weight: Int!
+) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
+
+"""
+Indicates exactly one field must be supplied and this field must not be `null`.
+"""
+directive @oneOf on INPUT_OBJECT
+
+input AquafarmersInput {
+  assets: [String!]!
+}
+
+"""
+Metadata for the aquafarmer
+"""
+type AquafarmerOnchainMetadata {
+  hat: String
+  tier: String
+  name: String
+  image: String
+  github: [String!]
+  medium: [String!]
+  discord: [String!]
+  project: [String!]
+  twitter: [String!]
+  website: [String!]
+  mediaType: String
+  background: String
+  farmerHead: String
+  description: String
+  armMechanics: String
+  leftHandTool: String
+  farmerClothing: String
+  rightHandTool: String
+  farmerBodyColor: String
+  backgroundAccessories: String
+}
+
+enum AgoraStakeSort {
+  CREATED_DATE
+  CREATED_DATE_DESC
+  MODIFIED_DATE
+  MODIFIED_DATE_DESC
+  AMOUNT
+  AMOUNT_DESC
+}
+
+enum AgoraStakeFilter {
+  OWNED
+  DELEGATED
+}
+
+input AgoraStakesInput {
+  paymentKeys: [String!]!
+  page: Int = 0
+  perPage: Int = 20
+  sorts: [AgoraStakeSort!]
+  filters: [AgoraStakeFilter!]
+}
+
+enum AgoraStakeLockType {
+  Created
+  Cosigned
+  Voted
+}
+
+type AgoraStakeLock {
+  proposalId: Float!
+  resultId: Int
+  votedAt: Float
+  type: AgoraStakeLockType!
+}
+
+type AgoraStakePortion {
+  amount: Float!
+  endSlot: Float
+  endTimestamp: Float
+  startSlot: Float!
+  startTimestamp: Float!
+}
+
+type AgoraStake {
+  txId: String!
+  owner: String!
+  delegatedTo: String
+  stakedAmount: Float!
+  lockedBy: [AgoraStakeLock!]!
+  substakes: [AgoraStakePortion!]!
+}
+
+type AgoraStakePagination {
+  page: Int!
+  perPage: Int!
+  pagesCount: Int!
+  totalCount: Int!
+  results: [AgoraStake!]!
+}
+
+type AquafarmerBoost {
+  id: String!
+  boost: Float!
+}
+
+type Aquafarmer {
+  asset: String!
+  policyId: String!
+  assetName: String!
+  metadata: AquafarmerOnchainMetadata!
+}
+
+type PublicDelegatee {
+  address: String!
+  name: String
+  discord: String
+  title: String!
+}
+
+enum ProposalStatus {
+  Draft
+  Review
+  Voting
+  Locked
+  Finished
+  Executed
+}
+
+type Cosigner {
+  address: String!
+  name: String
+  discord: String
+  title: String
+}
+
+type ProposalTiming {
+  status: ProposalStatus!
+  startTimestamp: Float!
+  endTimestamp: Float
+}
+
+type ProposalVote {
+  resultId: Float!
+  amount: Float!
+  percentage: Float!
+  name: String!
+  description: String!
+}
+
+type Proposal {
+  id: Float!
+  status: ProposalStatus!
+  cosigners: [Cosigner!]!
+  timings: [ProposalTiming!]!
+  totalVotes: Float!
+  votes(sorts: [ProposalVoteSort!]): [ProposalVote!]!
+  title: String!
+  description: String!
+  ipfsUrl: String
+  minStakeVotingTime: Float!
+}
+
+enum ProposalSort {
+  ID
+  ID_DESC
+  CREATED_DATE
+  CREATED_DATE_DESC
+  UPDATED_DATE
+  UPDATED_DATE_DESC
+  AMOUNT
+  AMOUNT_DESC
+}
+
+enum ProposalVoteSort {
+  RESULT_ID
+  RESULT_ID_DESC
+  AMOUNT
+  AMOUNT_DESC
+}
+
+enum ProposalFilter {
+  STATUS_DRAFT
+  STATUS_VOTING
+  STATUS_LOCKED
+  STATUS_FINISHED
+  STATUS_EXECUTED
+  VOTED_ON
+  COSIGNED
+}
+
+input ProposalsInput {
+  page: Int = 0
+  perPage: Int = 50
+  paymentKeys: [String!]
+  sorts: [ProposalSort!]
+  filters: [ProposalFilter!]
+  search: String
+}
+
+type ProposalsPagination {
+  page: Int!
+  perPage: Int!
+  pagesCount: Int!
+  totalCount: Int!
+  results: [Proposal!]!
+}
+
+input ProposalInput {
+  id: Float!
+}
+
+input UserAddressInput {
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  utxos: [String!]!
+}
+
+type AgoraData {
+  aquafarmersBoost: [AquafarmerBoost!]!
+  aquafarmers(input: AquafarmersInput!): [Aquafarmer!]!
+  stakes(input: AgoraStakesInput!): AgoraStakePagination!
+  publicDelegatees: [PublicDelegatee!]!
+  proposal(input: ProposalInput!): Proposal!
+  proposals(input: ProposalsInput): ProposalsPagination!
+  hasStakesAndAquafarmersInSameAddress(input: UserAddressInput!): Boolean!
+}
+
+type AgoraQueries {
+  data: AgoraData!
+  transactions: AgoraTransactions!
+}
+
+type Query {
+  agora: AgoraQueries!
+  meta: MetaQueries!
+
+  """
+  Get the exchange rate of a currency
+  """
+  currencyExchangeRate(input: CurrencyExchangeRateInput!): CurrencyExchangeRate!
+  liqwid: LiqwidQueries!
+  lq: LQQueries!
+  analytics: AnalyticsQueries!
+  historical: HistoricalQueries!
+}
+
+enum Network {
+  MAINNET
+  PREVIEW
+}
+
+type MetaQueries {
+  apiVersion: String!
+  network: Network!
+}
+
+enum Currency {
+  """
+  Euro €
+  """
+  EUR
+
+  """
+  US Dollar $
+  """
+  USD
+
+  """
+  British Pound £
+  """
+  GBP
+
+  """
+  Canadian Dollar C$
+  """
+  CAD
+
+  """
+  Brazilian Real R$
+  """
+  BRL
+
+  """
+  Japanese Yen ¥
+  """
+  JPY
+
+  """
+  Vietnamese Dong ₫
+  """
+  VND
+
+  """
+  Czech Koruna Kč
+  """
+  CZK
+
+  """
+  Australian Dollar A$
+  """
+  AUD
+
+  """
+  Singapore Dollar S$
+  """
+  SGD
+
+  """
+  Swiss Franc CHF
+  """
+  CHF
+}
+
+type CurrencyExchangeRate {
+  source: String!
+  target: String!
+  value: Float!
+  timestamp: Float!
+}
+
+input CurrencyExchangeRateInput {
+  source: String!
+  target: String!
+}
+
+type LiqwidQueries {
+  data: LiqwidData!
+  transactions: LiqwidTransactions!
+  calculations: LiqwidCalculations!
+}
+
+type LQQueries {
+  totalSupply: Float!
+  circulatingSupply: Float!
+  treasury: Float!
+
+  """
+  Amount of LQ staked
+  """
+  staked: Float!
+  price(input: InCurrencyInput): Float!
+  currencySymbol: String!
+}
+
+type Transaction {
+  cbor: String!
+}
+
+input SubmitTransactionInput {
+  transaction: String!
+  signature: String!
+}
+
+type Mutation {
+  """
+  Submit a CBOR transaction
+  """
+  submitTransaction(input: SubmitTransactionInput!): String!
+}
+
+type AnalyticsQueries {
+  overview(startDate: String, endDate: String): AnalyticsOverview!
+  markets(startDate: String, endDate: String): [MarketAnalytics!]!
+
+  """
+  Query protocol revenue metrics for a date range.
+  Returns revenue breakdown including origination fees, liquidation profit,
+  ADA staking rewards, and DAO costs (dividends/POL interest).
+  """
+  revenue(startDate: String, endDate: String): ProtocolRevenue!
+}
+
+enum TransactionType {
+  SUPPLY
+  WITHDRAW
+  BORROW
+  BORROW_MORE
+  LOAN_MODIFICATION
+  REPAY
+  FULL_REPAY
+  LIQUIDATE
+  LIQUIDATOR
+}
+
+type CustomFee {
+  """
+  Wallet fee name
+  """
+  wallet: SupportedWallet!
+  displayName: String!
+
+  """
+  Amount taken in the asset being supplied or withdrawn
+  """
+  amount: Float!
+}
+
+type HistoricalTransaction {
+  """
+  txHash
+  """
+  id: String!
+  displayName: String!
+  logo: String!
+  time: String!
+  type: TransactionType!
+  oraclePrice: Float!
+  customFee: CustomFee
+
+  """
+  token amount for supply/withdraw
+  """
+  qAmount: Float
+  amount: Float
+  amountUSD: Float
+
+  """
+  qToken exchangeRate for supply/withdraw
+  """
+  exchangeRate: Float
+  principal: Float
+  principalUSD: Float
+  minInterest: Float
+  healthFactor: Float
+  loanOriginationFee: Float
+
+  """
+  Modification loan (borrow more/modify/repay)
+  """
+  beforeHealthFactor: Float
+  beforePrincipal: Float
+  beforePrincipalUSD: Float
+  totalCollateralUSD: Float
+  beforetotalCollateralUSD: Float
+  collaterals: [HistoryLoanCollateral!]
+}
+
+type HistoryLoanCollateral {
+  """
+  txHash + unit
+  """
+  id: String!
+  displayName: String!
+  logo: String!
+  oraclePrice: Float!
+
+  """
+  qToken exchangeRate
+  """
+  exchangeRate: Float!
+  qAmount: Float!
+  amount: Float!
+  amountUSD: Float!
+  healthFactor: Float!
+
+  """
+  Modification loan (borrow more/modify/repay)
+  """
+  beforeHealthFactor: Float
+  beforeQAmount: Float
+  beforeAmount: Float
+  beforeAmountUSD: Float
+}
+
+type HistoricalTransactionPagination {
+  page: Int!
+  perPage: Int!
+  pagesCount: Int!
+  totalCount: Int!
+  results: [HistoricalTransaction!]!
+}
+
+enum HistoricalTransactionSort {
+  DATE_ASC
+  DATE_DESC
+  TYPE_ASC
+  TYPE_DESC
+  DISPLAY_NAME_ASC
+  DISPLAY_NAME_DESC
+}
+
+enum HistoricalTransactionFilter {
+  SUPPLY
+  WITHDRAW
+  BORROW
+  BORROW_MORE
+  LOAN_MODIFICATION
+  REPAY
+  FULL_REPAY
+  LIQUIDATE
+  LIQUIDATOR
+}
+
+input HistoricalTransactionDate {
+  startTime: String!
+  endTime: String!
+}
+
+input HistoricalTransactionInput {
+  addresses: [String!]!
+  sorts: [HistoricalTransactionSort!]
+  filters: [HistoricalTransactionFilter!]
+  date: HistoricalTransactionDate
+  page: Int = 0
+  perPage: Int = 100
+  disablePagination: Boolean
+}
+
+input YieldEarnedDate {
+  startTime: String!
+  endTime: String!
+}
+
+input YieldEarnedInput {
+  addresses: [String!]!
+  date: YieldEarnedDate
+}
+
+type YieldEarned {
+  totalYieldEarned(input: InCurrencyInput): Float!
+  markets: [YieldEarnedMarket!]!
+}
+
+type YieldEarnedMarket {
+  id: String!
+  displayName: String!
+  currencySymbol: String!
+  hexName: String!
+  amount: Float!
+  amountInCurrency(input: InCurrencyInput): Float!
+}
+
+type HistoricalQueries {
+  transactions(input: HistoricalTransactionInput): HistoricalTransactionPagination!
+  yieldEarned(input: YieldEarnedInput!): YieldEarned!
+}
+
+input AgoraCreateStakeTransactionInput {
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  utxos: [String!]!
+  amount: Float!
+}
+
+input AgoraUpdateStakeTransactionInput {
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  utxos: [String!]!
+  txId: String!
+  amount: Float!
+}
+
+input AgoraDestroyStakeTransactionInput {
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  utxos: [String!]!
+  txId: String!
+}
+
+input AgoraDelegateStakeTransactionInput {
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  utxos: [String!]!
+  txId: String!
+  delegatee: String
+}
+
+input AgoraUnlockStakesTransactionInput {
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  utxos: [String!]!
+  txIds: [String!]!
+  proposalId: Int!
+}
+
+input AgoraVoteProposalTransactionInput {
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  utxos: [String!]!
+  txIds: [String!]!
+  proposalId: Int!
+  resultId: Int!
+}
+
+input AgoraCosignProposalTransactionInput {
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  utxos: [String!]!
+  txId: String!
+  proposalId: Int!
+}
+
+type AgoraTransactions {
+  createStake(input: AgoraCreateStakeTransactionInput!): Transaction!
+  updateStake(input: AgoraUpdateStakeTransactionInput!): Transaction!
+  destroyStake(input: AgoraDestroyStakeTransactionInput!): Transaction!
+  delegateStake(input: AgoraDelegateStakeTransactionInput!): Transaction!
+  unlockStakes(input: AgoraUnlockStakesTransactionInput!): Transaction!
+  voteProposal(input: AgoraVoteProposalTransactionInput!): Transaction!
+  cosignProposal(input: AgoraCosignProposalTransactionInput!): Transaction!
+}
+
+enum NetAPYFilter {
+  STABLECOIN
+  CNT
+  BRIDGED
+}
+
+type LoanCalculation {
+  healthFactor: Float!
+  collateral(input: InCurrencyInput): Float!
+  collaterals: [LoanCollateral!]!
+
+  """
+  The maximum amount that can be borrowed with the current input
+  """
+  maxBorrow: Float!
+
+  """
+  The maximum amount that can be borrowed due to the borrow cap
+  """
+  maxBorrowCap: Float
+  protocolFee: Float!
+  protocolFeePercentage: Float!
+
+  """
+  The batching fee in ADA
+  """
+  batchingFee: Float!
+}
+
+input LoanCalculationCollateralInput {
+  id: String!
+  amount: Float!
+}
+
+input LoanCalculationInput {
+  market: String!
+  debt: Float!
+  collaterals: [LoanCalculationCollateralInput!]!
+}
+
+input LiquidateCalculationInput {
+  txId: String!
+  amount: Float!
+}
+
+type LiquidationCalculationCollateral {
+  id: String!
+  amount(input: InCurrencyInput): Float
+}
+
+type LiquidateCalculation {
+  liquidationProfit(input: InCurrencyInput): Float
+  liquidationProfitPercent: Float
+
+  """
+  Collaterals seized in the liquidation with the current input
+  """
+  collaterals: [LiquidationCalculationCollateral!]
+
+  """
+  Health factor with the current input
+  """
+  healthFactor: Float!
+}
+
+input SupplyCalculationInput {
+  amount: Float!
+  marketId: String!
+  wallet: SupportedWallet
+}
+
+type SupplyCalculation {
+  """
+  The batching fee in ADA
+  """
+  batchingFee: Float!
+
+  """
+  The maximum amount that can be supplied due to the supply cap
+  """
+  supplyCap: Float
+
+  """
+  The fee applied when using a certain wallet in the current market (currently, only ETERNL charges fees when using their Dapp directly)
+  """
+  walletFee: Float!
+}
+
+input WithdrawCalculationInput {
+  amount: Float!
+  marketId: String!
+  wallet: SupportedWallet
+}
+
+type WithdrawCalculation {
+  """
+  The batching fee in ADA
+  """
+  batchingFee: Float!
+
+  """
+  The fee applied when using a certain wallet in the current market (currently, only ETERNL charges fees when using their Dapp directly)
+  """
+  walletFee: Float!
+
+  """
+  The maximum amount that can be withdrawn due to the borrow cap
+  """
+  withdrawCap: Float!
+}
+
+type netApyCalculation {
+  """
+  The net APY represents the effective annual yield after considering both supply and borrow rates
+  """
+  netApy: Float!
+
+  """
+  The net APY including LQ rewards
+  """
+  netApyLqRewards: Float!
+
+  """
+  The borrow APY is the rate charged on borrowed assets.
+  """
+  borrowApy: Float!
+
+  """
+  The total amount of assets borrowed across all positions
+  """
+  totalBorrow: Float!
+
+  """
+  The supply APY is the rate earned on supplied assets.
+  """
+  supplyApy: Float!
+
+  """
+  The total amount of assets supplied
+  """
+  totalSupply: Float!
+}
+
+input NetApySupplyInput {
+  marketId: String!
+  amount: Float!
+}
+
+input NetApyInput {
+  filters: [NetAPYFilter!]
+  supplies: [NetApySupplyInput!]!
+  paymentKeys: [String!]!
+  currency: Currency
+}
+
+type LiqwidCalculations {
+  supply(input: SupplyCalculationInput!): SupplyCalculation!
+  withdraw(input: WithdrawCalculationInput!): WithdrawCalculation!
+  loan(input: LoanCalculationInput!): LoanCalculation!
+  liquidate(input: LiquidateCalculationInput!): LiquidateCalculation!
+
+  """
+  Calculation of a user's net APY
+  """
+  netAPY(input: NetApyInput!): netApyCalculation!
+}
+
+input InCurrencyInput {
+  currency: Currency
+}
+
+type LiqwidData {
+  """
+  ADA staking APY
+  """
+  proofOfStakeApy: Float!
+  asset(input: AssetInput!): Asset
+  assets(input: AssetsInput): AssetPagination!
+  market(input: MarketInput!): Market
+  markets(input: MarketsInput): MarketPagination!
+  loans(input: LoansInput): LoanPagination!
+  supply(input: InCurrencyInput): Float!
+  borrow(input: InCurrencyInput): Float!
+  liquidity(input: InCurrencyInput): Float!
+  interpolatedDeposits(input: InCurrencyInput): Float!
+}
+
+input CustomOutput {
+  address: String!
+  inlineDatum: String
+}
+
+input ModifyBorrowTransactionInputCollateral {
+  id: String!
+  tokenName: String
+  amount: Float!
+}
+
+input ModifyBorrowTransactionInput {
+  txId: String!
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  amount: Float!
+  collaterals: [ModifyBorrowTransactionInputCollateral!]!
+  redeemCollateral: Boolean
+  utxos: [String!]!
+  loanPrincipalAndCollateralDeltasDestination: CustomOutput
+}
+
+type ModifyBorrowTransaction {
+  cbor: String!
+}
+
+input MintPreviewTokensTransactionInput {
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  utxos: [String!]!
+}
+
+type MintPreviewTokensTransaction {
+  cbor: String!
+}
+
+input LiquidationTransactionInput {
+  txId: String!
+  amount: Float!
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  utxos: [String!]!
+}
+
+enum SupportedWallet {
+  ETERNL
+  BEGIN
+}
+
+input SupplyTransactionInput {
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  amount: Float!
+  marketId: String!
+  utxos: [String!]!
+  wallet: SupportedWallet
+  mintedQTokensDestination: CustomOutput
+}
+
+type SupplyTransaction {
+  cbor: String!
+}
+
+input WithdrawTransactionInput {
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  amount: Float!
+  marketId: String!
+  utxos: [String!]!
+  wallet: SupportedWallet
+  withdrawnUnderlyingDestination: CustomOutput
+}
+
+type WithdrawTransaction {
+  cbor: String!
+}
+
+input BorrowTransactionInputCollateral {
+  id: String!
+  tokenName: String
+  amount: Float!
+}
+
+input BorrowTransactionInput {
+  marketId: String!
+  address: String!
+  changeAddress: String
+  otherAddresses: [String!]
+  amount: Float!
+  collaterals: [BorrowTransactionInputCollateral!]!
+  utxos: [String!]!
+  principalDestination: CustomOutput
+}
+
+type BorrowTransaction {
+  cbor: String!
+}
+
+type LiqwidTransactions {
+  liquidation(input: LiquidationTransactionInput!): Transaction!
+  supply(input: SupplyTransactionInput!): Transaction!
+  withdraw(input: WithdrawTransactionInput!): Transaction!
+  borrow(input: BorrowTransactionInput!): Transaction!
+  modifyBorrow(input: ModifyBorrowTransactionInput!): Transaction!
+  mintPreviewTokens(input: MintPreviewTokensTransactionInput!): Transaction!
+}
+
+type MarketAnalyticsPeriod {
+  supply: Float!
+  supplyInUsd: Float!
+  borrow: Float!
+  borrowInUsd: Float!
+  supplyPercentage: Float!
+  borrowPercentage: Float!
+  utilizationPercentage: Float!
+  supplyApy: Float!
+  borrowApy: Float!
+}
+
+type MarketAnalytics {
+  marketId: String!
+  displayName: String!
+  logo: String!
+  current: MarketAnalyticsPeriod!
+  previous: MarketAnalyticsPeriod!
+}
+
+type AnalyticsOverviewPeriod {
+  fromDate: String!
+  toDate: String!
+  supplyInUsd: Float!
+  stablecoinSupplyInUsd: Float!
+  borrowInUsd: Float!
+  stablecoinBorrowInUsd: Float!
+  debtRepaidInUsd: Float!
+  interestRepaidInUsd: Float!
+  interestAccruedInUsd: Float!
+}
+
+type AnalyticsOverview {
+  current: AnalyticsOverviewPeriod!
+  previous: AnalyticsOverviewPeriod!
+}
+
+type ProtocolRevenuePeriod {
+  fromDate: String!
+  toDate: String!
+  loanOriginationFeesInUsd: Float!
+  loanOriginationFeesMinAdaInUsd: Float!
+  liquidationProfitInUsd: Float!
+  adaStakingRewards: Int!
+  adaStakingRewardsInUsd: Float!
+  revenueFromRepaidInterestInUsd: Float!
+  dividendsFromRepaidInterestInUsd: Float!
+  polLoanInterestAccruedInUsd: Float!
+}
+
+type ProtocolRevenue {
+  current: ProtocolRevenuePeriod!
+  previous: ProtocolRevenuePeriod!
+}
+
+type LoanCollateral {
+  id: String!
+  tokenName: String
+  qTokenName: String
+  market: Market
+  asset: Asset!
+
+  """
+  The amount of the collateral in the loan, by default in USD
+  """
+  amount(input: InCurrencyInput): Float!
+  amountUSD: Float!
+  qTokenAmount: Float!
+  LTV: Float!
+  healthFactor: Float!
+}
+
+type Loan {
+  id: String!
+  transactionId: String!
+  transactionIndex: Int!
+  marketId: String!
+  publicKey: String!
+  market: Market!
+  asset: Asset!
+  amount(input: InCurrencyInput): Float!
+
+  """
+  Adjusted debt amount by removing the initial minimum interest set by the protocol
+  """
+  adjustedAmount(input: InCurrencyInput): Float!
+
+  """
+  The amount of the collateral in the loan, by default in USD
+  """
+  collateral(input: InCurrencyInput): Float!
+  interest: Float!
+  APY: Float!
+  LTV: Float!
+  healthFactor: Float!
+  collaterals: [LoanCollateral!]!
+  time: Float!
+}
+
+enum LoanSort {
+  MARKET_ID
+  MARKET_ID_DESC
+  DEBT
+  DEBT_DESC
+  COLLATERAL_IN_CURRENCY
+  COLLATERAL_IN_CURRENCY_DESC
+  HEALTH_FACTOR
+  HEALTH_FACTOR_DESC
+  APY
+  APY_DESC
+}
+
+enum LoanFilter {
+  STABLECOIN
+  CNT
+  BRIDGED
+  PRIME
+  HAS_DEBT
+  NO_DEBT
+  HAS_COLLATERAL
+  NO_COLLATERAL
+  CAN_BE_LIQUIDATED
+}
+
+input LoansInput {
+  page: Int = 0
+  perPage: Int = 50
+  paymentKeys: [String!]
+  sorts: [LoanSort!]
+  filters: [LoanFilter!]
+  marketIds: [String!]
+  search: String
+}
+
+type LoanPagination {
+  page: Int!
+  perPage: Int!
+  pagesCount: Int!
+  totalCount: Int!
+  results: [Loan!]!
+}
+
+enum MarketSort {
+  ID
+  ID_DESC
+  SUPPLY
+  SUPPLY_DESC
+  SUPPLY_IN_CURRENCY
+  SUPPLY_IN_CURRENCY_DESC
+  BORROW
+  BORROW_DESC
+  BORROW_IN_CURRENCY
+  BORROW_IN_CURRENCY_DESC
+  LIQUIDITY
+  LIQUIDITY_DESC
+  LIQUIDITY_IN_CURRENCY
+  LIQUIDITY_IN_CURRENCY_DESC
+  SUPPLY_APY
+  SUPPLY_APY_DESC
+  BORROW_APY
+  BORROW_APY_DESC
+}
+
+enum MarketFilter {
+  STABLECOIN
+  CNT
+  BRIDGED
+  PRIME
+  PUBLIC
+  PRIVATE
+}
+
+type MarketCollateralParameters {
+  id: String!
+  collateral: Collateral!
+  maxLoanToValue: Float!
+  weightedMaxLoanToValue: Float!
+  liquidationThreshold: Float!
+  weightedLiquidationThreshold: Float!
+  liquidationPenalty: Float
+  liquidationProfitability: Float
+  collateralWeight: Float
+}
+
+type MarketInterestModelParameters {
+  baseRate: Float
+  kinkRate: Float
+  utilMultiplier: Float
+  utilMultiplierJump: Float
+}
+
+type MarketIncomeParameters {
+  """
+  Protocol
+  """
+  reserve: Float
+  supplier: Float
+  staker: Float
+
+  """
+  DAO
+  """
+  treasury: Float
+}
+
+type MarketParameters {
+  id: String!
+  collateralParameters: [MarketCollateralParameters]
+
+  """
+  The income parameters in percentage
+  """
+  incomeParameters: MarketIncomeParameters!
+  interestModelParameters: MarketInterestModelParameters!
+
+  """
+  The maximum percentage of the market value that can be borrowed
+  """
+  borrowCap: Float
+
+  """
+  The maximum number of tokens that can be supplied to the market
+  """
+  supplyCap: Float
+
+  """
+  The minimum amount required for each action
+  """
+  minValue: Float!
+
+  """
+  The minimum health factor allowed for the market
+  """
+  minHealthFactor: Float!
+
+  """
+  The number of actions that can be performed simultaneously
+  """
+  actionCount: Int!
+
+  """
+  The maximum number of collateral that can be used for a single loan
+  """
+  maxCollateralCount: Int!
+  maxBatchTime: Float!
+  minBatchSize: Float!
+  minBatchTime: Float!
+}
+
+type UtilizationApy {
+  supplyMap: [Float!]!
+  borrowMap: [Float!]!
+  supplyApy: Float!
+  borrowApy: Float!
+}
+
+type MarketRegistry {
+  actionScriptHash: String!
+}
+
+type Market {
+  id: String!
+  displayName: String!
+  symbol: String!
+
+  """
+  The asset eligible for use as collateral in the market
+  """
+  collaterals: [Collateral!]!
+
+  """
+  The asset used as collateral in the market
+  """
+  collateralInMarkets: [Market!]!
+  asset: Asset!
+  receiptAsset: Asset!
+
+  """
+  The total amount of supply in the market
+  """
+  supply(input: InCurrencyInput): Float!
+
+  """
+  The total amount of borrow in the market
+  """
+  borrow(input: InCurrencyInput): Float!
+
+  """
+  The total liquidity in the market
+  """
+  liquidity(input: InCurrencyInput): Float!
+  supplyAPY: Float!
+  borrowAPY: Float!
+  lqSupplyAPY: Float!
+
+  """
+  Market utilization in percentage
+  """
+  utilization: Float!
+
+  """
+  Exchange rate between the qToken and the asset
+  """
+  exchangeRate: Float!
+
+  """
+  The market parameters
+  """
+  parameters: MarketParameters!
+
+  """
+  Boolean indicating if the market is batching
+  """
+  batching: Boolean!
+  batchExpired: Boolean!
+
+  """
+  Boolean indiciating if the market is paused due to an epoch transition
+  """
+  batchEpochPause: Boolean!
+
+  """
+  The timestamp of the most recent batch
+  """
+  lastBatch: String!
+  frozen: Boolean!
+
+  """
+  If this field is true, the market is private and cannot be accessed by users
+  """
+  private: Boolean!
+  delisting: Boolean!
+
+  """
+  Loan origination fee percentage charged when taking out a loan from this market (decimilal representation, e.g., 1% = 0.01)
+  """
+  loanOriginationFeePercentage: Float!
+
+  """
+  The market is considered Prime when it's a direct lending
+  """
+  prime: Boolean!
+
+  """
+  Array of supply/borrow APY based on utilization rate (0-100%), incremented 1% at a time
+  Useful for plotting the APY curve
+  """
+  utilizationApy: UtilizationApy!
+  registry: MarketRegistry!
+
+  """
+  The timestamp of the last update update
+  """
+  updatedAt: String!
+}
+
+type MarketPagination {
+  page: Int!
+  perPage: Int!
+  pagesCount: Int!
+  totalCount: Int!
+  results: [Market!]!
+}
+
+input MarketInput {
+  id: String!
+}
+
+input MarketsInput {
+  ids: [String!]
+  page: Int = 0
+  perPage: Int = 20
+  sorts: [MarketSort!]
+  filters: [MarketFilter!]
+  search: String
+}
+
+type Collateral {
+  id: String!
+  displayName: String!
+  symbol: String!
+  market: Market
+  asset: Asset!
+  name: String!
+  currencySymbol: String
+}
+
+enum AssetSort {
+  ID
+  ID_DESC
+}
+
+enum AssetFilter {
+  STABLECOIN
+  CNT
+  BRIDGED
+}
+
+input AssetInput {
+  id: String!
+}
+
+input AssetsInput {
+  ids: [String]
+  page: Int = 0
+  perPage: Int = 20
+  sorts: [AssetSort!]
+  filters: [AssetFilter!]
+  search: String
+}
+
+"""
+Information about the asset
+"""
+type AssetExtra {
+  bridge: Bridge
+  maxSupply: Float
+  totalSupply: Float
+  circulatingSupply: Float
+  discord: String
+  twitter: String
+  facebook: String
+  website: String
+  whitepaper: String
+  github: String
+  reddit: String
+  medium: String
+  telegram: String
+  coingecko: String
+  explorer: String
+}
+
+type Bridge {
+  name: String!
+  url: String!
+}
+
+type Hardcap {
+  low: Float
+  high: Float
+}
+
+type Asset {
+  id: String!
+  name: String!
+  symbol: String!
+  displayName: String!
+  decimals: Int!
+
+  """
+  The PolicyId of the asset
+  """
+  currencySymbol: String!
+  policyId: String!
+  hexName: String!
+
+  """
+  Path to access the asset logo in the API
+  """
+  logo: String
+  price(input: InCurrencyInput): Float!
+  priceUpdatedAt: String!
+
+  """
+  Price boundaries beyond which the asset's oracle price cannot move
+  """
+  hardcap: Hardcap
+  markets: [Market!]!
+  extra: AssetExtra
+}
+
+type AssetPagination {
+  page: Int!
+  perPage: Int!
+  pagesCount: Int!
+  totalCount: Int!
+  results: [Asset!]!
+}

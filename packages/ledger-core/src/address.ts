@@ -343,6 +343,13 @@ export class Address {
     return ret;
   }
 
+  toHex(): CborHex<CSLAddress> {
+    const cslAddress = this.toCSL();
+    const hex = cslAddress.to_hex();
+    safeFreeRustObjects(cslAddress);
+    return hex;
+  }
+
   toString(): string {
     return this.bech32;
   }

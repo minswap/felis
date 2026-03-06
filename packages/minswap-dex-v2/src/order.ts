@@ -22,7 +22,13 @@ import { type CborHex, type CSLPlutusData, Maybe, Result } from "@minswap/felis-
 import { getDexV2Configs, getDexV2OrderScriptHash } from "./constants";
 import { InvalidOrder } from "./invalid-order";
 import { DexVersion, OrderV2StepType } from "./order-step";
-import { normalizePair } from "./utils";
+
+function normalizePair([a, b]: [Asset, Asset]): [Asset, Asset] {
+  if (a.compare(b) > 0) {
+    return [b, a];
+  }
+  return [a, b];
+}
 
 export enum OrderV2AuthorizationMethodType {
   SIGNATURE = 0,

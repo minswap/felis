@@ -1,0 +1,50 @@
+# Stage 1: Base
+FROM node:22-slim AS base
+WORKDIR /usr/src/app
+
+# Install pnpm and curl (for healthcheck)
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+# Set pnpm global bin directory
+ENV PNPM_HOME="/root/.local/share/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+
+# Stage 2: Prune / Extract package.json files
+# This stage filters the repo to only the files needed for installation
+FROM base AS cleaner
+RUN pnpm add -g turbo
+COPY . .
+# Generate a pruned version of the repo
+ARG APP_NAME=long-short-backend
+RUN turbo prune ${APP_NAME} --docker
+
+# Stage 3: Install dependencies
+FROM base AS installer
+# Copy only the lockfile and the pruned package.json files from the cleaner stage
+COPY --from=cleaner /usr/src/app/out/json/ .
+COPY --from=cleaner /usr/src/app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+
+# Install dependencies (heavily cached)
+RUN pnpm install --frozen-lockfile
+
+# Stage 4: Build / Source
+FROM base AS builder
+COPY --from=installer /usr/src/app ./
+# Copy the actual source code (this is what changes often)
+COPY --from=cleaner /usr/src/app/out/full/ .
+COPY turbo.json turbo.json
+
+# Build the app
+ARG APP_NAME=long-short-backend
+RUN pnpm turbo build --filter=${APP_NAME}
+
+# Stage 5: Production release
+FROM base AS release
+COPY --from=builder /usr/src/app ./
+
+# Expose API port
+EXPOSE 9999
+
+# Command is set in docker-compose.yml
+CMD ["node", "--version"]
