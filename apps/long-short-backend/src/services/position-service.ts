@@ -3,7 +3,7 @@ import { LiqwidProviderV2 } from "@minswap/felis-lending-market";
 import invariant from "@minswap/tiny-invariant";
 import type { Kysely } from "kysely";
 import { StateMachine } from "../api/state-machine";
-import { type MarketConfig, getMarketConfig, isSupportedMarket } from "../config/market";
+import { getMarketConfig, isSupportedMarket, type MarketConfig } from "../config/market";
 import type { DB } from "../database";
 import { CardanoscanProvider, type MinswapAggregatorProvider } from "../provider";
 import { OrderRepository } from "../repository/order-repository";
@@ -506,9 +506,7 @@ export class PositionService {
    * Compute trading metrics for an OPEN position:
    * entry_price, liq_price, interest, unrealized_pnl, health
    */
-  async getPositionMetrics(
-    position: Position,
-  ): Promise<PositionMetrics> {
+  async getPositionMetrics(position: Position): Promise<PositionMetrics> {
     const empty: PositionMetrics = {
       entryPrice: null,
       liqPrice: null,
@@ -541,10 +539,7 @@ export class PositionService {
           : marketConfig.borrowMarketIdShort;
 
       const loansResult = await LiqwidProviderV2.Data.loansForUser(apiConfig, [pkh]);
-      const loan =
-        loansResult.type === "ok"
-          ? loansResult.value.find((l) => l.marketId === borrowMarketId)
-          : undefined;
+      const loan = loansResult.type === "ok" ? loansResult.value.find((l) => l.marketId === borrowMarketId) : undefined;
 
       const health = loan?.healthFactor ?? null;
       const interest = loan?.interest != null ? BigInt(Math.floor(loan.interest * 1000000)) : null;
@@ -574,12 +569,12 @@ export class PositionService {
         if (position.side === StateMachine.PositionSide.LONG) {
           // LONG: PnL = current token B value - (amount_in + amount_borrow), all in lovelace
           unrealizedPnl = currentValueBigInt - BigInt(position.amountIn) - BigInt(position.amountBorrow);
-        } else {
+        } else if (entryData?.saleProceedsLovelace != null) {
           // SHORT: PnL = sale proceeds at entry - current buyback cost
-          unrealizedPnl = BigInt(entryData!.saleProceedsLovelace!) - currentValueBigInt;
+          unrealizedPnl = BigInt(entryData.saleProceedsLovelace) - currentValueBigInt;
         }
       }
-            
+
       // 5. Liquidation price
       let liqPrice: number | null = null;
       if (loan && health != null && currentPrice != null && health > 0) {
