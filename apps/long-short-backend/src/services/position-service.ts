@@ -219,8 +219,11 @@ export class PositionService {
           positionAmountIn: position.amountIn,
         };
 
-        // For LONG_REPAY_FRACTION, pass the original debt (stored in amountOut during creation)
-        if (waitingOrder.orderType === StateMachine.LongOrderType.LONG_REPAY_FRACTION) {
+        // For fractional repay flows, pass the original debt (stored in amountOut during creation)
+        if (
+          waitingOrder.orderType === StateMachine.LongOrderType.LONG_REPAY_FRACTION ||
+          waitingOrder.orderType === StateMachine.ShortOrderType.SHORT_REPAY_FRACTION
+        ) {
           waitingOptions.originalDebtLovelace = waitingOrder.amountOut ?? undefined;
         }
 
@@ -453,29 +456,11 @@ export class PositionService {
         amountBorrow: position.amountBorrow,
       };
 
-      // LONG_REPAY and LONG_REPAY_FRACTION: no extra options needed — handlers fetch
-      // loan data directly from the Liqwid API (always up-to-date, even after modifyBorrow).
+      // LONG_REPAY, LONG_REPAY_FRACTION, SHORT_REPAY, SHORT_REPAY_FRACTION: no extra options needed —
+      // handlers fetch loan data directly from the Liqwid API (always up-to-date, even after modifyBorrow).
 
       // LONG_WITHDRAW and SHORT_WITHDRAW: handlers compute withdraw amount dynamically
       // from UTxO qToken balance and market exchange rate (no DB lookup needed).
-
-      // For SHORT_REPAY, we need the loan transaction ID, output index, and collateral amount from SHORT_BORROW
-      if (order.orderType === StateMachine.ShortOrderType.SHORT_REPAY) {
-        const borrowOrder = await OrderRepository.getOrderByPositionAndType(
-          this.db,
-          position.id,
-          StateMachine.ShortOrderType.SHORT_BORROW,
-        );
-        if (!borrowOrder?.createdTxId) {
-          return { success: false, error: "SHORT_BORROW order not found or not confirmed yet" };
-        }
-        if (!borrowOrder.amountIn) {
-          return { success: false, error: "SHORT_BORROW order amountIn (collateral amount) not set" };
-        }
-        buildOptions.loanTxId = borrowOrder.createdTxId;
-        buildOptions.loanOutputIndex = borrowOrder.createdTxIndex ?? 0;
-        buildOptions.collateralAmount = borrowOrder.amountIn; // qADA amount used as collateral
-      }
 
       const txResult = await buildFn(buildOptions);
 

@@ -41,6 +41,9 @@ export namespace StateMachine {
     SHORT_SELL = "SHORT_SELL",
     SHORT_BUY = "SHORT_BUY",
     SHORT_REPAY = "SHORT_REPAY",
+    SHORT_REPAY_FRACTION = "SHORT_REPAY_FRACTION",
+    SHORT_WITHDRAW_FRACTION = "SHORT_WITHDRAW_FRACTION",
+    SHORT_BUY_FREED = "SHORT_BUY_FREED",
     SHORT_WITHDRAW = "SHORT_WITHDRAW",
   }
 
@@ -991,28 +994,64 @@ export namespace StateMachine {
     };
   };
 
+  const checkShortRepayFunds = async (
+    networkEnv: NetworkEnvironment,
+    userAddress: string,
+    marketConfig: MarketConfig,
+    availableAssetB: number,
+  ): Promise<{ canFullRepay: boolean; loan: LiqwidProviderV2.Loan; loanAmountRaw: bigint }> => {
+    const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+    const userAddr = Address.fromBech32(userAddress);
+    const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
+    invariant(pkh, "Failed to extract public key hash from user address");
+    const loansResult = await LiqwidProviderV2.Data.loansForUser(apiConfig, [pkh]);
+    if (loansResult.type === "err") {
+      throw new Error(`Failed to fetch loans before short repay: ${loansResult.error.message}`);
+    }
+    const loan = loansResult.value.find((l) => l.marketId === marketConfig.borrowMarketIdShort);
+    invariant(loan, `No active loan found for market ${marketConfig.borrowMarketIdShort}`);
+    const loanAmountRaw = BigInt(Math.round(loan.amount * 1_000_000));
+    return { canFullRepay: BigInt(availableAssetB) >= loanAmountRaw, loan, loanAmountRaw };
+  };
+
   /**
-   * Build SHORT_REPAY transaction: Repay asset B loan to Liqwid and redeem qADA collateral
+   * Build SHORT_REPAY transaction: Full repay — pay off entire loan and redeem all collateral.
+   * Fetches loan from Liqwid API to get current UTXO and collateral info.
    */
   export const handleShortRepay = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
-    const { order, marketConfig, userAddress, networkEnv, utxos, loanTxId, loanOutputIndex, collateralAmount } =
-      options;
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
     invariant(order.orderType === ShortOrderType.SHORT_REPAY, "Invalid order type for handleShortRepay");
     invariant(order.assetIn, "assetIn is required for SHORT_REPAY order");
     invariant(order.amountIn, "amountIn is required for SHORT_REPAY order");
-    invariant(loanTxId, "loanTxId is required for SHORT_REPAY order");
-    invariant(loanOutputIndex !== undefined, "loanOutputIndex is required for SHORT_REPAY order");
-    invariant(collateralAmount, "collateralAmount is required for SHORT_REPAY order");
 
     const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
 
-    // Format loanUtxoId as "{txHash}-{outputIndex}"
-    const loanUtxoId = `${loanTxId}-${loanOutputIndex}`;
+    // Fetch current loan from API (always up-to-date, even after modifyBorrow)
+    const userAddr = Address.fromBech32(userAddress);
+    const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
+    invariant(pkh, "Failed to extract public key hash from user address");
+    const loansResult = await LiqwidProviderV2.Data.loansForUser(apiConfig, [pkh]);
+    if (loansResult.type === "err") {
+      throw new Error(`Failed to fetch loans for full repay: ${loansResult.error.message}`);
+    }
+    const loan = loansResult.value.find((l) => l.marketId === marketConfig.borrowMarketIdShort);
+    invariant(loan, `No active loan found for market ${marketConfig.borrowMarketIdShort}`);
 
-    // Format collateral ID: use assetAQTokenRaw (qADA) for SHORT
-    const qTokenParts = marketConfig.assetAQTokenRaw.split(".");
-    const qTokenPolicyId = qTokenParts[0];
-    const collateralId = `${marketConfig.borrowMarketIdShort}.${qTokenPolicyId}`;
+    const loanUtxoId = `${loan.transactionId}-${loan.transactionIndex}`;
+
+    const collateral = loan.collaterals[0];
+    invariant(collateral, "Loan has no collateral");
+    invariant(collateral.market, "Loan collateral has no market info");
+    const qTokenAmountRaw = Math.round(collateral.qTokenAmount * 1_000_000);
+    const collateralId = `${collateral.market.id}.${collateral.id}`;
+
+    logger.info("handleShortRepay: full repay", {
+      loanId: loan.id,
+      loanAmount: loan.amount,
+      qTokenAmountRaw,
+      loanUtxoId,
+      collateralId,
+    });
 
     const buildTxResult = await LiqwidProviderV2.Transactions.repayLoan(apiConfig, {
       address: userAddress,
@@ -1021,7 +1060,7 @@ export namespace StateMachine {
       collaterals: [
         {
           id: collateralId,
-          amount: Number(collateralAmount),
+          amount: qTokenAmountRaw,
         },
       ],
     });
@@ -1046,6 +1085,365 @@ export namespace StateMachine {
       txId,
       validTo: validTo.getTime(),
     };
+  };
+
+  // ============================================================================
+  // FRACTIONAL SHORT REPAY FLOW
+  // ============================================================================
+  //
+  // Triggered when SHORT_BUY output (asset B received) < current loan amount.
+  //
+  // Full cycle until position is fully closed:
+  //
+  //   SHORT_BUY
+  //      │ (asset B received < loan)
+  //      ▼
+  //   SHORT_REPAY_FRACTION  ──── modifyBorrow(newDebt, keepCollateral)
+  //      │
+  //      ▼
+  //   SHORT_WITHDRAW_FRACTION ── modifyBorrow(sameDebt, reducedCollateral, redeemCollateral=true) → ADA
+  //      │
+  //      ▼
+  //   SHORT_BUY_FREED  ────────── buy asset B with freed ADA (A_TO_B swap)
+  //      │
+  //      ├── asset B received < remaining loan? ──► loop back to SHORT_REPAY_FRACTION
+  //      │
+  //      └── asset B received >= remaining loan? ──► SHORT_REPAY (full repay)
+  //                                                       │
+  //                                                  SHORT_WITHDRAW
+  // ============================================================================
+
+  /**
+   * Build SHORT_REPAY_FRACTION: Partial debt repay via modifyBorrow.
+   * Self-contained — fetches current loan from Liqwid API.
+   * Reduces debt by available asset B while keeping full collateral (qADA) unchanged.
+   * Step 2 (SHORT_WITHDRAW_FRACTION) reduces collateral proportionally in a separate tx.
+   */
+  export const handleShortRepayFraction = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
+    invariant(
+      order.orderType === ShortOrderType.SHORT_REPAY_FRACTION,
+      "Invalid order type for handleShortRepayFraction",
+    );
+    invariant(order.assetIn, "assetIn is required for SHORT_REPAY_FRACTION order");
+    invariant(order.amountIn, "amountIn (asset B available to repay) is required for SHORT_REPAY_FRACTION order");
+
+    const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+
+    // Fetch current loan from API (always up-to-date, even after prior modifyBorrow calls)
+    const userAddr = Address.fromBech32(userAddress);
+    const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
+    invariant(pkh, "Failed to extract public key hash from user address");
+    const loansResult = await LiqwidProviderV2.Data.loansForUser(apiConfig, [pkh]);
+    if (loansResult.type === "err") {
+      throw new Error(`Failed to fetch loans for short partial repay: ${loansResult.error.message}`);
+    }
+    const loan = loansResult.value.find((l) => l.marketId === marketConfig.borrowMarketIdShort);
+    invariant(loan, `No active loan found for market ${marketConfig.borrowMarketIdShort}`);
+
+    const loanUtxoId = `${loan.transactionId}-${loan.transactionIndex}`;
+
+    // Fetch market to get minimum borrow amount constraint.
+    const marketResult = await LiqwidProviderV2.Data.market(
+      apiConfig,
+      marketConfig.borrowMarketIdShort as LiqwidProviderV2.MarketId,
+    );
+    if (marketResult.type === "err") {
+      throw new Error(`Failed to fetch market for short partial repay: ${marketResult.error.message}`);
+    }
+    invariant(marketResult.value, `Market ${marketConfig.borrowMarketIdShort} not found`);
+    const minValueRaw = Math.round(marketResult.value.parameters.minValue * 1_000_000);
+
+    // loan.amount is human-readable; convert to raw units
+    const currentDebtRaw = Math.round(loan.amount * 1_000_000);
+    const availableRaw = Number(order.amountIn); // raw units of asset B
+    const collateral = loan.collaterals[0];
+    invariant(collateral, "Loan has no collateral — cannot compute partial repay");
+    const qTokenAmountRaw = Math.round(collateral.qTokenAmount * 1_000_000);
+
+    // Remaining debt must stay >= minValue so the position stays protocol-legal.
+    const newDebt = Math.max(currentDebtRaw - availableRaw, minValueRaw);
+
+    invariant(collateral.market, "Loan collateral has no market info");
+    const collateralId = `${collateral.market.id}.${collateral.id}`;
+
+    logger.info("handleShortRepayFraction", {
+      currentDebtRaw,
+      availableRaw,
+      minValueRaw,
+      qTokenAmountRaw,
+      newDebt,
+      loanId: loan.id,
+      collateralId,
+    });
+
+    // Step 1 of fractional close: reduce debt only, keep FULL collateral unchanged.
+    const buildTxResult = await LiqwidProviderV2.Transactions.repayLoanFraction(apiConfig, {
+      address: userAddress,
+      utxos,
+      loanUtxoId,
+      amount: newDebt,
+      collaterals: [{ id: collateralId, amount: qTokenAmountRaw }],
+    });
+
+    if (buildTxResult.type === "err") {
+      throw new Error(`Failed to build short repay-fraction transaction: ${buildTxResult.error.message}`);
+    }
+
+    const txRaw = buildTxResult.value;
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const txBody = eTx.body();
+    const ttl = txBody.ttl();
+    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
+    safeFreeRustObjects(eTx, txBody);
+
+    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    const txId = LiqwidProviderV2.getTxHash(txRaw);
+
+    return { txRaw, txId, validTo: validTo.getTime() };
+  };
+
+  /**
+   * Wait for SHORT_REPAY_FRACTION tx confirmation.
+   *
+   * SHORT_REPAY_FRACTION is a Liqwid modifyBorrow tx that reduces debt while keeping
+   * full collateral. Asset B is consumed as repayment — no tokens returned to user.
+   *
+   * On confirmation → transition to SHORT_WITHDRAW_FRACTION:
+   *   amountIn = originalDebtRaw (for proportional collateral calc in handleShortWithdrawFraction)
+   */
+  export const waitingShortRepayFraction = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, userAddress, cardanoscanProvider, originalDebtLovelace } = options;
+    invariant(originalDebtLovelace, "originalDebtLovelace is required for waitingShortRepayFraction");
+
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
+
+    if (txFoundOnChain) {
+      return {
+        isConfirmed: true,
+        nextOrderType: ShortOrderType.SHORT_WITHDRAW_FRACTION,
+        assetIn: marketConfig.assetA.toString(), // placeholder (handler fetches loan from API)
+        amountIn: originalDebtLovelace, // original debt for proportional collateral calc
+        assetOut: marketConfig.assetA.toString(), // ADA will be received after withdraw
+      };
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Build SHORT_WITHDRAW_FRACTION: Reduce collateral via modifyBorrow after a partial repay.
+   * Keeps the same debt level, reduces qADA collateral proportionally, and redeems freed qADA
+   * to ADA (sent to wallet for buying more asset B in SHORT_BUY_FREED).
+   */
+  export const handleShortWithdrawFraction = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
+    invariant(
+      order.orderType === ShortOrderType.SHORT_WITHDRAW_FRACTION,
+      "Invalid order type for handleShortWithdrawFraction",
+    );
+
+    const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
+
+    // Fetch current loan state (after SHORT_REPAY_FRACTION: debt reduced, collateral unchanged)
+    const userAddr = Address.fromBech32(userAddress);
+    const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
+    invariant(pkh, "Failed to extract public key hash from user address");
+    const loansResult = await LiqwidProviderV2.Data.loansForUser(apiConfig, [pkh]);
+    if (loansResult.type === "err") {
+      throw new Error(`Failed to fetch loans for short withdraw fraction: ${loansResult.error.message}`);
+    }
+    const loan = loansResult.value.find((l) => l.marketId === marketConfig.borrowMarketIdShort);
+    invariant(loan, `No active loan found for market ${marketConfig.borrowMarketIdShort}`);
+
+    // Use loan UTXO info from the API (always up-to-date after modifyBorrow calls)
+    const loanUtxoId = `${loan.transactionId}-${loan.transactionIndex}`;
+
+    const currentDebtRaw = Math.round(loan.amount * 1_000_000);
+    const collateral = loan.collaterals[0];
+    invariant(collateral, "Loan has no collateral");
+    const qTokenAmountRaw = Math.round(collateral.qTokenAmount * 1_000_000);
+
+    // order.amountIn stores the original debt (before SHORT_REPAY_FRACTION) for proportional calc.
+    const originalDebtRaw = order.amountIn ? Number(order.amountIn) : currentDebtRaw;
+    const proportionalCollateral = Math.floor(qTokenAmountRaw * (currentDebtRaw / originalDebtRaw));
+
+    invariant(collateral.market, "Loan collateral has no market info");
+    const collateralId = `${collateral.market.id}.${collateral.id}`;
+
+    logger.info("handleShortWithdrawFraction", {
+      currentDebtRaw,
+      originalDebtRaw,
+      qTokenAmountRaw,
+      proportionalCollateral,
+      freedCollateral: qTokenAmountRaw - proportionalCollateral,
+      loanId: loan.id,
+      collateralId,
+    });
+
+    // Step 2: keep same debt, reduce collateral proportionally, redeem freed qADA to ADA.
+    const buildTxResult = await LiqwidProviderV2.Transactions.repayLoanFraction(apiConfig, {
+      address: userAddress,
+      utxos,
+      loanUtxoId,
+      amount: currentDebtRaw,
+      collaterals: [{ id: collateralId, amount: proportionalCollateral }],
+      redeemCollateral: true,
+    });
+
+    if (buildTxResult.type === "err") {
+      throw new Error(`Failed to build short withdraw-fraction transaction: ${buildTxResult.error.message}`);
+    }
+
+    const txRaw = buildTxResult.value;
+    const ECSL = RustModule.getE;
+    const eTx = ECSL.Transaction.from_hex(txRaw);
+    const txBody = eTx.body();
+    const ttl = txBody.ttl();
+    invariant(Maybe.isJust(ttl), "TTL must be set in the transaction body");
+    safeFreeRustObjects(eTx, txBody);
+
+    const validTo = getTimeFromSlotMagic(networkEnv, ttl);
+    const txId = LiqwidProviderV2.getTxHash(txRaw);
+
+    return { txRaw, txId, validTo: validTo.getTime() };
+  };
+
+  /**
+   * Wait for SHORT_WITHDRAW_FRACTION tx confirmation.
+   * Finds ADA received (freed qADA redeemed to underlying) and transitions to SHORT_BUY_FREED.
+   */
+  export const waitingShortWithdrawFraction = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
+
+    const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
+      userAddress,
+      txHash,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
+
+    if (txFoundOnChain) {
+      const userAddressHex = userAddress.toHex();
+
+      for (const output of txFoundOnChain.outputs) {
+        if (output.address === userAddressHex) {
+          // For SHORT, freed collateral is qADA → redeemed to ADA (native lovelace in output.value)
+          const amountOut = BigInt(output.value);
+          return {
+            isConfirmed: true,
+            nextOrderType: ShortOrderType.SHORT_BUY_FREED,
+            assetIn: marketConfig.assetA.toString(), // ADA
+            amountIn: amountOut.toString(),
+            assetOut: marketConfig.assetB.toString(), // asset B to buy
+            amountOut: amountOut.toString(),
+          };
+        }
+      }
+
+      throw new Error(`SHORT_WITHDRAW_FRACTION tx confirmed (${txHash}) but could not find ADA output for user`);
+    }
+
+    return { isConfirmed: false };
+  };
+
+  /**
+   * Build SHORT_BUY_FREED: Buy asset B with freed ADA. Same DEX swap as handleShortBuy.
+   */
+  export const handleShortBuyFreed = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
+    invariant(options.order.orderType === ShortOrderType.SHORT_BUY_FREED, "Invalid order type for handleShortBuyFreed");
+    return handleShortBuy({ ...options, order: { ...options.order, orderType: ShortOrderType.SHORT_BUY } });
+  };
+
+  /**
+   * Wait for SHORT_BUY_FREED order output to be spent (DEX consumed).
+   *
+   * On confirmation, checks if enough asset B to fully repay the remaining loan.
+   * If yes → SHORT_REPAY (full repay). If no → loop back to SHORT_REPAY_FRACTION.
+   */
+  export const waitingShortBuyFreed = async (options: WaitingOptions): Promise<WaitingResult> => {
+    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, assetOut, networkEnv } = options;
+    invariant(orderOutputIndex !== undefined, "orderOutputIndex is required for waitingShortBuyFreed");
+    invariant(assetOut, "assetOut is required for waitingShortBuyFreed");
+
+    const userAddressHex = userAddress.toHex();
+
+    const spendingTx = await cardanoscanProvider.findTransactionHasSpent(
+      userAddress,
+      txHash,
+      orderOutputIndex,
+      CardanoscanProvider.PAGE_SIZE,
+      CardanoscanProvider.MAX_PAGE,
+    );
+
+    if (spendingTx) {
+      const assetOutUnit = assetOut.toBlockFrostString();
+
+      for (const output of spendingTx.outputs) {
+        if (output.address === userAddressHex) {
+          if (output.tokens && output.tokens.length > 0) {
+            const matchingToken = output.tokens.find((token) => token.assetId === assetOutUnit);
+            if (matchingToken) {
+              const amountOut = BigInt(matchingToken.value);
+
+              // Check if we now have enough asset B to fully repay the remaining loan.
+              const { canFullRepay, loanAmountRaw } = await checkShortRepayFunds(
+                networkEnv,
+                userAddress.bech32,
+                marketConfig,
+                Number(amountOut),
+              );
+
+              logger.info("waitingShortBuyFreed: canFullRepay check", {
+                available: amountOut.toString(),
+                loanAmountRaw: loanAmountRaw.toString(),
+                canFullRepay,
+              });
+
+              if (canFullRepay) {
+                // Enough asset B → transition to SHORT_REPAY (full repay)
+                return {
+                  isConfirmed: true,
+                  nextOrderType: ShortOrderType.SHORT_REPAY,
+                  assetIn: marketConfig.assetB.toString(),
+                  amountIn: amountOut.toString(),
+                  assetOut: marketConfig.assetAQTokenRaw,
+                  amountOut: amountOut.toString(),
+                };
+              }
+
+              // Still not enough → loop: create another fractional cycle
+              return {
+                isConfirmed: true,
+                nextOrderType: ShortOrderType.SHORT_REPAY_FRACTION,
+                assetIn: marketConfig.assetB.toString(),
+                amountIn: amountOut.toString(),
+                assetOut: marketConfig.assetB.toString(),
+                amountOut: amountOut.toString(),
+                additionalOrders: [
+                  { orderType: ShortOrderType.SHORT_REPAY_FRACTION },
+                  { orderType: ShortOrderType.SHORT_WITHDRAW_FRACTION },
+                  { orderType: ShortOrderType.SHORT_BUY_FREED },
+                ],
+                originalDebtLovelace: loanAmountRaw.toString(),
+              };
+            }
+          }
+        }
+      }
+
+      throw new Error(
+        `SHORT_BUY_FREED output spent (tx: ${spendingTx.hash}) but could not find matching output with asset ${assetOut.toString()}`,
+      );
+    }
+
+    return { isConfirmed: false };
   };
 
   /**
@@ -1630,10 +2028,10 @@ export namespace StateMachine {
 
   /**
    * Wait for SHORT_BUY order output to be spent (consumed by DEX)
-   * Extract asset B received and transition to SHORT_REPAY
+   * Extract asset B received and check if enough for full repay or fractional flow
    */
   export const waitingShortBuy = async (options: WaitingOptions): Promise<WaitingResult> => {
-    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, assetOut } = options;
+    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, assetOut, networkEnv } = options;
     invariant(orderOutputIndex !== undefined, "orderOutputIndex is required for waitingShortBuy");
     invariant(assetOut, "assetOut is required for waitingShortBuy");
 
@@ -1656,13 +2054,47 @@ export namespace StateMachine {
             const matchingToken = output.tokens.find((token) => token.assetId === assetOutUnit);
             if (matchingToken) {
               const amountOut = BigInt(matchingToken.value);
+
+              // Check if we have enough asset B to fully repay the loan
+              const { canFullRepay, loanAmountRaw } = await checkShortRepayFunds(
+                networkEnv,
+                userAddress.bech32,
+                marketConfig,
+                Number(amountOut),
+              );
+
+              logger.info("waitingShortBuy: canFullRepay check", {
+                available: amountOut.toString(),
+                loanAmountRaw: loanAmountRaw.toString(),
+                canFullRepay,
+              });
+
+              if (canFullRepay) {
+                // Happy path: enough asset B → full repay
+                return {
+                  isConfirmed: true,
+                  nextOrderType: ShortOrderType.SHORT_REPAY,
+                  assetIn: assetOut.toString(),
+                  amountIn: amountOut.toString(),
+                  assetOut: marketConfig.assetAQTokenRaw, // qADA to be redeemed
+                  amountOut: amountOut.toString(),
+                };
+              }
+
+              // Insufficient asset B → start fractional repay cycle
               return {
                 isConfirmed: true,
-                nextOrderType: ShortOrderType.SHORT_REPAY,
+                nextOrderType: ShortOrderType.SHORT_REPAY_FRACTION,
                 assetIn: assetOut.toString(),
                 amountIn: amountOut.toString(),
-                assetOut: marketConfig.assetAQTokenRaw, // qADA to be redeemed
+                assetOut: marketConfig.assetB.toString(),
                 amountOut: amountOut.toString(),
+                additionalOrders: [
+                  { orderType: ShortOrderType.SHORT_REPAY_FRACTION },
+                  { orderType: ShortOrderType.SHORT_WITHDRAW_FRACTION },
+                  { orderType: ShortOrderType.SHORT_BUY_FREED },
+                ],
+                originalDebtLovelace: loanAmountRaw.toString(),
               };
             }
           }
@@ -1777,6 +2209,9 @@ export namespace StateMachine {
     [ShortOrderType.SHORT_SELL]: handleShortSell,
     [ShortOrderType.SHORT_BUY]: handleShortBuy,
     [ShortOrderType.SHORT_REPAY]: handleShortRepay,
+    [ShortOrderType.SHORT_REPAY_FRACTION]: handleShortRepayFraction,
+    [ShortOrderType.SHORT_WITHDRAW_FRACTION]: handleShortWithdrawFraction,
+    [ShortOrderType.SHORT_BUY_FREED]: handleShortBuyFreed,
     [ShortOrderType.SHORT_WITHDRAW]: handleShortWithdraw,
   };
 
@@ -1798,6 +2233,9 @@ export namespace StateMachine {
     [ShortOrderType.SHORT_SELL]: waitingShortSell,
     [ShortOrderType.SHORT_BUY]: waitingShortBuy,
     [ShortOrderType.SHORT_REPAY]: waitingShortRepay,
+    [ShortOrderType.SHORT_REPAY_FRACTION]: waitingShortRepayFraction,
+    [ShortOrderType.SHORT_WITHDRAW_FRACTION]: waitingShortWithdrawFraction,
+    [ShortOrderType.SHORT_BUY_FREED]: waitingShortBuyFreed,
     [ShortOrderType.SHORT_WITHDRAW]: waitingShortWithdraw,
   };
 }
