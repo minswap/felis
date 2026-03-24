@@ -487,6 +487,41 @@ export class PositionService {
     return PositionRepository.getOpenPositionByUser(this.db, userAddress);
   }
 
+  async getDebt(
+    userAddress: string,
+    marketId: string,
+  ): Promise<{ amount: string; asset: string } | null> {
+    const position = await PositionRepository.getOpenPositionByUserAndMarket(this.db, userAddress, marketId);
+    if (!position) return null;
+
+    const marketConfig = getMarketConfig(marketId);
+    if (!marketConfig) return null;
+
+    const borrowMarketId =
+      position.side === StateMachine.PositionSide.LONG
+        ? marketConfig.borrowMarketIdLong
+        : marketConfig.borrowMarketIdShort;
+
+    const debtAsset =
+      position.side === StateMachine.PositionSide.LONG
+        ? marketConfig.assetA.toString()
+        : marketConfig.assetB.toString();
+
+    const apiConfig = LiqwidProviderV2.createConfig(this.networkEnv);
+    const userAddr = Address.fromBech32(userAddress);
+    const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
+    if (!pkh) return null;
+
+    const loansResult = await LiqwidProviderV2.Data.loansForUser(apiConfig, [pkh]);
+    if (loansResult.type === "err") return null;
+
+    const loan = loansResult.value.find((l) => l.marketId === borrowMarketId);
+    if (!loan) return null;
+
+    const amountRaw = BigInt(Math.round(loan.amount * 1_000_000));
+    return { amount: amountRaw.toString(), asset: debtAsset };
+  }
+
   /**
    * Compute trading metrics for an OPEN position:
    * entry_price, liq_price, interest, unrealized_pnl, health

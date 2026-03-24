@@ -83,6 +83,28 @@ export const GetPositionResponseSchema = Type.Object({
 
 export type GetPositionResponseType = Static<typeof GetPositionResponseSchema>;
 
+// Debt schemas
+export const GetDebtQuerySchema = Type.Object({
+  user_address: Type.String({ minLength: 1, description: "User's Cardano address (bech32)" }),
+  market_id: Type.String({ minLength: 1, description: "Market ID (e.g., ADA-MIN)" }),
+});
+
+export type GetDebtQueryType = Static<typeof GetDebtQuerySchema>;
+
+export const GetDebtResponseSchema = Type.Object({
+  success: Type.Boolean(),
+  data: Type.Union([
+    Type.Object({
+      amount: Type.String({ description: "Debt amount in raw units (with decimals 1e6)" }),
+      asset: Type.String({ description: "Debt asset identifier" }),
+    }),
+    Type.Null(),
+  ]),
+  error: Type.Optional(Type.String()),
+});
+
+export type GetDebtResponseType = Static<typeof GetDebtResponseSchema>;
+
 // Build TX schemas
 export const BuildTxDataSchema = Type.Object({
   market_id: Type.String({ description: "Market identifier (e.g., ADA-MIN)" }),

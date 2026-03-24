@@ -18,6 +18,10 @@ import {
   CreatePositionResponseSchema,
   type CreatePositionResponseType,
   ErrorResponseSchema,
+  GetDebtQuerySchema,
+  type GetDebtQueryType,
+  GetDebtResponseSchema,
+  type GetDebtResponseType,
   GetPositionQuerySchema,
   type GetPositionQueryType,
   GetPositionResponseSchema,
@@ -244,6 +248,33 @@ export function registerPositionRoutes(fastify: FastifyInstance, positionService
       return reply.status(200).send({
         success: true,
         data: positionToResponse(result.position),
+      });
+    },
+  );
+
+  // GET /position/debt?user_address=...&market_id=...
+  fastify.get<{
+    Querystring: GetDebtQueryType;
+    Reply: GetDebtResponseType;
+  }>(
+    API_ENDPOINTS.POSITION_DEBT,
+    {
+      schema: {
+        querystring: GetDebtQuerySchema,
+        response: {
+          200: GetDebtResponseSchema,
+          400: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { user_address, market_id } = request.query;
+
+      const debt = await positionService.getDebt(user_address, market_id);
+
+      return reply.status(200).send({
+        success: true,
+        data: debt,
       });
     },
   );
