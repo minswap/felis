@@ -14,6 +14,7 @@ x-base-backend: &base-backend
     API_HOST: 0.0.0.0
     NETWORK: testnet-preview
     CARDANOSCAN_API_KEY: ${CARDANOSCAN_API_KEY}
+    KUPO_HOST: http://dev-3.tail2feb3.ts.net:1442
   healthcheck:
     test: ["CMD-SHELL", "curl -f http://localhost:9999/health || exit 1"]
     interval: 10s

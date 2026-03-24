@@ -5,7 +5,7 @@ import type { Kysely } from "kysely";
 import { StateMachine } from "../api/state-machine";
 import { getMarketConfig, isSupportedMarket, type MarketConfig } from "../config/market";
 import type { DB } from "../database";
-import { CardanoscanProvider, type MinswapAggregatorProvider } from "../provider";
+import { CardanoscanProvider, type KupoService, type MinswapAggregatorProvider } from "../provider";
 import { OrderRepository } from "../repository/order-repository";
 import { type Position, PositionRepository } from "../repository/position-repository";
 import { logger } from "../utils";
@@ -51,6 +51,7 @@ export class PositionService {
     private readonly networkEnv: NetworkEnvironment,
     private readonly cardanoscanProvider: CardanoscanProvider,
     private readonly aggregatorProvider: MinswapAggregatorProvider,
+    private readonly kupoService: KupoService,
   ) {}
 
   async createPosition(input: CreatePositionInput): Promise<CreatePositionResult> {
@@ -454,6 +455,7 @@ export class PositionService {
         networkEnv: this.networkEnv,
         utxos,
         amountBorrow: position.amountBorrow,
+        kupoService: this.kupoService,
       };
 
       // LONG_REPAY, LONG_REPAY_FRACTION, SHORT_REPAY, SHORT_REPAY_FRACTION: no extra options needed —
@@ -463,6 +465,32 @@ export class PositionService {
       // from UTxO qToken balance and market exchange rate (no DB lookup needed).
 
       const txResult = await buildFn(buildOptions);
+
+      // Handle redirect from fractional to full repay
+      if (txResult.redirectToFullRepay) {
+        const { targetOrderType, amountIn, assetIn, assetOut, deleteOrderTypes } = txResult.redirectToFullRepay;
+        await this.db.transaction().execute(async (trx) => {
+          await OrderRepository.deleteOrdersByTypes(trx, position.id, deleteOrderTypes);
+          const targetOrder = await OrderRepository.getOrderByPositionAndType(trx, position.id, targetOrderType);
+          invariant(targetOrder, "Target order for redirect not found");
+          await OrderRepository.updateOrderForRedirect(trx, targetOrder.id, {
+            assetIn,
+            amountIn,
+            assetOut,
+            builtTxId: txResult.txId,
+            builtValidTo: new Date(txResult.validTo),
+          });
+          logger.info("Redirected fractional to full repay", {
+            targetOrderType,
+            deletedTypes: deleteOrderTypes,
+            targetOrderId: targetOrder.id,
+            txId: txResult.txId,
+            validTo: new Date(txResult.validTo).toISOString(),
+          });
+        });
+
+        return { success: true, txRaw: txResult.txRaw, txId: txResult.txId, orderType: targetOrderType };
+      }
 
       // Update order built_tx fields
       await OrderRepository.updateOrderBuiltTx(this.db, order.id, txResult.txId, new Date(txResult.validTo));
@@ -487,10 +515,7 @@ export class PositionService {
     return PositionRepository.getOpenPositionByUser(this.db, userAddress);
   }
 
-  async getDebt(
-    userAddress: string,
-    marketId: string,
-  ): Promise<{ amount: string; asset: string } | null> {
+  async getDebt(userAddress: string, marketId: string): Promise<{ amount: string; asset: string } | null> {
     const position = await PositionRepository.getOpenPositionByUserAndMarket(this.db, userAddress, marketId);
     if (!position) return null;
 

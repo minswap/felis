@@ -6,7 +6,9 @@ import { LiqwidProvider, LiqwidProviderV2 } from "@minswap/felis-lending-market"
 import { CoinSelectionAlgorithm, EmulatorProvider } from "@minswap/felis-tx-builder";
 import invariant from "@minswap/tiny-invariant";
 import type { MarketConfig } from "../config";
+import { DEFAULT_DENOMINATOR, ERROR_BUILD_TX_CODE, REPAY_MIN_VALUE_THRESHOLD_NUM } from "../constants";
 import { CardanoscanProvider } from "../provider";
+import type { KupoService } from "../provider/kupo";
 import { logger } from "../utils";
 export namespace StateMachine {
   export enum PositionSide {
@@ -51,6 +53,19 @@ export namespace StateMachine {
     txRaw: string;
     txId: string;
     validTo: number;
+    /** When set, position-service should switch from fractional to full repay flow */
+    redirectToFullRepay?: {
+      /** The order type to update (e.g. SHORT_REPAY) */
+      targetOrderType: string;
+      /** Amount in for the full repay order */
+      amountIn: string;
+      /** Asset in for the full repay order */
+      assetIn: string;
+      /** Expected output asset for the full repay order */
+      assetOut: string;
+      /** Fractional order types to delete */
+      deleteOrderTypes: string[];
+    };
   };
 
   // Common order data type for all Handle functions
@@ -76,6 +91,8 @@ export namespace StateMachine {
     loanOutputIndex?: number;
     /** Collateral qToken amount (used for SHORT_REPAY to redeem collateral) */
     collateralAmount?: string;
+    /** Kupo service for querying user wallet balance */
+    kupoService: KupoService;
   };
 
   export const handleLongBuy = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
@@ -999,7 +1016,12 @@ export namespace StateMachine {
     userAddress: string,
     marketConfig: MarketConfig,
     availableAssetB: number,
-  ): Promise<{ canFullRepay: boolean; loan: LiqwidProviderV2.Loan; loanAmountRaw: bigint }> => {
+  ): Promise<{
+    canFullRepay: boolean;
+    canRepay: boolean;
+    loan: LiqwidProviderV2.Loan;
+    loanAmountRaw: bigint;
+  }> => {
     const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
     const userAddr = Address.fromBech32(userAddress);
     const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
@@ -1011,7 +1033,28 @@ export namespace StateMachine {
     const loan = loansResult.value.find((l) => l.marketId === marketConfig.borrowMarketIdShort);
     invariant(loan, `No active loan found for market ${marketConfig.borrowMarketIdShort}`);
     const loanAmountRaw = BigInt(Math.round(loan.amount * 1_000_000));
-    return { canFullRepay: BigInt(availableAssetB) >= loanAmountRaw, loan, loanAmountRaw };
+    const canFullRepay = BigInt(availableAssetB) >= loanAmountRaw;
+
+    // Fetch Liqwid market minValue to check if repay is possible
+    // Liqwid requires: repay >= minValue AND remaining debt >= minValue (or full repay)
+    // If debt <= minValue * REPAY_MIN_VALUE_THRESHOLD_NUM / DEFAULT_DENOMINATOR, neither full nor fractional repay is possible without more funds
+    const marketsResult = await LiqwidProviderV2.Data.markets(apiConfig, {
+      ids: [marketConfig.borrowMarketIdShort],
+    });
+    let canRepay = true;
+    if (marketsResult.type === "ok" && marketsResult.value.results.length > 0) {
+      const liqwidMarket = marketsResult.value.results[0];
+      const minValueRaw = BigInt(Math.round(liqwidMarket.parameters.minValue * 1_000_000));
+      // Threshold: debt must be > minValue * multiplier for fractional repay to work
+      // (repay portion >= minValue AND leftover >= minValue)
+      const minThreshold = (minValueRaw * REPAY_MIN_VALUE_THRESHOLD_NUM) / DEFAULT_DENOMINATOR;
+
+      if (!canFullRepay && loanAmountRaw <= minThreshold) {
+        canRepay = false;
+      }
+    }
+
+    return { canFullRepay, canRepay, loan, loanAmountRaw };
   };
 
   /**
@@ -1019,7 +1062,7 @@ export namespace StateMachine {
    * Fetches loan from Liqwid API to get current UTXO and collateral info.
    */
   export const handleShortRepay = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
-    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
+    const { order, marketConfig, userAddress, networkEnv, utxos, kupoService } = options;
     invariant(order.orderType === ShortOrderType.SHORT_REPAY, "Invalid order type for handleShortRepay");
     invariant(order.assetIn, "assetIn is required for SHORT_REPAY order");
     invariant(order.amountIn, "amountIn is required for SHORT_REPAY order");
@@ -1036,6 +1079,14 @@ export namespace StateMachine {
     }
     const loan = loansResult.value.find((l) => l.marketId === marketConfig.borrowMarketIdShort);
     invariant(loan, `No active loan found for market ${marketConfig.borrowMarketIdShort}`);
+
+    // Check if the user has enough asset B in wallet to cover the full debt
+    const loanAmountRaw = BigInt(Math.round(loan.amount * 1_000_000));
+    const walletBalance = await kupoService.getBalanceOfPubKeyAddress(userAddress);
+    const availableRaw = walletBalance.get(marketConfig.assetB);
+    if (availableRaw < loanAmountRaw) {
+      throw new Error(ERROR_BUILD_TX_CODE.ERROR_CANNOT_REPAY);
+    }
 
     const loanUtxoId = `${loan.transactionId}-${loan.transactionIndex}`;
 
@@ -1120,7 +1171,7 @@ export namespace StateMachine {
    * Step 2 (SHORT_WITHDRAW_FRACTION) reduces collateral proportionally in a separate tx.
    */
   export const handleShortRepayFraction = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
-    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
+    const { order, marketConfig, userAddress, networkEnv, utxos, kupoService } = options;
     invariant(
       order.orderType === ShortOrderType.SHORT_REPAY_FRACTION,
       "Invalid order type for handleShortRepayFraction",
@@ -1157,12 +1208,48 @@ export namespace StateMachine {
     // loan.amount is human-readable; convert to raw units
     const currentDebtRaw = Math.round(loan.amount * 1_000_000);
     const availableRaw = Number(order.amountIn); // raw units of asset B
+
+    // Query wallet balance via Kupo — if wallet has enough asset B, build full repay tx instead
+    const walletBalance = await kupoService.getBalanceOfPubKeyAddress(userAddress);
+    const walletAssetB = walletBalance.get(marketConfig.assetB);
+    if (walletAssetB >= BigInt(currentDebtRaw)) {
+      logger.info("handleShortRepayFraction: wallet has enough for full repay, redirecting", {
+        walletAssetB: walletAssetB.toString(),
+        currentDebtRaw,
+      });
+      const fullRepayResult = await handleShortRepay({
+        ...options,
+        order: { ...order, orderType: ShortOrderType.SHORT_REPAY, amountIn: walletAssetB.toString() },
+      });
+      return {
+        ...fullRepayResult,
+        redirectToFullRepay: {
+          targetOrderType: ShortOrderType.SHORT_REPAY,
+          amountIn: walletAssetB.toString(),
+          assetIn: marketConfig.assetB.toString(),
+          assetOut: marketConfig.assetAQTokenRaw,
+          deleteOrderTypes: [
+            ShortOrderType.SHORT_REPAY_FRACTION,
+            ShortOrderType.SHORT_WITHDRAW_FRACTION,
+            ShortOrderType.SHORT_BUY_FREED,
+          ],
+        },
+      };
+    }
+
     const collateral = loan.collaterals[0];
     invariant(collateral, "Loan has no collateral — cannot compute partial repay");
     const qTokenAmountRaw = Math.round(collateral.qTokenAmount * 1_000_000);
 
     // Remaining debt must stay >= minValue so the position stays protocol-legal.
     const newDebt = Math.max(currentDebtRaw - availableRaw, minValueRaw);
+
+    // Check: both the repay amount AND remaining debt must be >= minValue.
+    // If debt <= minValue * REPAY_MIN_VALUE_THRESHOLD_NUM / DEFAULT_DENOMINATOR, neither full nor fractional repay is possible.
+    const repayAmount = currentDebtRaw - newDebt;
+    if (repayAmount < minValueRaw || (availableRaw < currentDebtRaw && newDebt < minValueRaw)) {
+      throw new Error(ERROR_BUILD_TX_CODE.ERROR_CANNOT_REPAY);
+    }
 
     invariant(collateral.market, "Loan collateral has no market info");
     const collateralId = `${collateral.market.id}.${collateral.id}`;
@@ -1393,18 +1480,23 @@ export namespace StateMachine {
               const amountOut = BigInt(matchingToken.value);
 
               // Check if we now have enough asset B to fully repay the remaining loan.
-              const { canFullRepay, loanAmountRaw } = await checkShortRepayFunds(
+              const { canFullRepay, canRepay, loanAmountRaw } = await checkShortRepayFunds(
                 networkEnv,
                 userAddress.bech32,
                 marketConfig,
                 Number(amountOut),
               );
 
-              logger.info("waitingShortBuyFreed: canFullRepay check", {
+              logger.info("waitingShortBuyFreed: repay check", {
                 available: amountOut.toString(),
                 loanAmountRaw: loanAmountRaw.toString(),
                 canFullRepay,
+                canRepay,
               });
+
+              if (!canRepay) {
+                throw new Error(ERROR_BUILD_TX_CODE.ERROR_CANNOT_REPAY);
+              }
 
               if (canFullRepay) {
                 // Enough asset B → transition to SHORT_REPAY (full repay)
@@ -2056,18 +2148,23 @@ export namespace StateMachine {
               const amountOut = BigInt(matchingToken.value);
 
               // Check if we have enough asset B to fully repay the loan
-              const { canFullRepay, loanAmountRaw } = await checkShortRepayFunds(
+              const { canFullRepay, canRepay, loanAmountRaw } = await checkShortRepayFunds(
                 networkEnv,
                 userAddress.bech32,
                 marketConfig,
                 Number(amountOut),
               );
 
-              logger.info("waitingShortBuy: canFullRepay check", {
+              logger.info("waitingShortBuy: repay check", {
                 available: amountOut.toString(),
                 loanAmountRaw: loanAmountRaw.toString(),
                 canFullRepay,
+                canRepay,
               });
+
+              if (!canRepay) {
+                throw new Error(ERROR_BUILD_TX_CODE.ERROR_CANNOT_REPAY);
+              }
 
               if (canFullRepay) {
                 // Happy path: enough asset B → full repay

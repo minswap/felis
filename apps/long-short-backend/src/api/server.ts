@@ -6,7 +6,7 @@ import Fastify, { type FastifyError, type FastifyInstance } from "fastify";
 import type { Kysely } from "kysely";
 import { API_ENDPOINTS } from "../constants";
 import type { DB } from "../database";
-import { type CardanoscanProvider, MinswapAggregatorProvider } from "../provider";
+import { type CardanoscanProvider, type KupoService, MinswapAggregatorProvider } from "../provider";
 import { PositionService } from "../services/position-service";
 import { logger } from "../utils";
 import { registerLiqwidRoutes } from "./routes/liqwid";
@@ -18,11 +18,12 @@ export type ApiServerOptions = {
   host: string;
   db: Kysely<DB>;
   cardanoscanProvider: CardanoscanProvider;
+  kupoService: KupoService;
   networkEnv: NetworkEnvironment;
 };
 
 export async function createApiServer(options: ApiServerOptions): Promise<FastifyInstance> {
-  const { port, host, db, networkEnv, cardanoscanProvider } = options;
+  const { port, host, db, networkEnv, cardanoscanProvider, kupoService } = options;
 
   const fastify = Fastify({
     logger: {
@@ -85,7 +86,7 @@ export async function createApiServer(options: ApiServerOptions): Promise<Fastif
 
   // Create services
   const aggregatorProvider = new MinswapAggregatorProvider(networkEnv);
-  const positionService = new PositionService(db, networkEnv, cardanoscanProvider, aggregatorProvider);
+  const positionService = new PositionService(db, networkEnv, cardanoscanProvider, aggregatorProvider, kupoService);
 
   // Register routes
   registerLiqwidRoutes(fastify, networkEnv);
