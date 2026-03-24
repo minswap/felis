@@ -286,7 +286,7 @@ export namespace StateMachine {
     userAddress: string,
     marketConfig: MarketConfig,
     availableADA: number,
-  ): Promise<{ canFullRepay: boolean; loan: LiqwidProviderV2.Loan; loanAmount: bigint }> => {
+  ): Promise<{ canFullRepay: boolean; canRepay: boolean; loan: LiqwidProviderV2.Loan; loanAmount: bigint }> => {
     const apiConfig = LiqwidProviderV2.createConfig(networkEnv);
     const userAddr = Address.fromBech32(userAddress);
     const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
@@ -297,8 +297,23 @@ export namespace StateMachine {
     }
     const loan = loansResult.value.find((l) => l.marketId === marketConfig.borrowMarketIdLong);
     invariant(loan, `No active loan found for market ${marketConfig.borrowMarketIdLong}`);
-    const loanAmount = BigInt(Math.round(loan.amount * 1_000_000)); // ADA → Lovelace (Math.round avoids BigInt non-integer rejection)
-    return { canFullRepay: BigInt(availableADA) >= loanAmount, loan, loanAmount };
+    const loanAmount = BigInt(Math.round(loan.amount * 1_000_000));
+    const canFullRepay = BigInt(availableADA) >= loanAmount;
+
+    let canRepay = true;
+    const marketsResult = await LiqwidProviderV2.Data.markets(apiConfig, {
+      ids: [marketConfig.borrowMarketIdLong],
+    });
+    if (marketsResult.type === "ok" && marketsResult.value.results.length > 0) {
+      const liqwidMarket = marketsResult.value.results[0];
+      const minValueRaw = BigInt(Math.round(liqwidMarket.parameters.minValue * 1_000_000));
+      const minThreshold = (minValueRaw * REPAY_MIN_VALUE_THRESHOLD_NUM) / DEFAULT_DENOMINATOR;
+      if (!canFullRepay && loanAmount <= minThreshold) {
+        canRepay = false;
+      }
+    }
+
+    return { canFullRepay, canRepay, loan, loanAmount };
   };
 
   /**
@@ -307,7 +322,7 @@ export namespace StateMachine {
    * Fetches loan from Liqwid API to get current UTXO and collateral info.
    */
   export const handleLongRepay = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
-    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
+    const { order, marketConfig, userAddress, networkEnv, utxos, kupoService } = options;
     invariant(order.orderType === LongOrderType.LONG_REPAY, "Invalid order type for handleLongRepay");
     invariant(order.assetIn, "assetIn is required for LONG_REPAY order");
     invariant(order.amountIn, "amountIn is required for LONG_REPAY order");
@@ -324,6 +339,14 @@ export namespace StateMachine {
     }
     const loan = loansResult.value.find((l) => l.marketId === marketConfig.borrowMarketIdLong);
     invariant(loan, `No active loan found for market ${marketConfig.borrowMarketIdLong}`);
+
+    // Check if the user has enough ADA in wallet to cover the full debt
+    const loanAmountRaw = BigInt(Math.round(loan.amount * 1_000_000));
+    const walletBalance = await kupoService.getBalanceOfPubKeyAddress(userAddress);
+    const availableAda = walletBalance.get(marketConfig.assetA);
+    if (availableAda < loanAmountRaw) {
+      throw new Error(ERROR_BUILD_TX_CODE.ERROR_CANNOT_REPAY);
+    }
 
     const loanUtxoId = `${loan.transactionId}-${loan.transactionIndex}`;
 
@@ -424,7 +447,7 @@ export namespace StateMachine {
    * Step 2 (LONG_WITHDRAW_FRACTION) reduces collateral proportionally in a separate tx.
    */
   export const handleLongRepayFraction = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
-    const { order, marketConfig, userAddress, networkEnv, utxos } = options;
+    const { order, marketConfig, userAddress, networkEnv, utxos, kupoService } = options;
     invariant(order.orderType === LongOrderType.LONG_REPAY_FRACTION, "Invalid order type for handleLongRepayFraction");
     invariant(order.assetIn, "assetIn is required for LONG_REPAY_FRACTION order");
     invariant(order.amountIn, "amountIn (ADA available to repay) is required for LONG_REPAY_FRACTION order");
@@ -458,6 +481,35 @@ export namespace StateMachine {
     // loan.amount is in ADA (float); convert to Lovelace to match order.amountIn and API expectations.
     const currentDebtLovelace = Math.round(loan.amount * 1_000_000);
     const availableLovelace = Number(order.amountIn); // already in Lovelace
+
+    // Query wallet balance via Kupo — if wallet has enough ADA, build full repay tx instead
+    const walletBalance = await kupoService.getBalanceOfPubKeyAddress(userAddress);
+    const walletAda = walletBalance.get(marketConfig.assetA);
+    if (walletAda >= BigInt(currentDebtLovelace)) {
+      logger.info("handleLongRepayFraction: wallet has enough for full repay, redirecting", {
+        walletAda: walletAda.toString(),
+        currentDebtLovelace,
+      });
+      const fullRepayResult = await handleLongRepay({
+        ...options,
+        order: { ...order, orderType: LongOrderType.LONG_REPAY, amountIn: walletAda.toString() },
+      });
+      return {
+        ...fullRepayResult,
+        redirectToFullRepay: {
+          targetOrderType: LongOrderType.LONG_REPAY,
+          amountIn: walletAda.toString(),
+          assetIn: marketConfig.assetA.toString(),
+          assetOut: marketConfig.assetBQTokenRaw,
+          deleteOrderTypes: [
+            LongOrderType.LONG_REPAY_FRACTION,
+            LongOrderType.LONG_WITHDRAW_FRACTION,
+            LongOrderType.LONG_SELL_FREED,
+          ],
+        },
+      };
+    }
+
     const qTokenAmountFloat = loan.collaterals[0]?.qTokenAmount;
     invariant(qTokenAmountFloat !== undefined, "Loan has no collateral — cannot compute partial repay");
     // qTokenAmount from API is human-readable (divided by 10^6), convert to raw on-chain amount
@@ -465,6 +517,12 @@ export namespace StateMachine {
 
     // Remaining debt must stay >= minValue so the position stays protocol-legal.
     const newDebt = Math.max(currentDebtLovelace - availableLovelace, minValueLovelace);
+
+    // Check: both the repay amount AND remaining debt must be >= minValue.
+    const repayAmount = currentDebtLovelace - newDebt;
+    if (repayAmount < minValueLovelace || (availableLovelace < currentDebtLovelace && newDebt < minValueLovelace)) {
+      throw new Error(ERROR_BUILD_TX_CODE.ERROR_CANNOT_REPAY);
+    }
 
     logger.info("handleLongRepayFraction", {
       currentDebtLovelace,
@@ -700,18 +758,23 @@ export namespace StateMachine {
           const amountOut = BigInt(output.value);
 
           // Check if we now have enough ADA to fully repay the remaining loan.
-          const { canFullRepay, loanAmount } = await checkLongRepayFunds(
+          const { canFullRepay, canRepay, loanAmount } = await checkLongRepayFunds(
             networkEnv,
             userAddress.bech32,
             marketConfig,
             Number(amountOut),
           );
 
-          logger.info("waitingLongSellFreed: canFullRepay check", {
+          logger.info("waitingLongSellFreed: repay check", {
             available: amountOut.toString(),
             loanAmount: loanAmount.toString(),
             canFullRepay,
+            canRepay,
           });
+
+          if (!canRepay) {
+            throw new Error(ERROR_BUILD_TX_CODE.ERROR_CANNOT_REPAY);
+          }
 
           if (canFullRepay) {
             // Enough ADA → transition to existing LONG_REPAY (from closePosition)
@@ -1841,18 +1904,23 @@ export namespace StateMachine {
           }
 
           // For LONG_SELL, check if we have enough ADA to fully repay the loan.
-          const { canFullRepay, loanAmount } = await checkLongRepayFunds(
+          const { canFullRepay, canRepay, loanAmount } = await checkLongRepayFunds(
             networkEnv,
             userAddress.bech32,
             marketConfig,
             Number(amountOut),
           );
 
-          logger.info("waitingLongSell: canFullRepay check", {
+          logger.info("waitingLongSell: repay check", {
             available: amountOut.toString(),
             loanAmount: loanAmount.toString(),
             canFullRepay,
+            canRepay,
           });
+
+          if (!canRepay) {
+            throw new Error(ERROR_BUILD_TX_CODE.ERROR_CANNOT_REPAY);
+          }
 
           if (canFullRepay) {
             // Happy path: enough ADA → full repay
