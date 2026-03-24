@@ -10,7 +10,9 @@
   "bugs": {
     "url": "https://github.com/minswap/felis/issues"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": "./dist/index.js"
   },
@@ -25,23 +27,21 @@
     "check-circular-imports": "dpdm --no-warning --no-tree src"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/json-bigint": "^1.0.4",
     "@types/node": "^22.15.3",
-    "dpdm": "^3.14.0",
-    "eslint": "^9.31.0",
+    "dpdm": "^3.15.1",
     "fast-check": "^3.23.2",
     "typescript": "5.8.2",
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@minswap/tiny-invariant": "^1.2.0",
-    "@minswap/felis-ledger-core": "workspace:*",
-    "@minswap/felis-ledger-utils": "workspace:*",
     "@minswap/felis-build-tx": "workspace:*",
     "@minswap/felis-dex-v2": "workspace:*",
+    "@minswap/felis-ledger-core": "workspace:*",
+    "@minswap/felis-ledger-utils": "workspace:*",
     "@minswap/felis-tx-builder": "workspace:*",
+    "@minswap/tiny-invariant": "^1.2.0",
     "bignumber.js": "^9.1.2",
     "json-bigint": "^1.0.0",
     "remeda": "^2.19.2"

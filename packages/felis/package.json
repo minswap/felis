@@ -11,7 +11,9 @@
   "bugs": {
     "url": "https://github.com/minswap/felis/issues"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": "./dist/index.js"
   },
@@ -24,29 +26,27 @@
     "check-circular-imports": "dpdm --no-warning --no-tree src"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
-    "eslint": "^9.31.0",
-    "typescript": "5.8.2",
-    "dpdm": "^3.14.0"
+    "dpdm": "^3.15.1",
+    "typescript": "5.8.2"
   },
   "dependencies": {
-    "@minswap/felis-ledger-utils": "workspace:*",
-    "@minswap/felis-ledger-core": "workspace:*",
+    "@minswap/felis-build-tx": "workspace:*",
     "@minswap/felis-cip": "workspace:*",
-    "@minswap/felis-tx-builder": "workspace:*",
-    "@minswap/felis-provider": "workspace:*",
     "@minswap/felis-dex-v1": "workspace:*",
     "@minswap/felis-dex-v2": "workspace:*",
-    "@minswap/felis-build-tx": "workspace:*",
-    "@minswap/felis-stableswap": "workspace:*",
+    "@minswap/felis-ledger-core": "workspace:*",
+    "@minswap/felis-ledger-utils": "workspace:*",
     "@minswap/felis-lending-market": "workspace:*",
+    "@minswap/felis-provider": "workspace:*",
     "@minswap/felis-splash": "workspace:*",
+    "@minswap/felis-stableswap": "workspace:*",
     "@minswap/felis-sundaeswap-v1": "workspace:*",
     "@minswap/felis-sundaeswap-v3": "workspace:*",
+    "@minswap/felis-syncer": "workspace:*",
+    "@minswap/felis-tx-builder": "workspace:*",
     "@minswap/felis-wingriders-v1": "workspace:*",
-    "@minswap/felis-wingriders-v2": "workspace:*",
-    "@minswap/felis-syncer": "workspace:*"
+    "@minswap/felis-wingriders-v2": "workspace:*"
   }
 }
