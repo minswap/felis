@@ -183,11 +183,17 @@ export const MarketConfigResponseSchema = Type.Object({
   asset_a_supply_apy: Type.Union([Type.Number(), Type.Null()], {
     description: "Liqwid supply APY for asset A",
   }),
+  asset_a_min_value: Type.Union([Type.String(), Type.Null()], {
+    description: "Liqwid minimum value for asset A in lovelace",
+  }),
   asset_b_borrow_apy: Type.Union([Type.Number(), Type.Null()], {
     description: "Liqwid borrow APY for asset B",
   }),
   asset_b_supply_apy: Type.Union([Type.Number(), Type.Null()], {
     description: "Liqwid supply APY for asset B",
+  }),
+  asset_b_min_value: Type.Union([Type.String(), Type.Null()], {
+    description: "Liqwid minimum value for asset B in lovelace",
   }),
 });
 

@@ -6,9 +6,10 @@ import { API_ENDPOINTS } from "../../constants";
 import { logger } from "../../utils";
 import { type MarketConfigResponseType, MetadataResponseSchema, type MetadataResponseType } from "../schemas";
 
-type LiqwidMarketApyMap = Map<string, { borrowAPY: number; supplyAPY: number }>;
+type LiqwidMarketData = { borrowAPY: number; supplyAPY: number; minValue: string };
+type LiqwidMarketDataMap = Map<string, LiqwidMarketData>;
 
-function marketConfigToResponse(config: MarketConfig, liqwidApys: LiqwidMarketApyMap): MarketConfigResponseType {
+function marketConfigToResponse(config: MarketConfig, liqwidApys: LiqwidMarketDataMap): MarketConfigResponseType {
   const assetAApys = liqwidApys.get(config.borrowMarketIdLong);
   const assetBApys = liqwidApys.get(config.borrowMarketIdShort);
 
@@ -28,18 +29,21 @@ function marketConfigToResponse(config: MarketConfig, liqwidApys: LiqwidMarketAp
     min_collateral: config.minCollateral.toString(),
     asset_a_borrow_apy: assetAApys?.borrowAPY ?? null,
     asset_a_supply_apy: assetAApys?.supplyAPY ?? null,
+    asset_a_min_value: assetAApys?.minValue ?? null,
     asset_b_borrow_apy: assetBApys?.borrowAPY ?? null,
     asset_b_supply_apy: assetBApys?.supplyAPY ?? null,
+    asset_b_min_value: assetBApys?.minValue ?? null,
   };
 }
 
-async function fetchLiqwidMarketApys(networkEnv: NetworkEnvironment): Promise<LiqwidMarketApyMap> {
-  const apyMap: LiqwidMarketApyMap = new Map();
+async function fetchLiqwidMarketApys(networkEnv: NetworkEnvironment): Promise<LiqwidMarketDataMap> {
+  const apyMap: LiqwidMarketDataMap = new Map();
   const config = LiqwidProviderV2.createConfig(networkEnv);
   const result = await LiqwidProviderV2.Data.markets(config);
   if (result.type === "ok") {
     for (const market of result.value.results) {
-      apyMap.set(market.id, { borrowAPY: market.borrowAPY, supplyAPY: market.supplyAPY });
+      const minValue = (market.parameters.minValue * 1_000_000).toString();
+      apyMap.set(market.id, { borrowAPY: market.borrowAPY, supplyAPY: market.supplyAPY, minValue });
     }
   } else {
     logger.error("Failed to fetch Liqwid market data", { error: result.error });
