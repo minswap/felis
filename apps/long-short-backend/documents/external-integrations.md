@@ -38,7 +38,7 @@ Price estimation for swaps.
 - `estimate(request)` -- GET swap output amount
 
 **URLs:**
-- Mainnet: `https://monorepo-mainnet-prod.minswap.org/aggregator/estimate`
+- Mainnet: `https://aggr-monorepo-mainnet-prod.minswap.org/aggregator/estimate`
 - Preview: `https://aggr.dev-3.minswap.org/aggregator/estimate`
 
 Used to estimate SHORT borrow amounts: `amount_in * shortLeverage` ADA worth of asset B.
