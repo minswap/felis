@@ -1101,25 +1101,23 @@ export namespace StateMachine {
   //   SHORT_REPAY_FRACTION  ──── modifyBorrow(newDebt, keepCollateral)
   //      │
   //      ▼
-  //   SHORT_BUY_FREED  ────────── buy asset B with user's remaining ADA (A_TO_B swap)
+  //   SHORT_WITHDRAW_FRACTION ── modifyBorrow(sameDebt, reducedCollateral, redeemCollateral=true) → ADA
+  //      │
+  //      ▼
+  //   SHORT_BUY_FREED  ────────── buy asset B with freed ADA (A_TO_B swap)
   //      │
   //      ├── asset B received < remaining loan? ──► loop back to SHORT_REPAY_FRACTION
   //      │
   //      └── asset B received >= remaining loan? ──► SHORT_REPAY (full repay)
   //                                                       │
   //                                                  SHORT_WITHDRAW
-  //
-  // Note: Unlike LONG fractional flow, SHORT skips WITHDRAW_FRACTION because
-  // Liqwid's modifyBorrow with redeemCollateral=true requires MarketParams for
-  // the collateral market (qADA), which may not be available. Instead, collateral
-  // stays locked until full repay, and the user's existing ADA buys more asset B.
   // ============================================================================
 
   /**
    * Build SHORT_REPAY_FRACTION: Partial debt repay via modifyBorrow.
    * Self-contained — fetches current loan from Liqwid API.
    * Reduces debt by available asset B while keeping full collateral (qADA) unchanged.
-   * After confirmation, transitions to SHORT_BUY_FREED to buy more asset B with user's ADA.
+   * Step 2 (SHORT_WITHDRAW_FRACTION) reduces collateral proportionally in a separate tx.
    */
   export const handleShortRepayFraction = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
     const { order, marketConfig, userAddress, networkEnv, utxos } = options;
@@ -1212,11 +1210,12 @@ export namespace StateMachine {
    * SHORT_REPAY_FRACTION is a Liqwid modifyBorrow tx that reduces debt while keeping
    * full collateral. Asset B is consumed as repayment — no tokens returned to user.
    *
-   * On confirmation → transition to SHORT_BUY_FREED:
-   *   Buy more asset B with user's remaining ADA to cover remaining loan.
+   * On confirmation → transition to SHORT_WITHDRAW_FRACTION:
+   *   amountIn = originalDebtRaw (for proportional collateral calc in handleShortWithdrawFraction)
    */
   export const waitingShortRepayFraction = async (options: WaitingOptions): Promise<WaitingResult> => {
-    const { marketConfig, txHash, userAddress, cardanoscanProvider } = options;
+    const { marketConfig, txHash, userAddress, cardanoscanProvider, originalDebtLovelace } = options;
+    invariant(originalDebtLovelace, "originalDebtLovelace is required for waitingShortRepayFraction");
 
     const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
       userAddress,
@@ -1226,25 +1225,12 @@ export namespace StateMachine {
     );
 
     if (txFoundOnChain) {
-      // After partial repay, transition to SHORT_BUY_FREED to buy more asset B
-      // with user's remaining ADA. The handler will use whatever ADA the user has.
-      const userAddressHex = userAddress.toHex();
-
-      // Find ADA balance from tx outputs to pass as amountIn for the buy
-      let adaBalance = 0n;
-      for (const output of txFoundOnChain.outputs) {
-        if (output.address === userAddressHex) {
-          adaBalance += BigInt(output.value);
-        }
-      }
-
       return {
         isConfirmed: true,
-        nextOrderType: ShortOrderType.SHORT_BUY_FREED,
-        assetIn: marketConfig.assetA.toString(), // ADA
-        amountIn: adaBalance.toString(),
-        assetOut: marketConfig.assetB.toString(), // asset B to buy
-        amountOut: adaBalance.toString(),
+        nextOrderType: ShortOrderType.SHORT_WITHDRAW_FRACTION,
+        assetIn: marketConfig.assetA.toString(), // placeholder (handler fetches loan from API)
+        amountIn: originalDebtLovelace, // original debt for proportional collateral calc
+        assetOut: marketConfig.assetA.toString(), // ADA will be received after withdraw
       };
     }
 
@@ -1442,6 +1428,7 @@ export namespace StateMachine {
                 amountOut: amountOut.toString(),
                 additionalOrders: [
                   { orderType: ShortOrderType.SHORT_REPAY_FRACTION },
+                  { orderType: ShortOrderType.SHORT_WITHDRAW_FRACTION },
                   { orderType: ShortOrderType.SHORT_BUY_FREED },
                 ],
                 originalDebtLovelace: loanAmountRaw.toString(),
@@ -2104,6 +2091,7 @@ export namespace StateMachine {
                 amountOut: amountOut.toString(),
                 additionalOrders: [
                   { orderType: ShortOrderType.SHORT_REPAY_FRACTION },
+                  { orderType: ShortOrderType.SHORT_WITHDRAW_FRACTION },
                   { orderType: ShortOrderType.SHORT_BUY_FREED },
                 ],
                 originalDebtLovelace: loanAmountRaw.toString(),
@@ -2222,6 +2210,7 @@ export namespace StateMachine {
     [ShortOrderType.SHORT_BUY]: handleShortBuy,
     [ShortOrderType.SHORT_REPAY]: handleShortRepay,
     [ShortOrderType.SHORT_REPAY_FRACTION]: handleShortRepayFraction,
+    [ShortOrderType.SHORT_WITHDRAW_FRACTION]: handleShortWithdrawFraction,
     [ShortOrderType.SHORT_BUY_FREED]: handleShortBuyFreed,
     [ShortOrderType.SHORT_WITHDRAW]: handleShortWithdraw,
   };
@@ -2245,6 +2234,7 @@ export namespace StateMachine {
     [ShortOrderType.SHORT_BUY]: waitingShortBuy,
     [ShortOrderType.SHORT_REPAY]: waitingShortRepay,
     [ShortOrderType.SHORT_REPAY_FRACTION]: waitingShortRepayFraction,
+    [ShortOrderType.SHORT_WITHDRAW_FRACTION]: waitingShortWithdrawFraction,
     [ShortOrderType.SHORT_BUY_FREED]: waitingShortBuyFreed,
     [ShortOrderType.SHORT_WITHDRAW]: waitingShortWithdraw,
   };
