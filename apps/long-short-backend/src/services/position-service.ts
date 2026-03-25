@@ -1,9 +1,15 @@
 import { Address, Asset, type NetworkEnvironment } from "@minswap/felis-ledger-core";
 import { LiqwidProviderV2 } from "@minswap/felis-lending-market";
+import {
+  INSUFFICIENT_BALANCE_ERROR_MESSAGE,
+  InsufficientBalanceError,
+  TxBuildingError,
+} from "@minswap/felis-tx-builder";
 import invariant from "@minswap/tiny-invariant";
 import type { Kysely } from "kysely";
 import { StateMachine } from "../api/state-machine";
 import { getMarketConfig, isSupportedMarket, type MarketConfig } from "../config/market";
+import { ERROR_BUILD_TX_CODE } from "../constants";
 import type { DB } from "../database";
 import { CardanoscanProvider, type KupoService, type MinswapAggregatorProvider } from "../provider";
 import { OrderRepository } from "../repository/order-repository";
@@ -504,6 +510,13 @@ export class PositionService {
       return { success: true, txRaw: txResult.txRaw, txId: txResult.txId, orderType: order.orderType };
     } catch (error) {
       logger.error("error building tx", error);
+      if (
+        error instanceof InsufficientBalanceError ||
+        (error instanceof TxBuildingError && error.error instanceof InsufficientBalanceError) ||
+        (error instanceof Error && error.message === INSUFFICIENT_BALANCE_ERROR_MESSAGE)
+      ) {
+        return { success: false, error: ERROR_BUILD_TX_CODE.ERROR_INSUFFICIENT_BALANCE };
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : "Failed to build transaction",
