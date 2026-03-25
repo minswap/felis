@@ -8,15 +8,13 @@ x-base-backend: &base-backend
   depends_on:
     postgres:
       condition: service_healthy
-    redis:
-      condition: service_healthy
   environment:
     DATABASE_URL: postgres://postgres:JBNGlQ9wNFLlYWc2mG@postgres:5432/margin
-    REDIS_URL: redis://default:7obaQyYSDDLDk3ECYA@redis:6379
     API_PORT: 9999
     API_HOST: 0.0.0.0
     NETWORK: testnet-preview
     CARDANOSCAN_API_KEY: ${CARDANOSCAN_API_KEY}
+    KUPO_HOST: http://dev-3.tail2feb3.ts.net:1442
   healthcheck:
     test: ["CMD-SHELL", "curl -f http://localhost:9999/health || exit 1"]
     interval: 10s
@@ -31,34 +29,6 @@ services:
     ports:
       - "9999:9999"
     command: ["pnpm", "--filter=long-short-backend", "start"]
-
-  # web:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   network_mode: host
-  #   environment:
-  #     NODE_ENV: production
-  #     NEXT_PUBLIC_NETWORK_ENV: TESTNET_PREVIEW
-  #     PORT: 3002
-  #   expose:
-  #     - "3002"
-  #   restart: unless-stopped
-
-  redis:
-    image: redis:8
-    container_name: margin-redis
-    restart: always
-    command: --requirepass 7obaQyYSDDLDk3ECYA
-    ports:
-      - "6380:6379"
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "7obaQyYSDDLDk3ECYA", "--raw", "incr", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
 
   postgres:
     image: postgres:18
@@ -80,4 +50,3 @@ services:
 
 volumes:
   postgres-data: {}
-  redis-data: {}

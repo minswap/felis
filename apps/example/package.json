@@ -12,25 +12,23 @@
     "check-circular-imports": "dpdm --no-warning --no-tree src"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/json-bigint": "^1.0.4",
     "@types/node": "^22.15.3",
-    "dpdm": "^3.14.0",
-    "eslint": "^9.31.0",
+    "dpdm": "^3.15.1",
     "typescript": "5.8.2"
   },
   "dependencies": {
     "@cardano-ogmios/client": "^6.11.0",
-    "@minswap/tiny-invariant": "^1.2.0",
+    "@minswap/felis-dex-v2": "workspace:*",
     "@minswap/felis-ledger-core": "workspace:*",
     "@minswap/felis-ledger-utils": "workspace:*",
-    "@minswap/felis-dex-v2": "workspace:*",
+    "@minswap/felis-provider": "workspace:*",
     "@minswap/felis-sundaeswap-v1": "workspace:*",
     "@minswap/felis-sundaeswap-v3": "workspace:*",
     "@minswap/felis-syncer": "workspace:*",
-    "@minswap/felis-provider": "workspace:*",
     "@minswap/felis-tx-builder": "workspace:*",
+    "@minswap/tiny-invariant": "^1.2.0",
     "socket.io-client": "^4.8.3"
   }
 }

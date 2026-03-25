@@ -4,7 +4,7 @@ import { createApiServer } from "../api/server";
 import { loadMarketConfigs } from "../config/market";
 import type { DB } from "../database";
 import { newKyselyClient } from "../database/postgres";
-import { CardanoscanProvider } from "../provider";
+import { CardanoscanProvider, KupoService } from "../provider";
 import { logger } from "../utils";
 
 const API_PORT = Number(process.env.API_PORT) || 9999;
@@ -12,6 +12,7 @@ const API_HOST = process.env.API_HOST || "0.0.0.0";
 const DATABASE_URL = process.env.DATABASE_URL;
 const NETWORK = process.env.NETWORK || "mainnet";
 const CARDANOSCAN_API_KEY = process.env.CARDANOSCAN_API_KEY;
+const KUPO_HOST = process.env.KUPO_HOST;
 
 async function main() {
   // Validate environment
@@ -20,6 +21,9 @@ async function main() {
   }
   if (!CARDANOSCAN_API_KEY) {
     throw new Error("CARDANOSCAN_API_KEY environment variable is required");
+  }
+  if (!KUPO_HOST) {
+    throw new Error("KUPO_HOST environment variable is required");
   }
 
   // Parse network environment
@@ -34,6 +38,10 @@ async function main() {
   logger.info("Connecting to database...");
   const db = await newKyselyClient<DB>(DATABASE_URL, { logSQL: false });
   logger.info("Database connected");
+
+  logger.info("Connecting to Kupo service...");
+  const kupoService = await KupoService.new(KUPO_HOST, true);
+  logger.info("Kupo service connected");
 
   // Load market configs from database
   logger.info("Loading market configs...");
@@ -53,6 +61,7 @@ async function main() {
     db,
     networkEnv,
     cardanoscanProvider,
+    kupoService,
   });
 
   logger.info("Long-Short Backend started successfully", {

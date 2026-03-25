@@ -27,25 +27,24 @@
     "check-circular-imports": "dpdm --no-warning --no-tree src"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/json-bigint": "^1.0.4",
     "@types/node": "^22.15.3",
+    "dpdm": "^3.15.1",
+    "fast-check": "^3.23.2",
     "typescript": "5.8.2",
-    "dpdm": "^3.14.0",
-    "vitest": "^3.2.4",
-    "fast-check": "^3.23.2"
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@emurgo/cardano-serialization-lib-browser": "13.2.1",
     "@emurgo/cardano-serialization-lib-nodejs": "13.2.1",
     "@minswap/cardano-serialization-lib-browser": "11.1.0-minswap.33",
     "@minswap/cardano-serialization-lib-nodejs": "11.1.0-minswap.33",
-    "@minswap/tiny-invariant": "^1.2.0",
     "@minswap/felis-uplc-node": "workspace:*",
     "@minswap/felis-uplc-web": "workspace:*",
+    "@minswap/tiny-invariant": "^1.2.0",
     "blakejs": "^1.2.1",
-    "sha3": "^2.1.4",
-    "json-bigint": "^1.0.0"
+    "json-bigint": "^1.0.0",
+    "sha3": "^2.1.4"
   }
 }

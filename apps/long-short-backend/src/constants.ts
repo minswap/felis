@@ -6,5 +6,16 @@ export const API_ENDPOINTS = {
   POSITION_BUILD_TX: "/position/build-tx",
   POSITION_CLOSE: "/position/close",
   POSITION_CREATE: "/position/create",
+  POSITION_DEBT: "/position/debt",
   POSITION_GET: "/position/get",
 };
+
+export const ERROR_BUILD_TX_CODE = {
+  ERROR_CANNOT_REPAY: "ERROR_CANNOT_REPAY",
+};
+
+export const DEFAULT_DENOMINATOR = 10000n;
+
+/** Numerator for Liqwid minValue threshold (over DEFAULT_DENOMINATOR).
+ * Debt must be > minValue * REPAY_MIN_VALUE_THRESHOLD_NUM / DEFAULT_DENOMINATOR for fractional repay to work. */
+export const REPAY_MIN_VALUE_THRESHOLD_NUM = 21000n;

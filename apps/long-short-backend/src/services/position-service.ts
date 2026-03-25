@@ -5,7 +5,7 @@ import type { Kysely } from "kysely";
 import { StateMachine } from "../api/state-machine";
 import { getMarketConfig, isSupportedMarket, type MarketConfig } from "../config/market";
 import type { DB } from "../database";
-import { CardanoscanProvider, type MinswapAggregatorProvider } from "../provider";
+import { CardanoscanProvider, type KupoService, type MinswapAggregatorProvider } from "../provider";
 import { OrderRepository } from "../repository/order-repository";
 import { type Position, PositionRepository } from "../repository/position-repository";
 import { logger } from "../utils";
@@ -51,6 +51,7 @@ export class PositionService {
     private readonly networkEnv: NetworkEnvironment,
     private readonly cardanoscanProvider: CardanoscanProvider,
     private readonly aggregatorProvider: MinswapAggregatorProvider,
+    private readonly kupoService: KupoService,
   ) {}
 
   async createPosition(input: CreatePositionInput): Promise<CreatePositionResult> {
@@ -219,8 +220,11 @@ export class PositionService {
           positionAmountIn: position.amountIn,
         };
 
-        // For LONG_REPAY_FRACTION, pass the original debt (stored in amountOut during creation)
-        if (waitingOrder.orderType === StateMachine.LongOrderType.LONG_REPAY_FRACTION) {
+        // For fractional repay flows, pass the original debt (stored in amountOut during creation)
+        if (
+          waitingOrder.orderType === StateMachine.LongOrderType.LONG_REPAY_FRACTION ||
+          waitingOrder.orderType === StateMachine.ShortOrderType.SHORT_REPAY_FRACTION
+        ) {
           waitingOptions.originalDebtLovelace = waitingOrder.amountOut ?? undefined;
         }
 
@@ -451,33 +455,42 @@ export class PositionService {
         networkEnv: this.networkEnv,
         utxos,
         amountBorrow: position.amountBorrow,
+        kupoService: this.kupoService,
       };
 
-      // LONG_REPAY and LONG_REPAY_FRACTION: no extra options needed — handlers fetch
-      // loan data directly from the Liqwid API (always up-to-date, even after modifyBorrow).
+      // LONG_REPAY, LONG_REPAY_FRACTION, SHORT_REPAY, SHORT_REPAY_FRACTION: no extra options needed —
+      // handlers fetch loan data directly from the Liqwid API (always up-to-date, even after modifyBorrow).
 
       // LONG_WITHDRAW and SHORT_WITHDRAW: handlers compute withdraw amount dynamically
       // from UTxO qToken balance and market exchange rate (no DB lookup needed).
 
-      // For SHORT_REPAY, we need the loan transaction ID, output index, and collateral amount from SHORT_BORROW
-      if (order.orderType === StateMachine.ShortOrderType.SHORT_REPAY) {
-        const borrowOrder = await OrderRepository.getOrderByPositionAndType(
-          this.db,
-          position.id,
-          StateMachine.ShortOrderType.SHORT_BORROW,
-        );
-        if (!borrowOrder?.createdTxId) {
-          return { success: false, error: "SHORT_BORROW order not found or not confirmed yet" };
-        }
-        if (!borrowOrder.amountIn) {
-          return { success: false, error: "SHORT_BORROW order amountIn (collateral amount) not set" };
-        }
-        buildOptions.loanTxId = borrowOrder.createdTxId;
-        buildOptions.loanOutputIndex = borrowOrder.createdTxIndex ?? 0;
-        buildOptions.collateralAmount = borrowOrder.amountIn; // qADA amount used as collateral
-      }
-
       const txResult = await buildFn(buildOptions);
+
+      // Handle redirect from fractional to full repay
+      if (txResult.redirectToFullRepay) {
+        const { targetOrderType, amountIn, assetIn, assetOut, deleteOrderTypes } = txResult.redirectToFullRepay;
+        await this.db.transaction().execute(async (trx) => {
+          await OrderRepository.deleteOrdersByTypes(trx, position.id, deleteOrderTypes);
+          const targetOrder = await OrderRepository.getOrderByPositionAndType(trx, position.id, targetOrderType);
+          invariant(targetOrder, "Target order for redirect not found");
+          await OrderRepository.updateOrderForRedirect(trx, targetOrder.id, {
+            assetIn,
+            amountIn,
+            assetOut,
+            builtTxId: txResult.txId,
+            builtValidTo: new Date(txResult.validTo),
+          });
+          logger.info("Redirected fractional to full repay", {
+            targetOrderType,
+            deletedTypes: deleteOrderTypes,
+            targetOrderId: targetOrder.id,
+            txId: txResult.txId,
+            validTo: new Date(txResult.validTo).toISOString(),
+          });
+        });
+
+        return { success: true, txRaw: txResult.txRaw, txId: txResult.txId, orderType: targetOrderType };
+      }
 
       // Update order built_tx fields
       await OrderRepository.updateOrderBuiltTx(this.db, order.id, txResult.txId, new Date(txResult.validTo));
@@ -500,6 +513,38 @@ export class PositionService {
 
   async getOpenPositionByUser(userAddress: string): Promise<Position | null> {
     return PositionRepository.getOpenPositionByUser(this.db, userAddress);
+  }
+
+  async getDebt(userAddress: string, marketId: string): Promise<{ amount: string; asset: string } | null> {
+    const position = await PositionRepository.getOpenPositionByUserAndMarket(this.db, userAddress, marketId);
+    if (!position) return null;
+
+    const marketConfig = getMarketConfig(marketId);
+    if (!marketConfig) return null;
+
+    const borrowMarketId =
+      position.side === StateMachine.PositionSide.LONG
+        ? marketConfig.borrowMarketIdLong
+        : marketConfig.borrowMarketIdShort;
+
+    const debtAsset =
+      position.side === StateMachine.PositionSide.LONG
+        ? marketConfig.assetA.toString()
+        : marketConfig.assetB.toString();
+
+    const apiConfig = LiqwidProviderV2.createConfig(this.networkEnv);
+    const userAddr = Address.fromBech32(userAddress);
+    const pkh = userAddr.toPubKeyHash()?.keyHash.hex;
+    if (!pkh) return null;
+
+    const loansResult = await LiqwidProviderV2.Data.loansForUser(apiConfig, [pkh]);
+    if (loansResult.type === "err") return null;
+
+    const loan = loansResult.value.find((l) => l.marketId === borrowMarketId);
+    if (!loan) return null;
+
+    const amountRaw = BigInt(Math.round(loan.amount * 1_000_000));
+    return { amount: amountRaw.toString(), asset: debtAsset };
   }
 
   /**

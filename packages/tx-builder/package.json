@@ -25,21 +25,19 @@
     "check-circular-imports": "dpdm --no-warning --no-tree src"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@types/node": "^22.15.3",
-    "eslint": "^9.31.0",
-    "typescript": "5.8.2",
     "@types/json-bigint": "^1.0.4",
-    "dpdm": "^3.14.0"
+    "@types/node": "^22.15.3",
+    "dpdm": "^3.15.1",
+    "typescript": "5.8.2"
   },
   "dependencies": {
+    "@minswap/felis-cip": "workspace:*",
     "@minswap/felis-ledger-core": "workspace:*",
     "@minswap/felis-ledger-utils": "workspace:*",
-    "@minswap/felis-cip": "workspace:*",
-    "remeda": "^2.19.2",
     "@minswap/tiny-invariant": "^1.2.0",
     "bignumber.js": "^9.1.2",
-    "json-bigint": "^1.0.0"
+    "json-bigint": "^1.0.0",
+    "remeda": "^2.19.2"
   }
 }

@@ -2,7 +2,7 @@ import { NetworkEnvironment } from "@minswap/felis-ledger-core";
 import { logger } from "../utils";
 
 const BASE_URLS: Record<NetworkEnvironment, string> = {
-  [NetworkEnvironment.MAINNET]: "https://monorepo-mainnet-prod.minswap.org",
+  [NetworkEnvironment.MAINNET]: "https://aggr-monorepo-mainnet-prod.minswap.org",
   [NetworkEnvironment.TESTNET_PREVIEW]: "https://aggr.dev-3.minswap.org",
   [NetworkEnvironment.TESTNET_PREPROD]: "https://aggr.dev-3.minswap.org",
 };
@@ -45,8 +45,9 @@ export class MinswapAggregatorProvider {
       token_in: tokenIn,
       token_out: tokenOut,
       slippage,
-      exclude_protocols: ["MuesliSwap"],
-      allow_multi_hops: true,
+      include: ["MinswapV2"],
+      allow_multi_hops: false,
+      allowNonAtomicMultiHops: false,
     });
 
     const response = await fetch(url, {

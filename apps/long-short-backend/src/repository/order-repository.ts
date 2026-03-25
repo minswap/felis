@@ -292,6 +292,37 @@ export namespace OrderRepository {
     };
   }
 
+  export async function updateOrderForRedirect(
+    db: Kysely<DB> | Transaction<DB>,
+    orderId: bigint,
+    params: { assetIn: string; amountIn: string; assetOut: string; builtTxId: string; builtValidTo: Date },
+  ): Promise<void> {
+    await db
+      .updateTable("order")
+      .set({
+        asset_in: params.assetIn,
+        amount_in: params.amountIn,
+        asset_out: params.assetOut,
+        built_tx_id: params.builtTxId,
+        built_valid_to: params.builtValidTo,
+      })
+      .where("id", "=", orderId.toString())
+      .execute();
+  }
+
+  export async function deleteOrdersByTypes(
+    db: Kysely<DB> | Transaction<DB>,
+    positionId: bigint,
+    orderTypes: string[],
+  ): Promise<void> {
+    if (orderTypes.length === 0) return;
+    await db
+      .deleteFrom("order")
+      .where("position_id", "=", positionId.toString())
+      .where("order_type", "in", orderTypes)
+      .execute();
+  }
+
   // biome-ignore lint/suspicious/noExplicitAny: DB row type
   function mapOrderRow(row: any): Order {
     return {
