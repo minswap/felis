@@ -44,12 +44,18 @@ jobs:
           IMAGE_TAG="backend-$(echo "$REF_NAME" | tr '/' '-')-${GITHUB_SHA::7}"
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Build and Push Docker Image
         if: (github.event_name == 'workflow_dispatch' || github.ref_name == 'main' || github.ref_name == 'staging' || contains(github.event.pull_request.labels.*.name, 'ci/build-be'))
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.backend
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.REPO_NAME }}:${{ env.IMAGE_TAG }}
