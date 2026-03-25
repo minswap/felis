@@ -832,6 +832,9 @@ importers:
       typescript:
         specifier: 5.8.2
         version: 5.8.2
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@22.15.3)(jiti@2.6.1)(tsx@4.20.3)
 
   packages/typescript-config: {}
 
