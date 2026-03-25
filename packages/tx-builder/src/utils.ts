@@ -327,7 +327,7 @@ export namespace ChangeOutputBuilder {
     networkEnv: NetworkEnvironment;
     txDraft: TxDraft;
     protocolParameters: ProtocolParameters;
-  }): Result<ChangeValueResult, ChangeValueTooLargeError> {
+  }): Result<ChangeValueResult, ChangeValueTooLargeError | InsufficientBalanceError> {
     let maxTxFee = 0n;
     const referenceInputsFee = TxBuilderUtils.calReferenceInputsFee({
       inputs: txDraft.body.inputs,
@@ -357,6 +357,14 @@ export namespace ChangeOutputBuilder {
       .subtractAll(sumOutputsValue)
       .subtract(ADA, maxTxFee + sumStakeKeyRegistrationFee)
       .trim();
+
+    for (const [asset, amount] of changeValue.flatten()) {
+      if (amount < 0n) {
+        return Result.err(
+          new InsufficientBalanceError(asset.toString(), (-amount).toString(), InsufficientBalanceCause.CHANGE),
+        );
+      }
+    }
 
     if (changeValue.bytesLength() > 5000) {
       return Result.err(new ChangeValueTooLargeError(changeValue, maxTxFee));
@@ -504,6 +512,9 @@ export namespace ChangeOutputBuilder {
       protocolParameters: protocolParameters,
     });
     if (changeValueResult.type === "err") {
+      if (changeValueResult.error instanceof InsufficientBalanceError) {
+        return Result.err(changeValueResult.error);
+      }
       const changeOut = TxOut.newPubKeyOut({
         address: changeAddress,
         value: changeValueResult.error.changeValue,
