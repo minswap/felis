@@ -47,6 +47,7 @@ export namespace StateMachine {
     SHORT_WITHDRAW_FRACTION = "SHORT_WITHDRAW_FRACTION",
     SHORT_BUY_FREED = "SHORT_BUY_FREED",
     SHORT_WITHDRAW = "SHORT_WITHDRAW",
+    SHORT_SELL_ALL = "SHORT_SELL_ALL",
   }
 
   export type BuiltResult = {
@@ -976,7 +977,10 @@ export namespace StateMachine {
    */
   export const handleShortSell = async (options: HandleBuildTxOptions): Promise<BuiltResult> => {
     const { order, marketConfig, userAddress, networkEnv, utxos } = options;
-    invariant(order.orderType === ShortOrderType.SHORT_SELL, "Invalid order type for handleShortSell");
+    invariant(
+      order.orderType === ShortOrderType.SHORT_SELL || order.orderType === ShortOrderType.SHORT_SELL_ALL,
+      "Invalid order type for handleShortSell",
+    );
     invariant(order.assetIn, "assetIn is required for SHORT_SELL order");
     invariant(order.amountIn, "amountIn is required for SHORT_SELL order");
     invariant(order.assetOut, "assetOut is required for SHORT_SELL order");
@@ -1722,6 +1726,8 @@ export namespace StateMachine {
      * Stored as a string to avoid BigInt serialisation issues.
      */
     accumulatedAda?: string;
+    /** Kupo service for querying user wallet balance (SHORT_WITHDRAW leftover check) */
+    kupoService: KupoService;
   };
 
   /**
@@ -2149,11 +2155,12 @@ export namespace StateMachine {
   };
 
   /**
-   * Wait for SHORT_SELL order output to be spent (consumed by DEX)
-   * This is the final opening step — position becomes OPEN
+   * Wait for SHORT_SELL / SHORT_SELL_ALL order output to be spent (consumed by DEX)
+   * - SHORT_SELL: final opening step — position becomes OPEN
+   * - SHORT_SELL_ALL: final closing step — position becomes CLOSED
    */
   export const waitingShortSell = async (options: WaitingOptions): Promise<WaitingResult> => {
-    const { txHash, orderOutputIndex, userAddress, cardanoscanProvider } = options;
+    const { txHash, orderOutputIndex, userAddress, cardanoscanProvider, orderType } = options;
     invariant(orderOutputIndex !== undefined, "orderOutputIndex is required for waitingShortSell");
 
     const userAddressHex = userAddress.toHex();
@@ -2167,14 +2174,16 @@ export namespace StateMachine {
     );
 
     if (spendingTx) {
-      // SHORT_SELL sells asset B for ADA, so we look for ADA in outputs
+      // SHORT_SELL / SHORT_SELL_ALL sell asset B for ADA, so we look for ADA in outputs
       for (const output of spendingTx.outputs) {
         if (output.address === userAddressHex) {
           const amountOut = BigInt(output.value);
+          const positionStatus =
+            orderType === ShortOrderType.SHORT_SELL_ALL ? PositionStatus.CLOSED : PositionStatus.OPEN;
           return {
             isConfirmed: true,
             isFinal: true,
-            positionStatus: PositionStatus.OPEN,
+            positionStatus,
             amountOut: amountOut.toString(),
           };
         }
@@ -2325,7 +2334,7 @@ export namespace StateMachine {
    * This is the final closing step — position becomes CLOSED
    */
   export const waitingShortWithdraw = async (options: WaitingOptions): Promise<WaitingResult> => {
-    const { txHash, userAddress, cardanoscanProvider } = options;
+    const { marketConfig, txHash, userAddress, cardanoscanProvider, kupoService } = options;
 
     const txFoundOnChain = await cardanoscanProvider.findTransactionByHash(
       userAddress,
@@ -2340,12 +2349,21 @@ export namespace StateMachine {
       // For SHORT_WITHDRAW, we withdraw ADA — look for ADA value in outputs
       for (const output of txFoundOnChain.outputs) {
         if (output.address === userAddressHex) {
-          const amountOut = BigInt(output.value);
+          // Query wallet assetB balance — always transition to SHORT_SELL_ALL (pre-created in closePosition)
+          const walletBalance = await kupoService.getBalanceOfPubKeyAddress(userAddress.bech32);
+          const leftoverB = walletBalance.get(marketConfig.assetB);
+          logger.info("waitingShortWithdraw: leftover assetB", {
+            leftoverB: leftoverB.toString(),
+            assetB: marketConfig.assetB.toString(),
+          });
+
           return {
             isConfirmed: true,
-            isFinal: true,
-            positionStatus: PositionStatus.CLOSED,
-            amountOut: amountOut.toString(),
+            nextOrderType: ShortOrderType.SHORT_SELL_ALL,
+            assetIn: marketConfig.assetB.toString(),
+            amountIn: leftoverB.toString(),
+            assetOut: marketConfig.assetA.toString(),
+            amountOut: leftoverB.toString(),
           };
         }
       }
@@ -2378,6 +2396,7 @@ export namespace StateMachine {
     [ShortOrderType.SHORT_WITHDRAW_FRACTION]: handleShortWithdrawFraction,
     [ShortOrderType.SHORT_BUY_FREED]: handleShortBuyFreed,
     [ShortOrderType.SHORT_WITHDRAW]: handleShortWithdraw,
+    [ShortOrderType.SHORT_SELL_ALL]: handleShortSell,
   };
 
   /** Map of order types to their waiting functions */
@@ -2402,5 +2421,6 @@ export namespace StateMachine {
     [ShortOrderType.SHORT_WITHDRAW_FRACTION]: waitingShortWithdrawFraction,
     [ShortOrderType.SHORT_BUY_FREED]: waitingShortBuyFreed,
     [ShortOrderType.SHORT_WITHDRAW]: waitingShortWithdraw,
+    [ShortOrderType.SHORT_SELL_ALL]: waitingShortSell,
   };
 }

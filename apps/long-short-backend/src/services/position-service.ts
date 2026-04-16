@@ -224,6 +224,7 @@ export class PositionService {
           orderOutputIndex: waitingOrder.createdTxIndex ?? 0,
           assetOut: Asset.fromString(waitingOrder.assetOut),
           positionAmountIn: position.amountIn,
+          kupoService: this.kupoService,
         };
 
         // For fractional repay flows, pass the original debt (stored in amountOut during creation)
@@ -776,7 +777,7 @@ export class PositionService {
           throw new Error("SHORT_SELL order not found or amountOut not set");
         }
 
-        // Create 3 SHORT closing orders: buy asset B → repay loan → withdraw ADA
+        // Create 4 SHORT closing orders: buy asset B → repay loan → withdraw ADA → sell leftover assetB
         await OrderRepository.createOrders(trx, [
           {
             positionId: position.id,
@@ -792,6 +793,10 @@ export class PositionService {
           {
             positionId: position.id,
             orderType: StateMachine.ShortOrderType.SHORT_WITHDRAW,
+          },
+          {
+            positionId: position.id,
+            orderType: StateMachine.ShortOrderType.SHORT_SELL_ALL,
           },
         ]);
       }
