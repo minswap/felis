@@ -9,6 +9,7 @@ export * from "./native-script";
 export * from "./network-id";
 export * from "./plutus";
 export * from "./plutus-json";
+export * from "./plutus-script-utils";
 export * from "./plutus-version";
 export * from "./protocol-parameters";
 export * from "./redeemer";

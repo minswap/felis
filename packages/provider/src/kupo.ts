@@ -1,12 +1,27 @@
 import invariant from "@minswap/tiny-invariant";
 import { Address, type Asset, type Bytes, type KupoUtxo, type TxIn, Utxo, Value } from "@minswap/felis-ledger-core";
 import { type CborHex, type CSLTransactionUnspentOutput, Maybe } from "@minswap/felis-ledger-utils";
+import JSONBig from "json-bigint";
 import * as R from "remeda";
 import { uniq } from "./lodash";
+
+// Kupo response asset quantities (e.g. LP tokens) can exceed 2^53. Native JSON.parse
+// rounds them to JS Number, breaking conservation when we re-serialize the value
+// into a tx. Parse responses with json-bigint so quantities arrive as native bigints.
+const jsonBig = JSONBig({ useNativeBigInt: true });
+
+async function fetchJsonBig<T>(input: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, init);
+  if (!res.ok) {
+    throw new Error(`Kupo request failed: ${res.status} ${res.statusText}`);
+  }
+  return jsonBig.parse(await res.text()) as T;
+}
 
 const KUPO_MAX_REQUEST = 100;
 
 const DATUM_REGEX = /^[0-9a-fA-F]{64}$/;
+const SCRIPT_HASH_REGEX = /^[0-9a-fA-F]{56}$/;
 
 export type KupoHealthResponse = {
   connection_status: "connected" | "disconnected";
@@ -176,10 +191,9 @@ export class KupoService {
 
   async health(): Promise<KupoHealth> {
     const kupoUrl = `${this.kupoBaseUrl}/health`;
-    const fetchRes = await fetch(kupoUrl, {
+    const response = await fetchJsonBig<KupoHealthResponse>(kupoUrl, {
       headers: { Accept: "application/json;charset=utf-8" },
     });
-    const response = (await fetchRes.json()) as KupoHealthResponse;
 
     // We assume slot won't exceed MAX_SAFE_INTEGER
     const latestSyncedSlot = response.most_recent_checkpoint ?? 0;
@@ -198,15 +212,11 @@ export class KupoService {
 
   async getUtxosByMatches(matches: string): Promise<KupoUtxo[]> {
     const kupoUrl = `${this.kupoBaseUrl}/matches/${matches}`;
-    const fetchRes = await fetch(kupoUrl);
-    if (!fetchRes.ok) {
-      throw new Error(`Kupo request failed: ${fetchRes.status} ${fetchRes.statusText}`);
-    }
-    const data = await fetchRes.json();
+    const data = await fetchJsonBig<KupoUtxosResponse[]>(kupoUrl);
     if (!Array.isArray(data)) {
       throw new Error(`Kupo returned unexpected response: ${JSON.stringify(data)}`);
     }
-    return (data as KupoUtxosResponse[]).map((d) => ({
+    return data.map((d) => ({
       ...d,
       transaction_index: Number(d.transaction_index.toString()),
       output_index: Number(d.output_index.toString()),
@@ -254,8 +264,7 @@ export class KupoService {
       return null;
     }
     const kupoUrl = `${this.kupoBaseUrl}/datums/${datumHash}`;
-    const fetchRes = await fetch(kupoUrl);
-    const data = (await fetchRes.json()) as { datum: string } | null;
+    const data = await fetchJsonBig<{ datum: string } | null>(kupoUrl);
     return data ? data.datum : null;
   }
 
@@ -304,27 +313,55 @@ export class KupoService {
     return mapDatumHash;
   }
 
+  async getScript(scriptHash: string): Promise<{ language: string; script: string } | null> {
+    if (!SCRIPT_HASH_REGEX.test(scriptHash)) {
+      return null;
+    }
+    const kupoUrl = `${this.kupoBaseUrl}/scripts/${scriptHash}`;
+    return await fetchJsonBig<{ language: string; script: string } | null>(kupoUrl);
+  }
+
+  async getScripts(scriptHashes: string[]): Promise<Record<string, { language: string; script: string }>> {
+    if (scriptHashes.length === 0) {
+      return {};
+    }
+    const uniqueHashes = uniq(scriptHashes);
+    const mapScript: Record<string, { language: string; script: string }> = {};
+    for (let i = 0; i < uniqueHashes.length; i += KUPO_MAX_REQUEST) {
+      const batch = uniqueHashes.slice(i, i + KUPO_MAX_REQUEST);
+      const tasks = batch.map((hash) => this.getScript(hash));
+      const results = await Promise.all(tasks);
+      for (let j = 0; j < batch.length; j++) {
+        const result = results[j];
+        if (result) {
+          mapScript[batch[j]] = result;
+        }
+      }
+    }
+    return mapScript;
+  }
+
   private async parseUtxo(kupoUtxos: KupoUtxo[]): Promise<Utxo[]> {
     const datumHashes = kupoUtxos.filter((u) => u.datum_hash && u.datum_type).map((u) => u.datum_hash) as string[];
+    const scriptHashes = kupoUtxos.filter((u) => u.script_hash).map((u) => u.script_hash) as string[];
 
-    if (!datumHashes.length) {
-      return kupoUtxos.map((u) => Utxo.fromKupo(u));
-    }
-    const mapDatum: Record<string, string> = await this.getDatums(datumHashes);
+    const [mapDatum, mapScript] = await Promise.all([this.getDatums(datumHashes), this.getScripts(scriptHashes)]);
+
     const utxos: Utxo[] = [];
     for (const u of kupoUtxos) {
+      let datum: string | undefined;
       /**
        * In Kupo, inline datums are not stored in the UTXO, so we need to fetch them separately.
        */
       if (u.datum_hash && u.datum_type === "inline") {
-        const datumRaw = mapDatum[u.datum_hash];
-        invariant(datumRaw, `InlineDatum requires a valid datum, not found datum for ${u.datum_hash}`);
-        utxos.push(Utxo.fromKupo(u, datumRaw));
+        datum = mapDatum[u.datum_hash];
+        invariant(datum, `InlineDatum requires a valid datum, not found datum for ${u.datum_hash}`);
       } else if (u.datum_hash && u.datum_type === "hash") {
-        utxos.push(Utxo.fromKupo(u, mapDatum[u.datum_hash]));
-      } else {
-        utxos.push(Utxo.fromKupo(u));
+        datum = mapDatum[u.datum_hash];
       }
+
+      const scriptData = u.script_hash ? mapScript[u.script_hash] : undefined;
+      utxos.push(Utxo.fromKupo(u, datum, scriptData));
     }
     return utxos;
   }

@@ -807,8 +807,7 @@ export namespace Utxo {
     return utxos.some((utxo) => Utxo.toHex(utxo) === Utxo.toHex(search));
   }
 
-  export function fromKupo(utxo: KupoUtxo, datum?: string): Utxo {
-    // TODO: support script ref
+  export function fromKupo(utxo: KupoUtxo, datum?: string, scriptData?: { language: string; script: string }): Utxo {
     let datumSource: Maybe<DatumSource> = null;
     if (utxo.datum_hash) {
       // just type safety check
@@ -837,13 +836,43 @@ export namespace Utxo {
         };
       }
     }
+
+    let scriptRef: Maybe<ScriptReference> = null;
+    if (scriptData) {
+      const CSL = RustModule.get;
+      const rawBytes = Bytes.fromHex(scriptData.script);
+      switch (scriptData.language) {
+        case "native":
+        case "plutus:v1": {
+          break;
+        }
+        case "plutus:v2": {
+          const plutusScript = CSL.PlutusScript.new_v2(rawBytes.bytes);
+          scriptRef = {
+            plutusVersion: PlutusVersion.V2,
+            script: Bytes.fromHex(plutusScript.to_hex()),
+          };
+          safeFreeRustObjects(plutusScript);
+          break;
+        }
+        case "plutus:v3": {
+          const plutusScript = CSL.PlutusScript.new_v3(rawBytes.bytes);
+          scriptRef = {
+            plutusVersion: PlutusVersion.V3,
+            script: Bytes.fromHex(plutusScript.to_hex()),
+          };
+          safeFreeRustObjects(plutusScript);
+          break;
+        }
+      }
+    }
+
     return {
       input: {
         txId: Bytes.fromHex(utxo.transaction_id),
         index: utxo.output_index,
       },
-      // TODO: add support for script ref
-      output: new TxOut(Address.fromBech32(utxo.address), Value.fromKupo(utxo.value), datumSource),
+      output: new TxOut(Address.fromBech32(utxo.address), Value.fromKupo(utxo.value), datumSource, scriptRef),
     };
   }
 

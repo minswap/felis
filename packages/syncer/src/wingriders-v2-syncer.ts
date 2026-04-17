@@ -1,6 +1,6 @@
 import { DatumSourceType, type NetworkEnvironment } from "@minswap/felis-ledger-core";
 import { Maybe } from "@minswap/felis-ledger-utils";
-import { WingridersV2 } from "@minswap/felis-wingriders-v2";
+import { WingridersV2, WingridersV2Warehouse } from "@minswap/felis-wingriders-v2";
 import type { Transaction } from "./transaction";
 import type { WrapAddress, WrapAsset, WrapNum } from "./types";
 
@@ -32,9 +32,10 @@ export namespace WingridersV2Syncer {
     plutusData: Transaction["witnessSet"]["plutusData"],
     networkEnv: NetworkEnvironment,
   ): Maybe<NewOrder> {
-    // Check if output is to the order script
+    // Check if output is to the request (order) script for CP pools
+    const warehouse = WingridersV2Warehouse.getInstance(networkEnv);
     const scriptHash = output.address.toScriptHash();
-    if (!scriptHash || scriptHash.hex !== WingridersV2.ORDER_SCRIPT_HASH) {
+    if (!scriptHash || scriptHash.hex !== warehouse.requestValidatorHashCP.hex) {
       return null;
     }
 
