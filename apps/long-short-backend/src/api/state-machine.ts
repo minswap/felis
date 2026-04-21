@@ -1877,7 +1877,8 @@ export namespace StateMachine {
    * - For LONG_SELL_ALL: this is the final step, position becomes CLOSED
    */
   export const waitingLongSell = async (options: WaitingOptions): Promise<WaitingResult> => {
-    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, orderType, networkEnv } = options;
+    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, orderType, networkEnv, kupoService } =
+      options;
     invariant(orderOutputIndex !== undefined, "orderOutputIndex is required for waitingLongSell");
 
     const userAddressHex = userAddress.toHex();
@@ -1897,7 +1898,7 @@ export namespace StateMachine {
       for (const output of spendingTx.outputs) {
         if (output.address === userAddressHex) {
           // For ADA, the value is in the output.value field directly
-          const amountOut = BigInt(output.value);
+          let amountOut = BigInt(output.value);
 
           // For LONG_SELL_ALL, this is the final step - position becomes CLOSED
           if (orderType === LongOrderType.LONG_SELL_ALL) {
@@ -1907,6 +1908,17 @@ export namespace StateMachine {
               positionStatus: PositionStatus.CLOSED,
               amountOut: amountOut.toString(),
             };
+          }
+
+          if (orderType === LongOrderType.LONG_SELL) {
+            // Query wallet assetA (ADA) balance via Kupo — handles DEX swaps that split proceeds
+            // across multiple UTxOs, which the spending-tx output alone would under-count.
+            logger.info("waitingLongSell: querying wallet balance via Kupo to get total ADA received from sell", {
+              userAddress: userAddress.bech32,
+              asset: marketConfig.assetA,
+            });
+            const walletBalance = await kupoService.getBalanceOfPubKeyAddress(userAddress.bech32);
+            amountOut = walletBalance.get(marketConfig.assetA);
           }
 
           // For LONG_SELL, check if we have enough ADA to fully repay the loan.
