@@ -1877,8 +1877,16 @@ export namespace StateMachine {
    * - For LONG_SELL_ALL: this is the final step, position becomes CLOSED
    */
   export const waitingLongSell = async (options: WaitingOptions): Promise<WaitingResult> => {
-    const { marketConfig, txHash, orderOutputIndex, userAddress, cardanoscanProvider, orderType, networkEnv, kupoService } =
-      options;
+    const {
+      marketConfig,
+      txHash,
+      orderOutputIndex,
+      userAddress,
+      cardanoscanProvider,
+      orderType,
+      networkEnv,
+      kupoService,
+    } = options;
     invariant(orderOutputIndex !== undefined, "orderOutputIndex is required for waitingLongSell");
 
     const userAddressHex = userAddress.toHex();
