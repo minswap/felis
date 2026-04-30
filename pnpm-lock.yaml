@@ -431,6 +431,9 @@ importers:
       '@minswap/felis-ledger-utils':
         specifier: workspace:*
         version: link:../ledger-utils
+      '@minswap/felis-sundaeswap-v1':
+        specifier: workspace:*
+        version: link:../sundaeswap-v1
       '@minswap/felis-tx-builder':
         specifier: workspace:*
         version: link:../tx-builder

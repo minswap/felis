@@ -15,6 +15,8 @@
       "packages/minswap-dex-v2/**",
       "packages/minswap-lending-market/**",
       "packages/tx-builder/**",
+      "packages/wingriders-v2/**",
+      "packages/sundaeswap-v1/**",
       "apps/web/**",
       "apps/long-short-backend/src/**"
     ],

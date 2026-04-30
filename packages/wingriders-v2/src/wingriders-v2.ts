@@ -21,11 +21,11 @@ import {
   PlutusInt,
   PlutusMaybe,
   type Utxo,
-  Value,
+  type Value,
 } from "@minswap/felis-ledger-core";
 import { type CborHex, type CSLPlutusData, Maybe, Result } from "@minswap/felis-ledger-utils";
-import { blake2b } from "blakejs";
 import invariant from "@minswap/tiny-invariant";
+import { blake2b } from "blakejs";
 import { WingridersV2Warehouse } from "./warehouse";
 
 export namespace WingridersV2 {
@@ -128,14 +128,8 @@ export namespace WingridersV2 {
       const { fields } = PlutusConstr.unwrap(d, { [0]: 5 });
       return {
         poolChoice: PoolChoice.fromPlutusJson(fields[0]),
-        assetA: new Asset(
-          Bytes.fromHex(PlutusBytes.unwrap(fields[1])),
-          Bytes.fromHex(PlutusBytes.unwrap(fields[2])),
-        ),
-        assetB: new Asset(
-          Bytes.fromHex(PlutusBytes.unwrap(fields[3])),
-          Bytes.fromHex(PlutusBytes.unwrap(fields[4])),
-        ),
+        assetA: new Asset(Bytes.fromHex(PlutusBytes.unwrap(fields[1])), Bytes.fromHex(PlutusBytes.unwrap(fields[2]))),
+        assetB: new Asset(Bytes.fromHex(PlutusBytes.unwrap(fields[3])), Bytes.fromHex(PlutusBytes.unwrap(fields[4]))),
       };
     }
 
@@ -218,7 +212,11 @@ export namespace WingridersV2 {
         minWantedB: bigint;
       }
     | {
-        type: OrderType.ExtractTreasury | OrderType.AddStakingReward | OrderType.ExtractProjectTreasury | OrderType.ExtractReserveTreasury;
+        type:
+          | OrderType.ExtractTreasury
+          | OrderType.AddStakingReward
+          | OrderType.ExtractProjectTreasury
+          | OrderType.ExtractReserveTreasury;
       }
   );
 
@@ -456,8 +454,14 @@ export namespace WingridersV2 {
   export namespace PoolDatum {
     export function fromPlutusJson(data: PlutusData, networkEnv: NetworkEnvironment): PoolDatum {
       const { fields } = PlutusConstr.unwrap(data, { [0]: 21 });
-      const assetA = new Asset(Bytes.fromHex(PlutusBytes.unwrap(fields[1])), Bytes.fromHex(PlutusBytes.unwrap(fields[2])));
-      const assetB = new Asset(Bytes.fromHex(PlutusBytes.unwrap(fields[3])), Bytes.fromHex(PlutusBytes.unwrap(fields[4])));
+      const assetA = new Asset(
+        Bytes.fromHex(PlutusBytes.unwrap(fields[1])),
+        Bytes.fromHex(PlutusBytes.unwrap(fields[2])),
+      );
+      const assetB = new Asset(
+        Bytes.fromHex(PlutusBytes.unwrap(fields[3])),
+        Bytes.fromHex(PlutusBytes.unwrap(fields[4])),
+      );
       const projectBeneficiaryData = PlutusMaybe.unwrap(fields[18]);
       const reserveBeneficiaryData = PlutusMaybe.unwrap(fields[19]);
 
@@ -620,7 +624,9 @@ export namespace WingridersV2 {
      * Reserve B, subtracting all treasuries
      */
     get reserveB(): bigint {
-      return this.value.get(this.assetB) - this.datum.treasuryB - this.datum.projectTreasuryB - this.datum.reserveTreasuryB;
+      return (
+        this.value.get(this.assetB) - this.datum.treasuryB - this.datum.projectTreasuryB - this.datum.reserveTreasuryB
+      );
     }
 
     /**
@@ -640,7 +646,10 @@ export namespace WingridersV2 {
      */
     get totalFeeInBasis(): bigint {
       return (
-        this.datum.swapFeeInBasis + this.datum.protocolFeeInBasis + this.datum.projectFeeInBasis + this.datum.reserveFeeInBasis
+        this.datum.swapFeeInBasis +
+        this.datum.protocolFeeInBasis +
+        this.datum.projectFeeInBasis +
+        this.datum.reserveFeeInBasis
       );
     }
 

@@ -38,6 +38,7 @@
     "@minswap/felis-dex-v2": "workspace:*",
     "@minswap/felis-ledger-core": "workspace:*",
     "@minswap/felis-ledger-utils": "workspace:*",
+    "@minswap/felis-sundaeswap-v1": "workspace:*",
     "@minswap/felis-tx-builder": "workspace:*",
     "@minswap/felis-wingriders-v2": "workspace:*",
     "@minswap/tiny-invariant": "^1.2.0",
