@@ -54,7 +54,7 @@ function resolveKupoUrl(network: NetworkEnvironment): string {
     case NetworkEnvironment.MAINNET:
       return process.env["KUPO_MAINNET_URL"] ?? "http://mainnet-staging:1442";
     case NetworkEnvironment.TESTNET_PREPROD:
-      return process.env["KUPO_PREPROD_URL"] ?? "http://testnet-preprod:1442";
+      return process.env["KUPO_PREPROD_URL"] ?? "http://testnet-preprod.tail2feb3.ts.net:1442";
     case NetworkEnvironment.TESTNET_PREVIEW:
       return process.env["KUPO_PREVIEW_URL"] ?? "http://dev-3:1442";
   }
