@@ -5,7 +5,7 @@ import {
   Bytes,
   DatumSourceType,
   type NetworkEnvironment,
-  type PlutusData,
+  PlutusData,
   TxIn,
   TxOut,
   type Utxo,
@@ -210,8 +210,8 @@ export namespace WingridersV2 {
     );
     invariant(orderDatum.type === WRV2.OrderType.Swap, "WingridersV2.buildBatchTx: only swap orders supported in v1");
     invariant(
-      orderDatum.datumType === WRV2.DatumType.No,
-      "WingridersV2.buildBatchTx: only pubkey beneficiaries (datumType=No) supported in v1",
+      orderDatum.datumType === WRV2.DatumType.No || orderDatum.datumType === WRV2.DatumType.Inline,
+      `WingridersV2.buildBatchTx: only datumType=No or datumType=Inline supported (got ${orderDatum.datumType})`,
     );
 
     const sortedInputs = [pool.input, agentInput, order.input].slice().sort((a, b) => TxIn.compare(a.input, b.input));
@@ -240,7 +240,18 @@ export namespace WingridersV2 {
       type: DatumSourceType.INLINE_DATUM,
       data: Bytes.fromHex(WRV2.PoolDatum.toCborHex(pool.newDatum)),
     });
-    const compensationOut = new TxOut(orderDatum.beneficiary, order.compensation).addMinimumADAIfRequired(networkEnv);
+    const compensationDatumSource =
+      orderDatum.datumType === WRV2.DatumType.Inline
+        ? {
+            type: DatumSourceType.INLINE_DATUM as const,
+            data: Bytes.fromHex(PlutusData.toDataHex(orderDatum.compensationDatum)),
+          }
+        : undefined;
+    const compensationOut = new TxOut(
+      orderDatum.beneficiary,
+      order.compensation,
+      compensationDatumSource,
+    ).addMinimumADAIfRequired(networkEnv);
 
     return new TxBuilder(networkEnv)
       .readFrom(warehouse.poolCpRefInput, warehouse.orderRefInput)

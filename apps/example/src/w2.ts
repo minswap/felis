@@ -258,7 +258,7 @@ function planSwap(
   const agentFee = poolDatum.agentFeeAda;
   const rawIn = order.utxo.output.value.get(assetIn);
   const lockX = assetIn.equals(ADA) ? rawIn - oil - agentFee : rawIn;
-  invariant(lockX > 0n, "order lockX must be positive");
+  invariant(lockX > 0n, `order lockX must be positive | lockX | ${lockX}| rawIn | ${rawIn} | oil | ${oil} | agentFee | ${agentFee} | ${assetIn.toString()}`);
 
   // Effective reserves as seen by the curve: UTxO value minus treasuries
   // (and minPoolAda on the ADA side).
@@ -373,14 +373,17 @@ async function runBatchInner(
   console.log(`Found ${orderUtxos.length} order UTxOs`);
   debugData.orderUtxosCount = orderUtxos.length;
 
-  // 3) Pick the first valid swap order that has a matching pool
+  // 3) Collect ALL valid swap orders that have a matching pool. We try them
+  // one at a time below; if planning/building/completing fails for one,
+  // we fall through to the next candidate instead of bailing out.
   const nowMs = BigInt(Date.now());
-  let match: { order: OrderCandidate; pool: { utxo: Utxo; datum: WingridersV2.PoolDatum } } | null = null;
+  type Candidate = { order: OrderCandidate; pool: { utxo: Utxo; datum: WingridersV2.PoolDatum } };
+  const candidates: Candidate[] = [];
   const skipCounts: Record<string, number> = {
     notInlineDatum: 0,
     badDatum: 0,
     notSwap: 0,
-    nonNoDatumType: 0,
+    unsupportedDatumType: 0,
     nonPubKeyBeneficiary: 0,
     deadlineSoon: 0,
     noMatchingPool: 0,
@@ -409,11 +412,19 @@ async function runBatchInner(
       noteSkip(utxo, "notSwap", { type: datum.type });
       continue;
     }
-    if (datum.datumType !== WingridersV2.DatumType.No) {
-      noteSkip(utxo, "nonNoDatumType", { datumType: datum.datumType });
+    if (
+      datum.datumType !== WingridersV2.DatumType.No &&
+      datum.datumType !== WingridersV2.DatumType.Inline
+    ) {
+      noteSkip(utxo, "unsupportedDatumType", { datumType: datum.datumType });
       continue;
     }
-    if (Maybe.isNothing(datum.beneficiary.toPubKeyHash())) {
+    // Pubkey-only check applies only to datumType=No. With datumType=Inline the
+    // beneficiary may be a script address (the inline datum is the script's datum).
+    if (
+      datum.datumType === WingridersV2.DatumType.No &&
+      Maybe.isNothing(datum.beneficiary.toPubKeyHash())
+    ) {
       noteSkip(utxo, "nonPubKeyBeneficiary", { beneficiary: datum.beneficiary.bech32 });
       continue;
     }
@@ -433,45 +444,18 @@ async function runBatchInner(
       continue;
     }
 
-    match = { order: { utxo, datum: datum as OrderCandidate["datum"] }, pool };
-    break;
+    candidates.push({ order: { utxo, datum: datum as OrderCandidate["datum"] }, pool });
   }
   debugData.orderFilter = { skipCounts, skipSamples };
-  if (!match) {
+  debugData.candidatesCount = candidates.length;
+  if (candidates.length === 0) {
     console.log(
-      `No valid swap order with a matching CP pool — skipping. skipCounts=${XJSON.stringify(skipCounts)}`,
+      `No valid swap orders with a matching CP pool — skipping. skipCounts=${XJSON.stringify(skipCounts)}`,
     );
     return;
   }
-  debugData.matched = {
-    pool: `${match.pool.utxo.input.txId.hex}#${match.pool.utxo.input.index}`,
-    order: `${match.order.utxo.input.txId.hex}#${match.order.utxo.input.index}`,
-    assetA: match.pool.datum.assetA.toString(),
-    assetB: match.pool.datum.assetB.toString(),
-    direction: match.order.datum.direction === WingridersV2.SwapDirection.A_TO_B ? "A_TO_B" : "B_TO_A",
-  };
 
-  // 4) Compute execution plan
-  const SLOT_MS = 1000n;
-  const validFromMs = ((nowMs - 60_000n) / SLOT_MS) * SLOT_MS;
-  const validToMs = validFromMs + 30n * 60_000n;
-  invariant(validToMs < match.order.datum.deadline, "order deadline too close");
-
-  const plan = planSwap(match.pool.utxo, match.pool.datum, match.order, validFromMs);
-  debugData.plan = {
-    validFromMs: validFromMs.toString(),
-    validToMs: validToMs.toString(),
-    deadline: match.order.datum.deadline.toString(),
-    minWanted: match.order.datum.minWanted.toString(),
-    compensation: plan.compensation.toJSON?.() ?? null,
-    newDatum: {
-      treasuryA: plan.newDatum.treasuryA.toString(),
-      treasuryB: plan.newDatum.treasuryB.toString(),
-      lastInteraction: plan.newDatum.lastInteraction.toString(),
-    },
-  };
-
-  // 5) Fetch agent UTxOs from kupo. The pool's evolve redeemer enforces
+  // 4) Fetch agent UTxOs from kupo. The pool's evolve redeemer enforces
   // (pAT) that the agent input carries EXACTLY 1 of warehouse.agentAsset
   // (see DEX/Pool.hs: `pvalueOf # agentInput.value # agentSymbol # agentToken #== 1`).
   // So we must find a UTxO holding qty == 1n, not just any UTxO that has the token.
@@ -506,22 +490,6 @@ async function runBatchInner(
     walletUtxoCount: agentUtxos.length,
   };
 
-  // 6) Build + complete (dry-run)
-  const txBuilder = WRV2Build.buildBatchTx({
-    networkEnv: flags.network,
-    agent: flags.agent,
-    agentInput,
-    pool: { input: match.pool.utxo, newValue: plan.newPoolValue, newDatum: plan.newDatum },
-    order: { input: match.order.utxo, compensation: plan.compensation },
-    validFromMs,
-    validToMs,
-  });
-
-  // IMPORTANT: pass only [agentInput] as walletUtxos. The pool redeemer encodes
-  // input indexes computed from sorting [pool, agent, order], and the contract
-  // also enforces inputCount == 2 + numRequests (3 here) — so we cannot add any
-  // extra agent UTxOs to body.inputs.
-  const walletUtxos = [agentInput];
   // Conway requires collateral inputs to be ADA-only (or carry a `collateral_return`).
   // tx-builder's first-branch fast path returns no collateralReturn when walletCollaterals
   // covers >=5 ADA, so we MUST pass pure-ADA UTxOs only — never the bulk-tokens UTxO.
@@ -544,18 +512,82 @@ async function runBatchInner(
     ref: `${u.input.txId.hex}#${u.input.index}`,
     ada: u.output.value.get(ADA).toString(),
   }));
-  const result = await txBuilder.complete({
-    walletUtxos,
-    walletCollaterals,
-    coinSelectionAlgorithm: CoinSelectionAlgorithm.MINWALLET_SEND_ALL,
-    provider: new EmulatorProvider(flags.network),
-    changeAddress: flags.agent,
-  });
-  if (result.type !== "ok") {
-    debugData.completeError = result.error;
-    throw new Error(`txBuilder.complete() failed: ${String(result.error)}`);
+
+  // 5) Try each candidate; on plan/build/complete failure, fall through to the next.
+  const SLOT_MS = 1000n;
+  const validFromMs = ((nowMs - 60_000n) / SLOT_MS) * SLOT_MS;
+  const validToMs = validFromMs + 30n * 60_000n;
+
+  // IMPORTANT: pass only [agentInput] as walletUtxos. The pool redeemer encodes
+  // input indexes computed from sorting [pool, agent, order], and the contract
+  // also enforces inputCount == 2 + numRequests (3 here) — so we cannot add any
+  // extra agent UTxOs to body.inputs.
+  const tryCandidate = async (cand: Candidate) => {
+    invariant(validToMs < cand.order.datum.deadline, "order deadline too close");
+    const plan = planSwap(cand.pool.utxo, cand.pool.datum, cand.order, validFromMs);
+    const txBuilder = WRV2Build.buildBatchTx({
+      networkEnv: flags.network,
+      agent: flags.agent,
+      agentInput,
+      pool: { input: cand.pool.utxo, newValue: plan.newPoolValue, newDatum: plan.newDatum },
+      order: { input: cand.order.utxo, compensation: plan.compensation },
+      validFromMs,
+      validToMs,
+    });
+    const completeResult = await txBuilder.complete({
+      walletUtxos: [agentInput],
+      walletCollaterals,
+      coinSelectionAlgorithm: CoinSelectionAlgorithm.MINWALLET_SEND_ALL,
+      provider: new EmulatorProvider(flags.network),
+      changeAddress: flags.agent,
+    });
+    if (completeResult.type !== "ok") {
+      throw new Error(`txBuilder.complete() failed: ${String(completeResult.error)}`);
+    }
+    return { match: cand, plan, completed: completeResult.value };
+  };
+
+  const attemptErrors: Array<{ order: string; error: string }> = [];
+  let chosen: Awaited<ReturnType<typeof tryCandidate>> | null = null;
+  for (const cand of candidates) {
+    const orderRef = `${cand.order.utxo.input.txId.hex}#${cand.order.utxo.input.index}`;
+    try {
+      chosen = await tryCandidate(cand);
+      console.log(`Order ${orderRef} planned successfully (skipped ${attemptErrors.length} prior)`);
+      break;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      attemptErrors.push({ order: orderRef, error: errMsg });
+      console.log(`Order ${orderRef} failed: ${errMsg}; trying next candidate...`);
+    }
   }
-  debugData.unsignedTxCbor = result.value.complete();
+  debugData.attemptErrors = attemptErrors;
+  if (!chosen) {
+    console.log(`All ${candidates.length} candidate order(s) failed; nothing to submit.`);
+    return;
+  }
+
+  const { match, plan, completed } = chosen;
+  debugData.matched = {
+    pool: `${match.pool.utxo.input.txId.hex}#${match.pool.utxo.input.index}`,
+    order: `${match.order.utxo.input.txId.hex}#${match.order.utxo.input.index}`,
+    assetA: match.pool.datum.assetA.toString(),
+    assetB: match.pool.datum.assetB.toString(),
+    direction: match.order.datum.direction === WingridersV2.SwapDirection.A_TO_B ? "A_TO_B" : "B_TO_A",
+  };
+  debugData.plan = {
+    validFromMs: validFromMs.toString(),
+    validToMs: validToMs.toString(),
+    deadline: match.order.datum.deadline.toString(),
+    minWanted: match.order.datum.minWanted.toString(),
+    compensation: plan.compensation.toJSON?.() ?? null,
+    newDatum: {
+      treasuryA: plan.newDatum.treasuryA.toString(),
+      treasuryB: plan.newDatum.treasuryB.toString(),
+      lastInteraction: plan.newDatum.lastInteraction.toString(),
+    },
+  };
+  debugData.unsignedTxCbor = completed.complete();
 
   console.log(
     XJSON.stringify(
@@ -588,7 +620,7 @@ async function runBatchInner(
   );
   if (flags.dry) {
     console.log("\n--- unsigned tx cbor ---");
-    console.log(result.value.complete());
+    console.log(completed.complete());
     return;
   }
 
@@ -600,7 +632,7 @@ async function runBatchInner(
     `AGENT_SEED_PHRASE derives ${wallet.address.bech32} but --agent is ${flags.agent.bech32}`,
   );
 
-  const signedTxHex = result.value.signWithPrivateKey(wallet.paymentKey).complete();
+  const signedTxHex = completed.signWithPrivateKey(wallet.paymentKey).complete();
   debugData.signedTxCbor = signedTxHex;
   console.log("\n--- signed tx cbor ---");
   console.log(signedTxHex);

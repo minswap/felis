@@ -17,6 +17,7 @@
       "packages/tx-builder/**",
       "packages/wingriders-v2/**",
       "packages/sundaeswap-v1/**",
+      "apps/example/**",
       "apps/web/**",
       "apps/long-short-backend/src/**"
     ],
