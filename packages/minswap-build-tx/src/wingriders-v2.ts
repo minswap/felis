@@ -3,6 +3,7 @@ import {
   type Address,
   type Asset,
   Bytes,
+  DatumSource,
   DatumSourceType,
   type NetworkEnvironment,
   PlutusData,
@@ -209,10 +210,6 @@ export namespace WingridersV2 {
       networkEnv,
     );
     invariant(orderDatum.type === WRV2.OrderType.Swap, "WingridersV2.buildBatchTx: only swap orders supported in v1");
-    invariant(
-      orderDatum.datumType === WRV2.DatumType.No || orderDatum.datumType === WRV2.DatumType.Inline,
-      `WingridersV2.buildBatchTx: only datumType=No or datumType=Inline supported (got ${orderDatum.datumType})`,
-    );
 
     const sortedInputs = [pool.input, agentInput, order.input].slice().sort((a, b) => TxIn.compare(a.input, b.input));
     const indexOf = (u: Utxo): bigint => {
@@ -240,13 +237,23 @@ export namespace WingridersV2 {
       type: DatumSourceType.INLINE_DATUM,
       data: Bytes.fromHex(WRV2.PoolDatum.toCborHex(pool.newDatum)),
     });
-    const compensationDatumSource =
-      orderDatum.datumType === WRV2.DatumType.Inline
-        ? {
-            type: DatumSourceType.INLINE_DATUM as const,
+    const compensationDatumSource = ((): DatumSource | undefined => {
+      switch (orderDatum.datumType) {
+        case WRV2.DatumType.No:
+          return undefined;
+        case WRV2.DatumType.Inline:
+          return {
+            type: DatumSourceType.INLINE_DATUM,
             data: Bytes.fromHex(PlutusData.toDataHex(orderDatum.compensationDatum)),
-          }
-        : undefined;
+          };
+        case WRV2.DatumType.Hash:
+          // OUTLINE_DATUM stores hash on the output and lets TxBuilder.payTo
+          // attach the datum as a tx witness so the chain can resolve it.
+          return DatumSource.newOutlineDatum(
+            Bytes.fromHex(PlutusData.toDataHex(orderDatum.compensationDatum)),
+          );
+      }
+    })();
     const compensationOut = new TxOut(
       orderDatum.beneficiary,
       order.compensation,

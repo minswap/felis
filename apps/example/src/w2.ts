@@ -392,7 +392,6 @@ async function runBatchInner(
     notInlineDatum: 0,
     badDatum: 0,
     notSwap: 0,
-    unsupportedDatumType: 0,
     nonPubKeyBeneficiary: 0,
     deadlineSoon: 0,
     noMatchingPool: 0,
@@ -421,12 +420,8 @@ async function runBatchInner(
       noteSkip(utxo, "notSwap", { type: datum.type });
       continue;
     }
-    if (datum.datumType !== WingridersV2.DatumType.No && datum.datumType !== WingridersV2.DatumType.Inline) {
-      noteSkip(utxo, "unsupportedDatumType", { datumType: datum.datumType });
-      continue;
-    }
-    // Pubkey-only check applies only to datumType=No. With datumType=Inline the
-    // beneficiary may be a script address (the inline datum is the script's datum).
+    // Pubkey-only check applies only to datumType=No. With datumType=Inline/Hash the
+    // beneficiary may be a script address (the compensation datum is the script's datum).
     if (datum.datumType === WingridersV2.DatumType.No && Maybe.isNothing(datum.beneficiary.toPubKeyHash())) {
       noteSkip(utxo, "nonPubKeyBeneficiary", { beneficiary: datum.beneficiary.bech32 });
       continue;
