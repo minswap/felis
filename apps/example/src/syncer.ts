@@ -1,9 +1,19 @@
 import fs from "node:fs";
 import * as Ogmios from "@cardano-ogmios/client";
-import invariant from "@minswap/tiny-invariant";
 import { NetworkEnvironment } from "@minswap/felis-ledger-core";
 import { RustModule } from "@minswap/felis-ledger-utils";
-import { MinswapStableswapSyncer, MinswapV1Syncer, MinswapV2Syncer, SplashSyncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction, WingridersV1Syncer, WingridersV2Syncer } from "@minswap/felis-syncer";
+import {
+  MinswapStableswapSyncer,
+  MinswapV1Syncer,
+  MinswapV2Syncer,
+  SplashSyncer,
+  SundaeSwapV1Syncer,
+  SundaeSwapV3Syncer,
+  Transaction,
+  WingridersV1Syncer,
+  WingridersV2Syncer,
+} from "@minswap/felis-syncer";
+import invariant from "@minswap/tiny-invariant";
 
 const main = async () => {
   await RustModule.load();
@@ -11,8 +21,7 @@ const main = async () => {
   const networkEnv = NetworkEnvironment.TESTNET_PREPROD;
   const context = await Ogmios.createInteractionContext(
     (err: Error) => console.error("ogmios error", err),
-    (code, reason) =>
-      console.info("ogmios connection closed", { code, reason }),
+    (code, reason) => console.info("ogmios connection closed", { code, reason }),
     { connection: { host: "dev-6", port: 1338 } },
   );
   const stateQueryClient = await Ogmios.createLedgerStateQueryClient(context);
@@ -21,9 +30,15 @@ const main = async () => {
   const tip = await stateQueryClient.ledgerTip();
   console.info("Current tip:", tip);
 
-  const minswapV2MapPool: MinswapV2Syncer.MapPool = JSON.parse(fs.readFileSync("data/minswap-dex-v2-map-pool.json", "utf-8"));
-  const sundaeSwapV1MapPool: SundaeSwapV1Syncer.MapPool = JSON.parse(fs.readFileSync("data/sundaeswap-v1-map-pool.json", "utf-8"));
-  const sundaeSwapV3MapPool: SundaeSwapV3Syncer.MapPool = JSON.parse(fs.readFileSync("data/sundaeswap-v3-map-pool.json", "utf-8"));
+  const minswapV2MapPool: MinswapV2Syncer.MapPool = JSON.parse(
+    fs.readFileSync("data/minswap-dex-v2-map-pool.json", "utf-8"),
+  );
+  const sundaeSwapV1MapPool: SundaeSwapV1Syncer.MapPool = JSON.parse(
+    fs.readFileSync("data/sundaeswap-v1-map-pool.json", "utf-8"),
+  );
+  const sundaeSwapV3MapPool: SundaeSwapV3Syncer.MapPool = JSON.parse(
+    fs.readFileSync("data/sundaeswap-v3-map-pool.json", "utf-8"),
+  );
 
   const client = await Ogmios.createChainSynchronizationClient(
     context,
@@ -120,8 +135,7 @@ const main = async () => {
               sundaeSwapV3MapPool[poolIdent] = { assetA, assetB };
             }
           }
-        }
-        catch(err) {
+        } catch (err) {
           console.error("Error processing block:", err);
         }
 
@@ -132,7 +146,10 @@ const main = async () => {
   );
 
   // await client.resume([tip], 1000);
-  await client.resume([ { id: "13bd544f11f186bf9cddb8a1bd0f47be9c1a9976264612e55838e41c680f271a", slot: 113539634 }], 1000);
+  await client.resume(
+    [{ id: "13bd544f11f186bf9cddb8a1bd0f47be9c1a9976264612e55838e41c680f271a", slot: 113539634 }],
+    1000,
+  );
 };
 
 main();

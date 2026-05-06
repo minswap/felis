@@ -1,26 +1,22 @@
+import { WingridersV2 as WRV2Build } from "@minswap/felis-build-tx";
+import { baseAddressWalletFromSeed } from "@minswap/felis-cip";
 import {
   ADA,
   Address,
   Asset,
-  Bytes,
+  type Bytes,
   DatumSourceType,
   NetworkEnvironment,
   TxIn,
   TxOut,
-  Utxo,
+  type Utxo,
   Value,
   XJSON,
 } from "@minswap/felis-ledger-core";
 import { Maybe, RustModule } from "@minswap/felis-ledger-utils";
 import { CardanoscanProvider, KupoService } from "@minswap/felis-provider";
 import { CoinSelectionAlgorithm, ECSLConverter, EmulatorProvider, TxBuilder } from "@minswap/felis-tx-builder";
-import { WingridersV2 as WRV2Build } from "@minswap/felis-build-tx";
-import { baseAddressWalletFromSeed } from "@minswap/felis-cip";
-import {
-  normalizePair,
-  WingridersV2,
-  WingridersV2Warehouse,
-} from "@minswap/felis-wingriders-v2";
+import { normalizePair, WingridersV2, WingridersV2Warehouse } from "@minswap/felis-wingriders-v2";
 import invariant from "@minswap/tiny-invariant";
 
 // ─── CLI plumbing ──────────────────────────────────────────────────────────
@@ -88,8 +84,9 @@ async function runCreatePool(argv: string[]): Promise<void> {
   const flags = parseCreatePoolFlags(argv);
   const [assetA, assetB] = normalizePair([flags.assetA, flags.assetB]);
   // Rotate amounts if the pair was reordered.
-  const [amountA, amountB] =
-    assetA.equals(flags.assetA) ? [flags.amountA, flags.amountB] : [flags.amountB, flags.amountA];
+  const [amountA, amountB] = assetA.equals(flags.assetA)
+    ? [flags.amountA, flags.amountB]
+    : [flags.amountB, flags.amountA];
 
   const warehouse = WingridersV2Warehouse.getInstance(flags.network);
   const kupo = new KupoService(resolveKupoUrl(flags.network));
@@ -97,10 +94,7 @@ async function runCreatePool(argv: string[]): Promise<void> {
   const factoryAsset = warehouse.factoryAsset;
   console.log(factoryAsset.toString());
   console.log(warehouse.factoryAddress.bech32);
-  const factoryUtxos = await kupo.utxoAtScriptHashWithAsset(
-    warehouse.factoryScriptHash,
-    factoryAsset,
-  );
+  const factoryUtxos = await kupo.utxoAtScriptHashWithAsset(warehouse.factoryScriptHash, factoryAsset);
   console.log(XJSON.stringify(factoryUtxos, 2));
 
   const lpAsset = WingridersV2.computeLpAsset(warehouse.dexSymbolHash, assetA, assetB);
@@ -258,15 +252,28 @@ function planSwap(
   const agentFee = poolDatum.agentFeeAda;
   const rawIn = order.utxo.output.value.get(assetIn);
   const lockX = assetIn.equals(ADA) ? rawIn - oil - agentFee : rawIn;
-  invariant(lockX > 0n, `order lockX must be positive | lockX | ${lockX}| rawIn | ${rawIn} | oil | ${oil} | agentFee | ${agentFee} | ${assetIn.toString()}`);
+  invariant(
+    lockX > 0n,
+    `order lockX must be positive | lockX | ${lockX}| rawIn | ${rawIn} | oil | ${oil} | agentFee | ${agentFee} | ${assetIn.toString()}`,
+  );
 
   // Effective reserves as seen by the curve: UTxO value minus treasuries
   // (and minPoolAda on the ADA side).
   const valueA = pool.output.value.get(poolDatum.assetA);
   const valueB = pool.output.value.get(poolDatum.assetB);
   const adaIsA = poolDatum.assetA.equals(ADA);
-  const reserveA = valueA - poolDatum.treasuryA - poolDatum.projectTreasuryA - poolDatum.reserveTreasuryA - (adaIsA ? WingridersV2Warehouse.MIN_POOL_ADA : 0n);
-  const reserveB = valueB - poolDatum.treasuryB - poolDatum.projectTreasuryB - poolDatum.reserveTreasuryB - (!adaIsA && poolDatum.assetB.equals(ADA) ? WingridersV2Warehouse.MIN_POOL_ADA : 0n);
+  const reserveA =
+    valueA -
+    poolDatum.treasuryA -
+    poolDatum.projectTreasuryA -
+    poolDatum.reserveTreasuryA -
+    (adaIsA ? WingridersV2Warehouse.MIN_POOL_ADA : 0n);
+  const reserveB =
+    valueB -
+    poolDatum.treasuryB -
+    poolDatum.projectTreasuryB -
+    poolDatum.reserveTreasuryB -
+    (!adaIsA && poolDatum.assetB.equals(ADA) ? WingridersV2Warehouse.MIN_POOL_ADA : 0n);
 
   const rIn = aToB ? reserveA : reserveB;
   const rOut = aToB ? reserveB : reserveA;
@@ -280,7 +287,10 @@ function planSwap(
   const effectiveIn = rIn + lockX - swapFee - protocolFee - projectFee - reserveFee;
   const newOutReserve = ceilDiv(rIn * rOut, effectiveIn);
   const amountOut = rOut - newOutReserve;
-  invariant(amountOut >= order.datum.minWanted, `slippage: amountOut ${amountOut} < minWanted ${order.datum.minWanted}`);
+  invariant(
+    amountOut >= order.datum.minWanted,
+    `slippage: amountOut ${amountOut} < minWanted ${order.datum.minWanted}`,
+  );
 
   const compensation = new Value().add(ADA, oil);
   compensation.add(assetOut, amountOut);
@@ -351,7 +361,6 @@ async function runBatchInner(
   kupo: KupoService,
   debugData: Record<string, unknown>,
 ): Promise<void> {
-
   // 1) All active CP pools (at poolScriptHashCP, carrying the validity token)
   const poolUtxos = await kupo.utxoAtScriptHashWithAsset(warehouse.poolScriptHashCP, warehouse.validityAsset);
   console.log(`Found ${poolUtxos.length} pool UTxOs`);
@@ -412,19 +421,13 @@ async function runBatchInner(
       noteSkip(utxo, "notSwap", { type: datum.type });
       continue;
     }
-    if (
-      datum.datumType !== WingridersV2.DatumType.No &&
-      datum.datumType !== WingridersV2.DatumType.Inline
-    ) {
+    if (datum.datumType !== WingridersV2.DatumType.No && datum.datumType !== WingridersV2.DatumType.Inline) {
       noteSkip(utxo, "unsupportedDatumType", { datumType: datum.datumType });
       continue;
     }
     // Pubkey-only check applies only to datumType=No. With datumType=Inline the
     // beneficiary may be a script address (the inline datum is the script's datum).
-    if (
-      datum.datumType === WingridersV2.DatumType.No &&
-      Maybe.isNothing(datum.beneficiary.toPubKeyHash())
-    ) {
+    if (datum.datumType === WingridersV2.DatumType.No && Maybe.isNothing(datum.beneficiary.toPubKeyHash())) {
       noteSkip(utxo, "nonPubKeyBeneficiary", { beneficiary: datum.beneficiary.bech32 });
       continue;
     }
@@ -433,9 +436,7 @@ async function runBatchInner(
       continue;
     }
 
-    const pool = pools.find(
-      (p) => p.datum.assetA.equals(datum.assetA) && p.datum.assetB.equals(datum.assetB),
-    );
+    const pool = pools.find((p) => p.datum.assetA.equals(datum.assetA) && p.datum.assetB.equals(datum.assetB));
     if (!pool) {
       noteSkip(utxo, "noMatchingPool", {
         assetA: datum.assetA.toString(),
@@ -449,9 +450,7 @@ async function runBatchInner(
   debugData.orderFilter = { skipCounts, skipSamples };
   debugData.candidatesCount = candidates.length;
   if (candidates.length === 0) {
-    console.log(
-      `No valid swap orders with a matching CP pool — skipping. skipCounts=${XJSON.stringify(skipCounts)}`,
-    );
+    console.log(`No valid swap orders with a matching CP pool — skipping. skipCounts=${XJSON.stringify(skipCounts)}`);
     return;
   }
 
@@ -695,14 +694,8 @@ async function runSplitAgentToken(argv: string[]): Promise<void> {
   // Spend ALL agent UTxOs and emit one fresh output: 5 ADA + 1 X token.
   // MINWALLET_SEND_ALL pushes every wallet UTxO into inputs and sends the remainder
   // back to changeAddress.
-  const splitOut = new TxOut(
-    flags.agent,
-    new Value().add(ADA, 5_000_000n).add(warehouse.agentAsset, 1n),
-  );
-  const collateral = new TxOut(
-    flags.agent,
-    new Value().add(ADA, 5_000_000n),
-  );
+  const splitOut = new TxOut(flags.agent, new Value().add(ADA, 5_000_000n).add(warehouse.agentAsset, 1n));
+  const collateral = new TxOut(flags.agent, new Value().add(ADA, 5_000_000n));
 
   const txBuilder = new TxBuilder(flags.network).payTo(splitOut, collateral);
 

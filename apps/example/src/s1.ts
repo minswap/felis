@@ -1,3 +1,5 @@
+import { SundaeSwapV1 as SundaeSwapV1Build } from "@minswap/felis-build-tx";
+import { baseAddressWalletFromSeed } from "@minswap/felis-cip";
 import {
   ADA,
   Address,
@@ -11,20 +13,10 @@ import {
   Value,
   XJSON,
 } from "@minswap/felis-ledger-core";
-import { baseAddressWalletFromSeed } from "@minswap/felis-cip";
 import { Maybe, RustModule } from "@minswap/felis-ledger-utils";
 import { CardanoscanProvider, KupoService } from "@minswap/felis-provider";
-import { SundaeSwapV1 as SundaeSwapV1Build } from "@minswap/felis-build-tx";
-import {
-  SundaeSwapV1,
-  SundaeSwapV1Warehouse,
-} from "@minswap/felis-sundaeswap-v1";
-import {
-  CoinSelectionAlgorithm,
-  ECSLConverter,
-  EmulatorProvider,
-  TxBuilder,
-} from "@minswap/felis-tx-builder";
+import { SundaeSwapV1, SundaeSwapV1Warehouse } from "@minswap/felis-sundaeswap-v1";
+import { CoinSelectionAlgorithm, ECSLConverter, EmulatorProvider, TxBuilder } from "@minswap/felis-tx-builder";
 import invariant from "@minswap/tiny-invariant";
 
 // ─── CLI plumbing ──────────────────────────────────────────────────────────
@@ -40,9 +32,7 @@ function parseNetwork(s: string | undefined): NetworkEnvironment {
     case "testnet-preprod":
       return NetworkEnvironment.TESTNET_PREPROD;
     default:
-      throw new Error(
-        `--network must be one of mainnet|testnet-preprod|testnet-preview (got ${s})`,
-      );
+      throw new Error(`--network must be one of mainnet|testnet-preprod|testnet-preview (got ${s})`);
   }
 }
 
@@ -61,8 +51,7 @@ function parseFlags(argv: string[]): Record<string, string> {
   const m: Record<string, string> = {};
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
-    if (!key.startsWith("--"))
-      throw new Error(`Unexpected positional arg: ${key}`);
+    if (!key.startsWith("--")) throw new Error(`Unexpected positional arg: ${key}`);
     const val = argv[i + 1];
     if (val === undefined) throw new Error(`Missing value for ${key}`);
     m[key.slice(2)] = val;
@@ -161,10 +150,7 @@ async function runCreatePool(argv: string[]): Promise<void> {
     factoryUtxos.length > 0,
     `No factory UTxO at ${warehouse.factoryAddress.bech32} holding ${warehouse.factoryAuthenAsset.toString()} — has the factory been bootstrapped on this network?`,
   );
-  invariant(
-    factoryUtxos.length === 1,
-    `Expected exactly 1 factory UTxO, found ${factoryUtxos.length}`,
-  );
+  invariant(factoryUtxos.length === 1, `Expected exactly 1 factory UTxO, found ${factoryUtxos.length}`);
   const factoryInput = factoryUtxos[0];
 
   // 2) Resolve the factory datum. Kupo returns OUTLINE_DATUM for V1-style
@@ -175,19 +161,12 @@ async function runCreatePool(argv: string[]): Promise<void> {
       factoryInput.output.datumSource.type === DatumSourceType.OUTLINE_DATUM,
     "Factory UTxO must carry a datum hash with resolved data (OUTLINE_DATUM)",
   );
-  const factoryDatum = SundaeSwapV1.FactoryDatum.fromDataHex(
-    factoryInput.output.datumSource.data.hex,
-  );
+  const factoryDatum = SundaeSwapV1.FactoryDatum.fromDataHex(factoryInput.output.datumSource.data.hex);
 
   // 3) Fetch wallet UTxOs.
   const paymentCredential = flags.owner.toPaymentCredential();
-  invariant(
-    Maybe.isJust(paymentCredential),
-    "owner address has no payment credential",
-  );
-  const walletUtxos = await kupo.getUtxosByPaymentCredential(
-    paymentCredential.payload,
-  );
+  invariant(Maybe.isJust(paymentCredential), "owner address has no payment credential");
+  const walletUtxos = await kupo.getUtxosByPaymentCredential(paymentCredential.payload);
   invariant(walletUtxos.length > 0, `Owner ${flags.owner.bech32} has no UTxOs`);
 
   // 4) Build + complete (dry-run with EmulatorProvider — no submit).
@@ -250,10 +229,9 @@ type BatchFlags = {
   loopMs: bigint | null;
 };
 
-const DEFAULT_SCOOPER_BY_NETWORK: Partial<Record<NetworkEnvironment, string>> =
-  {
-    // No defaults yet — pass --scooper.
-  };
+const DEFAULT_SCOOPER_BY_NETWORK: Partial<Record<NetworkEnvironment, string>> = {
+  // No defaults yet — pass --scooper.
+};
 
 // On-chain license token name = "scooper " + suffix, where the prefix is
 // 8 ASCII bytes (16 hex). We split here to recover the suffix.
@@ -265,8 +243,7 @@ function parseBatchFlags(argv: string[]): BatchFlags {
   let loopMs: bigint | null = null;
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
-    if (!key.startsWith("--"))
-      throw new Error(`Unexpected positional arg: ${key}`);
+    if (!key.startsWith("--")) throw new Error(`Unexpected positional arg: ${key}`);
     if (key === "--dry") {
       dry = true;
       continue;
@@ -331,8 +308,7 @@ type ScoopPlan = {
 };
 
 function planSwap(pool: ParsedPool, order: SwapOrderCandidate): ScoopPlan {
-  const aToB =
-    order.datum.swapDirection.direction === SundaeSwapV1.SwapDirection.A_TO_B;
+  const aToB = order.datum.swapDirection.direction === SundaeSwapV1.SwapDirection.A_TO_B;
   const assetIn = aToB ? pool.datum.assetA : pool.datum.assetB;
   const assetOut = aToB ? pool.datum.assetB : pool.datum.assetA;
 
@@ -348,10 +324,7 @@ function planSwap(pool: ParsedPool, order: SwapOrderCandidate): ScoopPlan {
   const amountOut = numerator / denominator;
 
   const minReceivable = order.datum.swapDirection.minReceivable ?? 0n;
-  invariant(
-    amountOut >= minReceivable,
-    `slippage: amountOut ${amountOut} < minReceivable ${minReceivable}`,
-  );
+  invariant(amountOut >= minReceivable, `slippage: amountOut ${amountOut} < minReceivable ${minReceivable}`);
 
   // Compensation ADA = orderAda − scooperFee, with the ADA leg of the swap
   // applied: subtract amountIn when assetIn==ADA (user's ADA went into pool),
@@ -370,10 +343,7 @@ function planSwap(pool: ParsedPool, order: SwapOrderCandidate): ScoopPlan {
 
   const compensation = new Value().add(ADA, compAda);
   if (!assetOut.equals(ADA)) compensation.add(assetOut, amountOut);
-  const newPoolValue = pool.utxo.output.value
-    .clone()
-    .add(assetIn, amountIn)
-    .subtract(assetOut, amountOut);
+  const newPoolValue = pool.utxo.output.value.clone().add(assetIn, amountIn).subtract(assetOut, amountOut);
 
   return { compensation, newPoolValue, amountOut, assetIn, assetOut, amountIn };
 }
@@ -406,9 +376,7 @@ async function runBatch(argv: string[]): Promise<void> {
   const intervalMs = Number(flags.loopMs);
   for (let iteration = 1; ; iteration++) {
     const startedAt = Date.now();
-    console.log(
-      `\n=== batch iteration ${iteration} @ ${new Date(startedAt).toISOString()} ===`,
-    );
+    console.log(`\n=== batch iteration ${iteration} @ ${new Date(startedAt).toISOString()} ===`);
     try {
       await runOnce();
     } catch (err) {
@@ -416,9 +384,7 @@ async function runBatch(argv: string[]): Promise<void> {
     }
     const elapsedMs = Date.now() - startedAt;
     const sleepMs = Math.max(0, intervalMs - elapsedMs);
-    console.log(
-      `iteration ${iteration} took ${elapsedMs}ms; sleeping ${sleepMs}ms`,
-    );
+    console.log(`iteration ${iteration} took ${elapsedMs}ms; sleeping ${sleepMs}ms`);
     await new Promise((resolve) => setTimeout(resolve, sleepMs));
   }
 }
@@ -439,17 +405,11 @@ async function runBatchInner(
   console.log(`Found ${poolUtxos.length} pool-spend UTxOs`);
   const pools: ParsedPool[] = [];
   for (const utxo of poolUtxos) {
-    if (
-      !utxo.output.datumSource ||
-      utxo.output.datumSource.type !== DatumSourceType.OUTLINE_DATUM
-    )
-      continue;
+    if (!utxo.output.datumSource || utxo.output.datumSource.type !== DatumSourceType.OUTLINE_DATUM) continue;
     try {
       pools.push({
         utxo,
-        datum: SundaeSwapV1.PoolDatum.fromCborHex(
-          utxo.output.datumSource.data.hex,
-        ),
+        datum: SundaeSwapV1.PoolDatum.fromCborHex(utxo.output.datumSource.data.hex),
       });
     } catch {
       // Skip non-pool UTxOs that happen to live at the pool address.
@@ -471,13 +431,8 @@ async function runBatchInner(
     nonPubKeyBeneficiary: 0,
     noMatchingPool: 0,
   };
-  const skipSamples: Array<{ ref: string; reason: string; detail?: unknown }> =
-    [];
-  const noteSkip = (
-    utxo: Utxo,
-    reason: keyof typeof skipCounts,
-    detail?: unknown,
-  ) => {
+  const skipSamples: Array<{ ref: string; reason: string; detail?: unknown }> = [];
+  const noteSkip = (utxo: Utxo, reason: keyof typeof skipCounts, detail?: unknown) => {
     skipCounts[reason]++;
     if (skipSamples.length < 5) {
       skipSamples.push({
@@ -490,26 +445,18 @@ async function runBatchInner(
 
   let match: { order: SwapOrderCandidate; pool: ParsedPool } | null = null;
   for (const utxo of orderUtxos) {
-    if (
-      !utxo.output.datumSource ||
-      utxo.output.datumSource.type !== DatumSourceType.OUTLINE_DATUM
-    ) {
+    if (!utxo.output.datumSource || utxo.output.datumSource.type !== DatumSourceType.OUTLINE_DATUM) {
       noteSkip(utxo, "notOutlineDatum");
       continue;
     }
     let datum: SundaeSwapV1.OrderDatum;
     try {
-      datum = SundaeSwapV1.OrderDatum.fromDataHex(
-        utxo.output.datumSource.data.hex,
-        flags.network,
-      );
+      datum = SundaeSwapV1.OrderDatum.fromDataHex(utxo.output.datumSource.data.hex, flags.network);
     } catch (err) {
       noteSkip(utxo, "badDatum", String(err));
       continue;
     }
-    if (
-      Maybe.isNothing(datum.orderAddresses.destination.address.toPubKeyHash())
-    ) {
+    if (Maybe.isNothing(datum.orderAddresses.destination.address.toPubKeyHash())) {
       noteSkip(utxo, "nonPubKeyBeneficiary", {
         beneficiary: datum.orderAddresses.destination.address.bech32,
       });
@@ -525,9 +472,7 @@ async function runBatchInner(
   }
   debugData.orderFilter = { skipCounts, skipSamples };
   if (!match) {
-    console.log(
-      `No valid swap order with a matching pool — skipping. skipCounts=${XJSON.stringify(skipCounts)}`,
-    );
+    console.log(`No valid swap order with a matching pool — skipping. skipCounts=${XJSON.stringify(skipCounts)}`);
     return;
   }
   debugData.matched = {
@@ -536,11 +481,7 @@ async function runBatchInner(
     poolIdent: match.pool.datum.ident.hex,
     assetA: match.pool.datum.assetA.toString(),
     assetB: match.pool.datum.assetB.toString(),
-    direction:
-      match.order.datum.swapDirection.direction ===
-      SundaeSwapV1.SwapDirection.A_TO_B
-        ? "A_TO_B"
-        : "B_TO_A",
+    direction: match.order.datum.swapDirection.direction === SundaeSwapV1.SwapDirection.A_TO_B ? "A_TO_B" : "B_TO_A",
   };
 
   // 4) Compute execution plan.
@@ -550,9 +491,7 @@ async function runBatchInner(
     assetOut: plan.assetOut.toString(),
     amountIn: plan.amountIn.toString(),
     amountOut: plan.amountOut.toString(),
-    minReceivable: (
-      match.order.datum.swapDirection.minReceivable ?? 0n
-    ).toString(),
+    minReceivable: (match.order.datum.swapDirection.minReceivable ?? 0n).toString(),
   };
 
   // 5) Find the single valid (non-expired) license UTxO at the scooper address.
@@ -560,20 +499,12 @@ async function runBatchInner(
   //    non-ADA assets, token name starts with "scooper " prefix, and the encoded
   //    week number matches the current POSIX-time week.
   const scooperPc = flags.scooper.toPaymentCredential();
-  invariant(
-    Maybe.isJust(scooperPc),
-    "scooper address has no payment credential",
-  );
-  const scooperUtxos = await kupo.getUtxosByPaymentCredential(
-    scooperPc.payload,
-  );
-  invariant(
-    scooperUtxos.length > 0,
-    `scooper ${flags.scooper.bech32} has no UTxOs`,
-  );
+  invariant(Maybe.isJust(scooperPc), "scooper address has no payment credential");
+  const scooperUtxos = await kupo.getUtxosByPaymentCredential(scooperPc.payload);
+  invariant(scooperUtxos.length > 0, `scooper ${flags.scooper.bech32} has no UTxOs`);
 
-  const nowMs = BigInt(Date.now());
-  const WEEK_MS = SundaeSwapV1Warehouse.WEEK_MS;
+  const _nowMs = BigInt(Date.now());
+  const _WEEK_MS = SundaeSwapV1Warehouse.WEEK_MS;
 
   let scooperLicenseInput: Utxo | null = null;
   let licenseAsset: Asset | null = null;
@@ -582,13 +513,8 @@ async function runBatchInner(
   for (const utxo of scooperUtxos) {
     if (utxo.output.value.hasPolicyID(warehouse.factoryMintScriptHash)) {
       scooperLicenseInput = utxo;
-      const _licenseAsset = utxo.output.value.findAsset(
-        warehouse.factoryMintScriptHash,
-      );
-      invariant(
-        _licenseAsset,
-        "Expected scooper license asset under factory mint script policy",
-      );
+      const _licenseAsset = utxo.output.value.findAsset(warehouse.factoryMintScriptHash);
+      invariant(_licenseAsset, "Expected scooper license asset under factory mint script policy");
       licenseAsset = _licenseAsset;
       const nameHex = licenseAsset.tokenName.hex;
       if (!nameHex.startsWith(SCOOPER_LICENSE_NAME_PREFIX_HEX)) continue;
@@ -626,9 +552,7 @@ async function runBatchInner(
 
   console.log("scooperLicenseInput", XJSON.stringify(scooperLicenseInput, 2));
   invariant(
-    scooperLicenseInput !== null &&
-      licenseAsset !== null &&
-      licenseSuffix !== null,
+    scooperLicenseInput !== null && licenseAsset !== null && licenseSuffix !== null,
     `scooper ${flags.scooper.bech32} has no valid (non-expired) license token under policy ` +
       `${warehouse.factoryMintScriptHash.hex}. Run \`split-scooper-token\` to prepare license UTxOs.`,
   );
@@ -679,11 +603,8 @@ async function runBatchInner(
   // Exclude the license UTxO from walletUtxos — it is already forced into
   // body.inputs via collectFromPubKey. Passing only the remaining UTxOs lets
   // MINSWAP cover escrow + fee cleanly.
-  const otherScooperUtxos = scooperUtxos.filter(
-    (u) => !TxIn.equals(u.input, scooperLicenseInput.input),
-  );
-  const isPureAda = (u: Utxo) =>
-    u.output.value.assets().every((a) => a.equals(ADA));
+  const otherScooperUtxos = scooperUtxos.filter((u) => !TxIn.equals(u.input, scooperLicenseInput.input));
+  const isPureAda = (u: Utxo) => u.output.value.assets().every((a) => a.equals(ADA));
   const pureAdaCollaterals = otherScooperUtxos.filter(isPureAda);
   debugData.pureAdaCollateralCount = pureAdaCollaterals.length;
   invariant(
@@ -730,34 +651,21 @@ async function runBatchInner(
   }
 
   const seedPhrase = process.env["AGENT_SEED_PHRASE"];
-  invariant(
-    seedPhrase,
-    "AGENT_SEED_PHRASE env var is required when --dry is omitted",
-  );
+  invariant(seedPhrase, "AGENT_SEED_PHRASE env var is required when --dry is omitted");
   const wallet = baseAddressWalletFromSeed(seedPhrase, flags.network);
   invariant(
     wallet.address.bech32 === flags.scooper.bech32,
     `AGENT_SEED_PHRASE derives ${wallet.address.bech32} but --scooper is ${flags.scooper.bech32}`,
   );
-  const signedTxHex = result.value
-    .signWithPrivateKey(wallet.paymentKey)
-    .complete();
+  const signedTxHex = result.value.signWithPrivateKey(wallet.paymentKey).complete();
   console.log("\n--- signed tx cbor ---");
   console.log(signedTxHex);
 
   const cardanoscanKey = process.env["CARDANOSCAN_KEY"];
-  invariant(
-    cardanoscanKey,
-    "CARDANOSCAN_KEY env var is required to submit (use --dry to skip submit)",
-  );
-  const cardanoscan = CardanoscanProvider.forNetwork(
-    flags.network,
-    cardanoscanKey,
-  );
+  invariant(cardanoscanKey, "CARDANOSCAN_KEY env var is required to submit (use --dry to skip submit)");
+  const cardanoscan = CardanoscanProvider.forNetwork(flags.network, cardanoscanKey);
   await cardanoscan.submitTx(signedTxHex);
-  const txHash = ECSLConverter.getTxHash(
-    RustModule.getE.Transaction.from_hex(signedTxHex),
-  );
+  const txHash = ECSLConverter.getTxHash(RustModule.getE.Transaction.from_hex(signedTxHex));
   console.log(`\nsubmitted via Cardanoscan, txHash: ${txHash}`);
 }
 
@@ -778,8 +686,7 @@ function parseSplitScooperFlags(argv: string[]): SplitScooperFlags {
   let dry = false;
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
-    if (!key.startsWith("--"))
-      throw new Error(`Unexpected positional arg: ${key}`);
+    if (!key.startsWith("--")) throw new Error(`Unexpected positional arg: ${key}`);
     if (key === "--dry") {
       dry = true;
       continue;
@@ -803,16 +710,11 @@ async function runSplitScooperToken(argv: string[]): Promise<void> {
   const pc = flags.scooper.toPaymentCredential();
   invariant(Maybe.isJust(pc), "scooper address has no payment credential");
   const scooperUtxos = await kupo.getUtxosByPaymentCredential(pc.payload);
-  invariant(
-    scooperUtxos.length > 0,
-    `scooper ${flags.scooper.bech32} has no UTxOs`,
-  );
+  invariant(scooperUtxos.length > 0, `scooper ${flags.scooper.bech32} has no UTxOs`);
 
   // Pick UTxOs that hold any asset under factoryMintScriptHash (license policy).
   const licenseUtxos = scooperUtxos.filter((u) =>
-    u.output.value
-      .assets()
-      .some((a) => a.currencySymbol.equals(warehouse.factoryMintScriptHash)),
+    u.output.value.assets().some((a) => a.currencySymbol.equals(warehouse.factoryMintScriptHash)),
   );
   invariant(
     licenseUtxos.length > 0,
@@ -823,8 +725,7 @@ async function runSplitScooperToken(argv: string[]): Promise<void> {
   const totals = new Map<string, { asset: Asset; qty: bigint }>();
   for (const u of licenseUtxos) {
     for (const asset of u.output.value.assets()) {
-      if (!asset.currencySymbol.equals(warehouse.factoryMintScriptHash))
-        continue;
+      if (!asset.currencySymbol.equals(warehouse.factoryMintScriptHash)) continue;
       const key = asset.toString();
       const qty = u.output.value.get(asset);
       const prev = totals.get(key);
@@ -836,12 +737,7 @@ async function runSplitScooperToken(argv: string[]): Promise<void> {
   const outputs: TxOut[] = [];
   for (const { asset, qty } of totals.values()) {
     for (let i = 0n; i < qty; i++) {
-      outputs.push(
-        new TxOut(
-          flags.scooper,
-          new Value().add(ADA, 2_000_000n).add(asset, 1n),
-        ),
-      );
+      outputs.push(new TxOut(flags.scooper, new Value().add(ADA, 2_000_000n).add(asset, 1n)));
     }
   }
 
@@ -849,9 +745,7 @@ async function runSplitScooperToken(argv: string[]): Promise<void> {
   // and re-emitted as one-token outputs. Pass ALL scooper UTxOs to MINSWAP so it
   // can pull extra pure-ADA inputs to cover fee + min-ada on each split output
   // (the license UTxOs alone usually don't carry enough ADA).
-  const txBuilder = new TxBuilder(flags.network)
-    .collectFromPubKey(...licenseUtxos)
-    .payTo(...outputs);
+  const txBuilder = new TxBuilder(flags.network).collectFromPubKey(...licenseUtxos).payTo(...outputs);
 
   const result = await txBuilder.complete({
     walletUtxos: scooperUtxos,
@@ -885,34 +779,21 @@ async function runSplitScooperToken(argv: string[]): Promise<void> {
   }
 
   const seedPhrase = process.env["AGENT_SEED_PHRASE"];
-  invariant(
-    seedPhrase,
-    "AGENT_SEED_PHRASE env var is required when --dry is omitted",
-  );
+  invariant(seedPhrase, "AGENT_SEED_PHRASE env var is required when --dry is omitted");
   const wallet = baseAddressWalletFromSeed(seedPhrase, flags.network);
   invariant(
     wallet.address.bech32 === flags.scooper.bech32,
     `AGENT_SEED_PHRASE derives ${wallet.address.bech32} but --scooper is ${flags.scooper.bech32}`,
   );
-  const signedTxHex = result.value
-    .signWithPrivateKey(wallet.paymentKey)
-    .complete();
+  const signedTxHex = result.value.signWithPrivateKey(wallet.paymentKey).complete();
   console.log("\n--- signed tx cbor ---");
   console.log(signedTxHex);
 
   const cardanoscanKey = process.env["CARDANOSCAN_KEY"];
-  invariant(
-    cardanoscanKey,
-    "CARDANOSCAN_KEY env var is required to submit (use --dry to skip submit)",
-  );
-  const cardanoscan = CardanoscanProvider.forNetwork(
-    flags.network,
-    cardanoscanKey,
-  );
+  invariant(cardanoscanKey, "CARDANOSCAN_KEY env var is required to submit (use --dry to skip submit)");
+  const cardanoscan = CardanoscanProvider.forNetwork(flags.network, cardanoscanKey);
   await cardanoscan.submitTx(signedTxHex);
-  const txHash = ECSLConverter.getTxHash(
-    RustModule.getE.Transaction.from_hex(signedTxHex),
-  );
+  const txHash = ECSLConverter.getTxHash(RustModule.getE.Transaction.from_hex(signedTxHex));
   console.log(`\nsubmitted via Cardanoscan, txHash: ${txHash}`);
 }
 

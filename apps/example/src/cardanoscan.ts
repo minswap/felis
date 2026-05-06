@@ -1,14 +1,30 @@
 import fs from "node:fs";
-import { RustModule } from "@minswap/felis-ledger-utils";
-import { MinswapStableswapSyncer, MinswapV1Syncer, MinswapV2Syncer, SplashSyncer, SundaeSwapV1Syncer, SundaeSwapV3Syncer, Transaction, WingridersV1Syncer, WingridersV2Syncer } from "@minswap/felis-syncer";
-import socketIO from "socket.io-client";
 import { Bytes, NetworkEnvironment } from "@minswap/felis-ledger-core";
+import { RustModule } from "@minswap/felis-ledger-utils";
+import {
+  MinswapStableswapSyncer,
+  MinswapV1Syncer,
+  MinswapV2Syncer,
+  SplashSyncer,
+  SundaeSwapV1Syncer,
+  SundaeSwapV3Syncer,
+  Transaction,
+  WingridersV1Syncer,
+  WingridersV2Syncer,
+} from "@minswap/felis-syncer";
+import socketIO from "socket.io-client";
 
 const main = async () => {
   await RustModule.load();
-  const minswapV2MapPool: MinswapV2Syncer.MapPool = JSON.parse(fs.readFileSync("data/minswap-dex-v2-map-pool.json", "utf-8"));
-  const sundaeswapV1MapPool: SundaeSwapV1Syncer.MapPool = JSON.parse(fs.readFileSync("data/sundaeswap-v1-map-pool.json", "utf-8"));
-  const sundaeswapV3MapPool: SundaeSwapV3Syncer.MapPool = JSON.parse(fs.readFileSync("data/sundaeswap-v3-map-pool.json", "utf-8"));
+  const minswapV2MapPool: MinswapV2Syncer.MapPool = JSON.parse(
+    fs.readFileSync("data/minswap-dex-v2-map-pool.json", "utf-8"),
+  );
+  const sundaeswapV1MapPool: SundaeSwapV1Syncer.MapPool = JSON.parse(
+    fs.readFileSync("data/sundaeswap-v1-map-pool.json", "utf-8"),
+  );
+  const sundaeswapV3MapPool: SundaeSwapV3Syncer.MapPool = JSON.parse(
+    fs.readFileSync("data/sundaeswap-v3-map-pool.json", "utf-8"),
+  );
 
   const socketCardano = socketIO("https://socket.cardanoscan.io/private", {
     auth: {

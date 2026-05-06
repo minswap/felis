@@ -71,17 +71,46 @@ const parseArgs = (argv: string[]): Flags => {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     switch (a) {
-      case "--utxo": flags.utxo = true; break;
-      case "--health": flags.health = true; break;
-      case "--datum": flags.datum = true; break;
-      case "--raw": flags.raw = true; break;
-      case "--network": flags.network = take(i); i++; break;
-      case "--tx-in": flags.txIns.push(take(i)); i++; break;
-      case "--address": flags.addresses.push(take(i)); i++; break;
-      case "--payment-credential": flags.paymentCredentials.push(take(i)); i++; break;
-      case "--asset": flags.assets.push(take(i)); i++; break;
-      case "--policy-id": flags.policyIds.push(take(i)); i++; break;
-      case "--datum-hash": flags.datumHashes.push(take(i)); i++; break;
+      case "--utxo":
+        flags.utxo = true;
+        break;
+      case "--health":
+        flags.health = true;
+        break;
+      case "--datum":
+        flags.datum = true;
+        break;
+      case "--raw":
+        flags.raw = true;
+        break;
+      case "--network":
+        flags.network = take(i);
+        i++;
+        break;
+      case "--tx-in":
+        flags.txIns.push(take(i));
+        i++;
+        break;
+      case "--address":
+        flags.addresses.push(take(i));
+        i++;
+        break;
+      case "--payment-credential":
+        flags.paymentCredentials.push(take(i));
+        i++;
+        break;
+      case "--asset":
+        flags.assets.push(take(i));
+        i++;
+        break;
+      case "--policy-id":
+        flags.policyIds.push(take(i));
+        i++;
+        break;
+      case "--datum-hash":
+        flags.datumHashes.push(take(i));
+        i++;
+        break;
       default:
         throw new Error(`Unknown argument: ${a}`);
     }
@@ -91,18 +120,25 @@ const parseArgs = (argv: string[]): Flags => {
 
 const parseNetwork = (s?: string): NetworkEnvironment => {
   switch (s) {
-    case "mainnet": return NetworkEnvironment.MAINNET;
-    case "testnet-preview": return NetworkEnvironment.TESTNET_PREVIEW;
-    case "testnet-preprod": return NetworkEnvironment.TESTNET_PREPROD;
-    default: throw new Error(`--network must be one of mainnet|testnet-preprod|testnet-preview (got ${s})`);
+    case "mainnet":
+      return NetworkEnvironment.MAINNET;
+    case "testnet-preview":
+      return NetworkEnvironment.TESTNET_PREVIEW;
+    case "testnet-preprod":
+      return NetworkEnvironment.TESTNET_PREPROD;
+    default:
+      throw new Error(`--network must be one of mainnet|testnet-preprod|testnet-preview (got ${s})`);
   }
 };
 
 const resolveKupoUrl = (network: NetworkEnvironment): string => {
   switch (network) {
-    case NetworkEnvironment.MAINNET: return process.env["KUPO_MAINNET_URL"] ?? "http://mainnet-staging:1442";
-    case NetworkEnvironment.TESTNET_PREPROD: return process.env["KUPO_PREPROD_URL"] ?? "http://testnet-preprod:1442";
-    case NetworkEnvironment.TESTNET_PREVIEW: return process.env["KUPO_PREVIEW_URL"] ?? "http://dev-3:1442";
+    case NetworkEnvironment.MAINNET:
+      return process.env["KUPO_MAINNET_URL"] ?? "http://mainnet-staging:1442";
+    case NetworkEnvironment.TESTNET_PREPROD:
+      return process.env["KUPO_PREPROD_URL"] ?? "http://testnet-preprod:1442";
+    case NetworkEnvironment.TESTNET_PREVIEW:
+      return process.env["KUPO_PREVIEW_URL"] ?? "http://dev-3:1442";
   }
 };
 
