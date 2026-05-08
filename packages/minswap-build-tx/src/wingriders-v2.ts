@@ -249,9 +249,7 @@ export namespace WingridersV2 {
         case WRV2.DatumType.Hash:
           // OUTLINE_DATUM stores hash on the output and lets TxBuilder.payTo
           // attach the datum as a tx witness so the chain can resolve it.
-          return DatumSource.newOutlineDatum(
-            Bytes.fromHex(PlutusData.toDataHex(orderDatum.compensationDatum)),
-          );
+          return DatumSource.newOutlineDatum(Bytes.fromHex(PlutusData.toDataHex(orderDatum.compensationDatum)));
       }
     })();
     const compensationOut = new TxOut(
