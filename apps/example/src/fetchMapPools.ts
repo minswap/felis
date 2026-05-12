@@ -17,7 +17,6 @@ const _fetchMinswapV2Pools = async (kupo: KupoService, networkEnv: NetworkEnviro
   for (const utxo of minswapV2Utxos) {
     const pool = PoolV2.fromUtxo(utxo, networkEnv);
     if (pool.type === "ok") {
-      ``;
       const lpAsset = pool.value.lpAsset.toString();
       const assetA = pool.value.assetA.toString();
       const assetB = pool.value.assetB.toString();
