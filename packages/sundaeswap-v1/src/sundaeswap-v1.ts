@@ -10,20 +10,18 @@ import {
   Asset,
   BaseUtxoModel,
   Bytes,
-  DatumSource,
   DatumSourceType,
   type NetworkEnvironment,
   PlutusBytes,
   PlutusConstr,
   PlutusData,
   PlutusInt,
+  PlutusList,
   PlutusMaybe,
-  TxIn,
-  TxOut,
   type Utxo,
-  Value,
+  type Value,
 } from "@minswap/felis-ledger-core";
-import { CborHex, Maybe, Result } from "@minswap/felis-ledger-utils";
+import { type CborHex, Maybe, Result } from "@minswap/felis-ledger-utils";
 import invariant from "@minswap/tiny-invariant";
 
 export namespace SundaeSwapV1 {
@@ -64,7 +62,9 @@ export namespace SundaeSwapV1 {
       return {
         destination: {
           address: Address.fromPlutusJson(destinationConstr.fields[0], networkEnv),
-          datum: Maybe.map(PlutusMaybe.unwrap(destinationConstr.fields[1]), (d) => Bytes.fromHex(PlutusBytes.unwrap(d))),
+          datum: Maybe.map(PlutusMaybe.unwrap(destinationConstr.fields[1]), (d) =>
+            Bytes.fromHex(PlutusBytes.unwrap(d)),
+          ),
         },
         alternate: Maybe.map(PlutusMaybe.unwrap(fields[1]), (d) => Bytes.fromHex(PlutusBytes.unwrap(d))),
       };
@@ -269,14 +269,8 @@ export namespace SundaeSwapV1 {
       super(utxo.input, address, value, rawDatum);
       this.datum = PoolDatum.fromCborHex(rawDatum);
       this.networkEnv = networkEnv;
-      this.authenAsset = new Asset(
-        Bytes.fromHex(AUTHEN_POLICY_ID),
-        Bytes.fromHex(`7020${this.datum.ident.hex}`),
-      );
-      this.lpAsset = new Asset(
-        Bytes.fromHex(POOL_SCRIPT_HASH),
-        Bytes.fromHex(`6c7020${this.datum.ident.hex}`),
-      );
+      this.authenAsset = new Asset(Bytes.fromHex(AUTHEN_POLICY_ID), Bytes.fromHex(`7020${this.datum.ident.hex}`));
+      this.lpAsset = new Asset(Bytes.fromHex(POOL_SCRIPT_HASH), Bytes.fromHex(`6c7020${this.datum.ident.hex}`));
     }
 
     get assetA(): Asset {
@@ -307,13 +301,16 @@ export namespace SundaeSwapV1 {
       try {
         const { output } = utxo;
         const { value } = output;
-        invariant(output.address.toScriptHash()?.hex === POOL_SCRIPT_HASH, `SundaeSwap V1 Pool must have correct script hash`);
-        invariant(output.datumSource && output.datumSource.type !== DatumSourceType.INLINE_DATUM, `SundaeSwap V1 Pool must have datum hash`);
-        const datum = PoolDatum.fromCborHex(rawDatum);
-        const authenAsset = new Asset(
-          Bytes.fromHex(AUTHEN_POLICY_ID),
-          Bytes.fromHex(`7020${datum.ident.hex}`),
+        invariant(
+          output.address.toScriptHash()?.hex === POOL_SCRIPT_HASH,
+          `SundaeSwap V1 Pool must have correct script hash`,
         );
+        invariant(
+          output.datumSource && output.datumSource.type !== DatumSourceType.INLINE_DATUM,
+          `SundaeSwap V1 Pool must have datum hash`,
+        );
+        const datum = PoolDatum.fromCborHex(rawDatum);
+        const authenAsset = new Asset(Bytes.fromHex(AUTHEN_POLICY_ID), Bytes.fromHex(`7020${datum.ident.hex}`));
         invariant(value.has(authenAsset), `pool value doesn't have authen asset ${authenAsset.toString()}`);
         const pool = new Pool({
           utxo,
@@ -331,5 +328,185 @@ export namespace SundaeSwapV1 {
         return Result.err(new Error(errorStr));
       }
     }
+  }
+
+  /**
+   * FactoryDatum — schema as observed in mainnet debug3.json:
+   *   Constr 0 [
+   *     bytes nextPoolIdent,         -- next ident to assign on next CreatePool
+   *     PlutusData proposal,         -- proposal state (preserved as-is on CreatePool)
+   *     bytes scooperIdent,          -- current scooper-license window ident
+   *     list<bytes> scoopers,        -- pubkey hashes of authorized scoopers
+   *   ]
+   * `proposal` is preserved as raw PlutusData because CreatePool copies it
+   * through unchanged; we don't need to decode the proposal variant here.
+   */
+  export type FactoryDatum = {
+    nextPoolIdent: Bytes;
+    proposal: PlutusData;
+    scooperIdent: Bytes;
+    scoopers: Bytes[];
+  };
+
+  export namespace FactoryDatum {
+    export function fromPlutusJson(data: PlutusData): FactoryDatum {
+      const { fields } = PlutusConstr.unwrap(data, { [0]: 4 });
+      const scoopersList = PlutusList.unwrap(fields[3]);
+      return {
+        nextPoolIdent: Bytes.fromHex(PlutusBytes.unwrap(fields[0])),
+        proposal: fields[1],
+        scooperIdent: Bytes.fromHex(PlutusBytes.unwrap(fields[2])),
+        scoopers: scoopersList.map((d) => Bytes.fromHex(PlutusBytes.unwrap(d))),
+      };
+    }
+
+    export function toPlutusJson(d: FactoryDatum): PlutusData {
+      return {
+        constructor: 0,
+        fields: [
+          PlutusBytes.wrap(d.nextPoolIdent),
+          d.proposal,
+          PlutusBytes.wrap(d.scooperIdent),
+          { list: d.scoopers.map((b) => PlutusBytes.wrap(b)) },
+        ],
+      };
+    }
+
+    export function fromCborHex(data: CborHex<FactoryDatum>): FactoryDatum {
+      return fromPlutusJson(PlutusData.fromDataHex(data));
+    }
+
+    export function toCborHex(d: FactoryDatum): CborHex<FactoryDatum> {
+      return PlutusData.toDataHex(toPlutusJson(d));
+    }
+
+    export function fromDataHex(data: string): FactoryDatum {
+      return fromPlutusJson(PlutusData.fromDataHex(data));
+    }
+  }
+
+  /**
+   * Factory.spend redeemer. Only the CreatePool variant is implemented here
+   * (governance/proposal flows live on different constructor indices and are
+   * out of scope for the v0 CLI).
+   *
+   * On-chain shape (matches mainnet debug3.json):
+   *   Constr 0 [
+   *     Constr 0 [bytes policyA, bytes nameA],   -- assetA (sorted)
+   *     Constr 0 [bytes policyB, bytes nameB],   -- assetB (sorted)
+   *   ]
+   */
+  export namespace FactoryRedeemer {
+    export function createPool({ assetA, assetB }: { assetA: Asset; assetB: Asset }): PlutusData {
+      return {
+        constructor: 0,
+        fields: [assetA.toPlutusJson(), assetB.toPlutusJson()],
+      };
+    }
+  }
+
+  /**
+   * Pool.mint redeemer. SundaeSwap V1's pool-mint policy takes a single
+   * `bytes` argument: the ident of the pool being created. The on-chain
+   * policy uses this ident to derive the expected pool NFT (`p ` + ident)
+   * and LP token (`lp ` + ident) token names.
+   */
+  export namespace PoolMintRedeemer {
+    export function createPool(ident: Bytes): PlutusData {
+      return PlutusBytes.wrap(ident);
+    }
+  }
+
+  /**
+   * Pool.spend redeemer. The Scoop variant carries the scooper's pubkey hash
+   * and the suffix of the active license token name (the validator concatenates
+   * the on-chain `"scooper "` prefix to derive the full asset name); the
+   * pool-spend script is the one that authenticates the scooper.
+   *
+   * On-chain shape (matches the mainnet scoop tx):
+   *   Constr 0 [bytes scooperPkh, bytes licenseSuffix]
+   *   CBOR e.g. `d8799f581c<scooperPkh>42<suffix>ff`
+   *
+   * Other constructor indices cover admin/governance flows that aren't
+   * modelled here.
+   */
+  export namespace PoolRedeemer {
+    export function scoop(scooperPkh: Bytes, licenseSuffix: Bytes): PlutusData {
+      return {
+        constructor: 0,
+        fields: [PlutusBytes.wrap(scooperPkh), PlutusBytes.wrap(licenseSuffix)],
+      };
+    }
+  }
+
+  /**
+   * Order.spend redeemer. The Scoop variant is bare (`Constr 0 []`, CBOR
+   * `d87980`) — the order validator delegates scooper-license verification
+   * to the pool-spend redeemer that runs in the same tx.
+   */
+  export namespace OrderRedeemer {
+    export function scoop(): PlutusData {
+      return { constructor: 0, fields: [] };
+    }
+  }
+
+  /**
+   * Datum sitting on the treasury-escrow output the scooper produces every scoop.
+   * The scooper records *who* scooped (their pubkey hash) and *which* license
+   * window (the suffix of the license token name) so the escrow can audit
+   * activity. Mirrors witness datum #2 in the example mainnet scoop tx.
+   */
+  export type LicenseDatum = {
+    scooperPkh: Bytes;
+    licenseSuffix: Bytes;
+  };
+
+  export namespace LicenseDatum {
+    export function toPlutusJson(d: LicenseDatum): PlutusData {
+      return {
+        constructor: 0,
+        fields: [PlutusBytes.wrap(d.scooperPkh), PlutusBytes.wrap(d.licenseSuffix)],
+      };
+    }
+
+    export function fromPlutusJson(data: PlutusData): LicenseDatum {
+      const { fields } = PlutusConstr.unwrap(data, { [0]: 2 });
+      return {
+        scooperPkh: Bytes.fromHex(PlutusBytes.unwrap(fields[0])),
+        licenseSuffix: Bytes.fromHex(PlutusBytes.unwrap(fields[1])),
+      };
+    }
+  }
+
+  /**
+   * Increment a little-endian, base-256 byte string. Mirrors the on-chain
+   * factory.spend's increment logic: the next ident is `currentIdent + 1`
+   * with carry. `"00"` → `"01"`, `"ff"` → `"0001"`, `"01ff"` → `"02ff"` (LE).
+   */
+  export function incrementIdentLE(hex: string): string {
+    const bytes = (hex.match(/../g) ?? []).map((b) => Number.parseInt(b, 16));
+    let i = 0;
+    let carry = 1;
+    while (carry && i < bytes.length) {
+      const sum = bytes[i] + carry;
+      bytes[i] = sum & 0xff;
+      carry = sum >> 8;
+      i++;
+    }
+    if (carry) bytes.push(carry);
+    return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  /** Integer square root over BigInt (Newton's method). Used for initial LP supply. */
+  export function isqrt(value: bigint): bigint {
+    invariant(value >= 0n, "isqrt: negative input");
+    if (value < 2n) return value;
+    let x = value;
+    let y = (x + 1n) / 2n;
+    while (y < x) {
+      x = y;
+      y = (x + value / x) / 2n;
+    }
+    return x;
   }
 }

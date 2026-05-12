@@ -11,31 +11,149 @@ import {
   Asset,
   BaseUtxoModel,
   Bytes,
+  type DatumSource,
+  DatumSourceType,
   type NetworkEnvironment,
   PlutusBool,
   PlutusBytes,
   PlutusConstr,
   PlutusData,
   PlutusInt,
+  PlutusMaybe,
   type Utxo,
-  Value,
+  type Value,
 } from "@minswap/felis-ledger-core";
-import { type CborHex, Maybe, Result } from "@minswap/felis-ledger-utils";
-import { blake2b } from "blakejs";
+import { type CborHex, type CSLPlutusData, Maybe, Result } from "@minswap/felis-ledger-utils";
 import invariant from "@minswap/tiny-invariant";
+import { blake2b } from "blakejs";
+import { WingridersV2Warehouse } from "./warehouse";
 
 export namespace WingridersV2 {
-  export const ORDER_SCRIPT_HASH = "c134d839a64a5dfb9b155869ef3f34280751a622f69958baa8ffd29c";
-  export const POOL_SCRIPT_HASH = "af97793b8702f381976cec83e303e9ce17781458c73c4bb16fe02b83";
-  export const LP_POLICY_ID = "6fdc63a1d71dc2c65502b79baae7fb543185702b12c3c5fb639ed737";
-  export const FACTORY_POLICY_ID = "6fdc63a1d71dc2c65502b79baae7fb543185702b12c3c5fb639ed737";
-  export const FACTORY_ASSET_NAME = "46"; // "F" in hex
-  export const VALIDITY_ASSET_NAME = "4c"; // "L" in hex
+  export type FactoryDatum = {
+    head: Bytes;
+    tail: Bytes;
+  };
 
-  export const MIN_POOL_ADA = 3_000_000n;
-  export const MAX_LP_TOKENS = 9_223_372_036_854_775_807n;
-  export const DEFAULT_A_SCALE = 1n;
-  export const DEFAULT_B_SCALE = 1n;
+  export namespace FactoryDatum {
+    export function fromPlutusJson(d: PlutusData): FactoryDatum {
+      const { fields } = PlutusConstr.unwrap(d, {
+        [0]: 2,
+      });
+      return {
+        head: Bytes.fromHex(PlutusBytes.unwrap(fields[0])),
+        tail: Bytes.fromHex(PlutusBytes.unwrap(fields[1])),
+      };
+    }
+
+    export function toPlutusJson(d: FactoryDatum): PlutusData {
+      return {
+        constructor: 0,
+        fields: [PlutusBytes.wrap(d.head), PlutusBytes.wrap(d.tail)],
+      };
+    }
+
+    export function fromDataHex(data: CborHex<CSLPlutusData>): FactoryDatum {
+      const plutusData = PlutusData.fromDataHex(data);
+      return fromPlutusJson(plutusData);
+    }
+
+    export function toDataHex(data: FactoryDatum): CborHex<CSLPlutusData> {
+      const plutusJson = toPlutusJson(data);
+      return PlutusData.toDataHex(plutusJson);
+    }
+
+    export function toDatumSource(data: FactoryDatum): DatumSource {
+      // Factory only support Inline Datum
+      return {
+        type: DatumSourceType.INLINE_DATUM,
+        data: Bytes.fromHex(FactoryDatum.toDataHex(data)),
+      };
+    }
+  }
+
+  // ============================================================================
+  // Factory Redeemer
+  // ============================================================================
+
+  export enum PoolChoiceType {
+    UseConstantProduct = 0,
+    UseStableswap = 1,
+  }
+
+  export type PoolChoice =
+    | { type: PoolChoiceType.UseConstantProduct }
+    | { type: PoolChoiceType.UseStableswap; aScale: bigint; bScale: bigint };
+
+  export namespace PoolChoice {
+    export function fromPlutusJson(d: PlutusData): PoolChoice {
+      const constr = PlutusConstr.unwrap(d, {
+        [PoolChoiceType.UseConstantProduct]: 0,
+        [PoolChoiceType.UseStableswap]: 2,
+      });
+      switch (constr.constructor) {
+        case PoolChoiceType.UseConstantProduct:
+          return { type: PoolChoiceType.UseConstantProduct };
+        case PoolChoiceType.UseStableswap:
+          return {
+            type: PoolChoiceType.UseStableswap,
+            aScale: PlutusInt.unwrapToBigInt(constr.fields[0]),
+            bScale: PlutusInt.unwrapToBigInt(constr.fields[1]),
+          };
+        default:
+          throw new Error("WingridersV2: Unexpected PoolChoice.");
+      }
+    }
+
+    export function toPlutusJson(pc: PoolChoice): PlutusData {
+      switch (pc.type) {
+        case PoolChoiceType.UseConstantProduct:
+          return { constructor: PoolChoiceType.UseConstantProduct, fields: [] };
+        case PoolChoiceType.UseStableswap:
+          return {
+            constructor: PoolChoiceType.UseStableswap,
+            fields: [PlutusInt.wrap(pc.aScale), PlutusInt.wrap(pc.bScale)],
+          };
+      }
+    }
+  }
+
+  export type FactoryRedeemer = {
+    poolChoice: PoolChoice;
+    assetA: Asset;
+    assetB: Asset;
+  };
+
+  export namespace FactoryRedeemer {
+    export function fromPlutusJson(d: PlutusData): FactoryRedeemer {
+      const { fields } = PlutusConstr.unwrap(d, { [0]: 5 });
+      return {
+        poolChoice: PoolChoice.fromPlutusJson(fields[0]),
+        assetA: new Asset(Bytes.fromHex(PlutusBytes.unwrap(fields[1])), Bytes.fromHex(PlutusBytes.unwrap(fields[2]))),
+        assetB: new Asset(Bytes.fromHex(PlutusBytes.unwrap(fields[3])), Bytes.fromHex(PlutusBytes.unwrap(fields[4]))),
+      };
+    }
+
+    export function toPlutusJson(r: FactoryRedeemer): PlutusData {
+      return {
+        constructor: 0,
+        fields: [
+          PoolChoice.toPlutusJson(r.poolChoice),
+          PlutusBytes.wrap(r.assetA.currencySymbol),
+          PlutusBytes.wrap(r.assetA.tokenName),
+          PlutusBytes.wrap(r.assetB.currencySymbol),
+          PlutusBytes.wrap(r.assetB.tokenName),
+        ],
+      };
+    }
+
+    export function fromDataHex(data: CborHex<CSLPlutusData>): FactoryRedeemer {
+      return fromPlutusJson(PlutusData.fromDataHex(data));
+    }
+
+    export function toDataHex(data: FactoryRedeemer): CborHex<CSLPlutusData> {
+      return PlutusData.toDataHex(toPlutusJson(data));
+    }
+  }
 
   // ============================================================================
   // Swap Direction
@@ -94,7 +212,11 @@ export namespace WingridersV2 {
         minWantedB: bigint;
       }
     | {
-        type: OrderType.ExtractTreasury | OrderType.AddStakingReward | OrderType.ExtractProjectTreasury | OrderType.ExtractReserveTreasury;
+        type:
+          | OrderType.ExtractTreasury
+          | OrderType.AddStakingReward
+          | OrderType.ExtractProjectTreasury
+          | OrderType.ExtractReserveTreasury;
       }
   );
 
@@ -323,13 +445,25 @@ export namespace WingridersV2 {
     projectTreasuryB: bigint;
     reserveTreasuryA: bigint;
     reserveTreasuryB: bigint;
+    projectBeneficiary: Maybe<Address>;
+    reserveBeneficiary: Maybe<Address>;
+    // Opaque tail field — Constr 0 [] for ConstantProduct; parameters for Stableswap.
+    poolSpecifics: PlutusData;
   };
 
   export namespace PoolDatum {
-    export function fromPlutusJson(data: PlutusData): PoolDatum {
-      const { fields } = PlutusConstr.unwrap(data, { [0]: 18 });
-      const assetA = new Asset(Bytes.fromHex(PlutusBytes.unwrap(fields[1])), Bytes.fromHex(PlutusBytes.unwrap(fields[2])));
-      const assetB = new Asset(Bytes.fromHex(PlutusBytes.unwrap(fields[3])), Bytes.fromHex(PlutusBytes.unwrap(fields[4])));
+    export function fromPlutusJson(data: PlutusData, networkEnv: NetworkEnvironment): PoolDatum {
+      const { fields } = PlutusConstr.unwrap(data, { [0]: 21 });
+      const assetA = new Asset(
+        Bytes.fromHex(PlutusBytes.unwrap(fields[1])),
+        Bytes.fromHex(PlutusBytes.unwrap(fields[2])),
+      );
+      const assetB = new Asset(
+        Bytes.fromHex(PlutusBytes.unwrap(fields[3])),
+        Bytes.fromHex(PlutusBytes.unwrap(fields[4])),
+      );
+      const projectBeneficiaryData = PlutusMaybe.unwrap(fields[18]);
+      const reserveBeneficiaryData = PlutusMaybe.unwrap(fields[19]);
 
       return {
         reqValidatorHash: Bytes.fromHex(PlutusBytes.unwrap(fields[0])),
@@ -348,6 +482,13 @@ export namespace WingridersV2 {
         projectTreasuryB: PlutusInt.unwrapToBigInt(fields[15]),
         reserveTreasuryA: PlutusInt.unwrapToBigInt(fields[16]),
         reserveTreasuryB: PlutusInt.unwrapToBigInt(fields[17]),
+        projectBeneficiary: Maybe.isNothing(projectBeneficiaryData)
+          ? null
+          : Address.fromPlutusJson(projectBeneficiaryData, networkEnv),
+        reserveBeneficiary: Maybe.isNothing(reserveBeneficiaryData)
+          ? null
+          : Address.fromPlutusJson(reserveBeneficiaryData, networkEnv),
+        poolSpecifics: fields[20],
       };
     }
 
@@ -373,13 +514,16 @@ export namespace WingridersV2 {
           PlutusInt.wrap(datum.projectTreasuryB),
           PlutusInt.wrap(datum.reserveTreasuryA),
           PlutusInt.wrap(datum.reserveTreasuryB),
+          PlutusMaybe.wrap(Maybe.isJust(datum.projectBeneficiary) ? datum.projectBeneficiary.toPlutusJson() : null),
+          PlutusMaybe.wrap(Maybe.isJust(datum.reserveBeneficiary) ? datum.reserveBeneficiary.toPlutusJson() : null),
+          datum.poolSpecifics,
         ],
       };
     }
 
-    export function fromCborHex(data: CborHex<PoolDatum>): PoolDatum {
+    export function fromCborHex(data: CborHex<PoolDatum>, networkEnv: NetworkEnvironment): PoolDatum {
       const plutusData = PlutusData.fromDataHex(data);
-      return fromPlutusJson(plutusData);
+      return fromPlutusJson(plutusData, networkEnv);
     }
 
     export function toCborHex(data: PoolDatum): CborHex<PoolDatum> {
@@ -405,6 +549,9 @@ export namespace WingridersV2 {
         projectTreasuryB: datum.projectTreasuryB,
         reserveTreasuryA: datum.reserveTreasuryA,
         reserveTreasuryB: datum.reserveTreasuryB,
+        projectBeneficiary: datum.projectBeneficiary,
+        reserveBeneficiary: datum.reserveBeneficiary,
+        poolSpecifics: datum.poolSpecifics,
       };
     }
   }
@@ -420,22 +567,18 @@ export namespace WingridersV2 {
   };
 
   /**
-   * Compute LP asset using blake2b hash
-   * poolTypeId: 0, aScale: 1, bScale: 1
-   * tokenNameHash = blake2b(blake2b("0") + blake2b("1") + blake2b("1") + blake2b(assetA) + blake2b(assetB))
-   * lpAsset = lpPolicyId + blake2b(tokenNameHash)
+   * Compute LP asset using blake2b hash (ConstantProduct, aScale = bScale = 1).
+   * tokenName = blake2b(blake2b("0") + blake2b("1") + blake2b("1") + blake2b(assetA) + blake2b(assetB))
+   * lpAsset = (dexSymbolHash, tokenName) — dexSymbolHash is per-network (see WingridersV2Warehouse).
    */
-  export function computeLpAsset(assetA: Asset, assetB: Asset): Asset {
+  export function computeLpAsset(dexSymbolHash: Bytes, assetA: Asset, assetB: Asset): Asset {
     const tokenNameHash = new Bytes(blake2b(Bytes.fromString("0").bytes, undefined, 32))
       .concat(new Bytes(blake2b(Bytes.fromString("1").bytes, undefined, 32)))
       .concat(new Bytes(blake2b(Bytes.fromString("1").bytes, undefined, 32)))
       .concat(new Bytes(blake2b(assetA.currencySymbol.concat(assetA.tokenName).bytes, undefined, 32)))
       .concat(new Bytes(blake2b(assetB.currencySymbol.concat(assetB.tokenName).bytes, undefined, 32))).bytes;
-    return new Asset(Bytes.fromHex(LP_POLICY_ID), new Bytes(blake2b(tokenNameHash, undefined, 32)));
+    return new Asset(dexSymbolHash, new Bytes(blake2b(tokenNameHash, undefined, 32)));
   }
-
-  export const FACTORY_ASSET = new Asset(Bytes.fromHex(FACTORY_POLICY_ID), Bytes.fromHex(FACTORY_ASSET_NAME));
-  export const VALIDITY_ASSET = new Asset(Bytes.fromHex(FACTORY_POLICY_ID), Bytes.fromHex(VALIDITY_ASSET_NAME));
 
   export class Pool extends BaseUtxoModel {
     readonly datum: PoolDatum;
@@ -445,7 +588,7 @@ export namespace WingridersV2 {
       const { output } = utxo;
       const { address, value } = output;
       super(utxo.input, address, value, rawDatum);
-      this.datum = PoolDatum.fromCborHex(rawDatum);
+      this.datum = PoolDatum.fromCborHex(rawDatum, networkEnv);
       this.networkEnv = networkEnv;
     }
 
@@ -458,7 +601,11 @@ export namespace WingridersV2 {
     }
 
     get lpAsset(): Asset {
-      return computeLpAsset(this.datum.assetA, this.datum.assetB);
+      return computeLpAsset(
+        WingridersV2Warehouse.getInstance(this.networkEnv).dexSymbolHash,
+        this.datum.assetA,
+        this.datum.assetB,
+      );
     }
 
     /**
@@ -468,7 +615,7 @@ export namespace WingridersV2 {
       const rawReserve =
         this.value.get(this.assetA) - this.datum.treasuryA - this.datum.projectTreasuryA - this.datum.reserveTreasuryA;
       if (this.assetA.equals(ADA)) {
-        return rawReserve - MIN_POOL_ADA;
+        return rawReserve - WingridersV2Warehouse.MIN_POOL_ADA;
       }
       return rawReserve;
     }
@@ -477,7 +624,9 @@ export namespace WingridersV2 {
      * Reserve B, subtracting all treasuries
      */
     get reserveB(): bigint {
-      return this.value.get(this.assetB) - this.datum.treasuryB - this.datum.projectTreasuryB - this.datum.reserveTreasuryB;
+      return (
+        this.value.get(this.assetB) - this.datum.treasuryB - this.datum.projectTreasuryB - this.datum.reserveTreasuryB
+      );
     }
 
     /**
@@ -485,7 +634,7 @@ export namespace WingridersV2 {
      */
     get liquidity(): bigint {
       const burnedShareTokens = this.value.get(this.lpAsset);
-      return MAX_LP_TOKENS - burnedShareTokens;
+      return WingridersV2Warehouse.MAX_LP_TOKENS - burnedShareTokens;
     }
 
     get pair(): [Asset, Asset] {
@@ -497,7 +646,10 @@ export namespace WingridersV2 {
      */
     get totalFeeInBasis(): bigint {
       return (
-        this.datum.swapFeeInBasis + this.datum.protocolFeeInBasis + this.datum.projectFeeInBasis + this.datum.reserveFeeInBasis
+        this.datum.swapFeeInBasis +
+        this.datum.protocolFeeInBasis +
+        this.datum.projectFeeInBasis +
+        this.datum.reserveFeeInBasis
       );
     }
 
@@ -505,9 +657,13 @@ export namespace WingridersV2 {
       try {
         const { output } = utxo;
         const { value } = output;
-        invariant(output.address.toScriptHash()?.hex === POOL_SCRIPT_HASH, `WingridersV2 Pool must have correct script hash`);
+        const warehouse = WingridersV2Warehouse.getInstance(networkEnv);
+        invariant(
+          output.address.toScriptHash()?.hex === warehouse.poolScriptHashCP.hex,
+          `WingridersV2 Pool must have correct script hash`,
+        );
         invariant(Maybe.isJust(output.datumSource), `WingridersV2 Pool must have datum`);
-        invariant(value.has(VALIDITY_ASSET), `WingridersV2 Pool must have validity token`);
+        invariant(value.has(warehouse.validityAsset), `WingridersV2 Pool must have validity token`);
 
         const pool = new Pool({
           utxo,
@@ -537,11 +693,73 @@ export namespace WingridersV2 {
   }
 
   export namespace OrderRedeemer {
+    export function apply(poolInputLocation: bigint): PlutusData {
+      return {
+        constructor: OrderRedeemerType.Apply,
+        fields: [PlutusInt.wrap(poolInputLocation)],
+      };
+    }
+
     export function cancel(): PlutusData {
       return {
         constructor: OrderRedeemerType.Reclaim,
         fields: [],
       };
+    }
+  }
+
+  // ============================================================================
+  // Pool Redeemer
+  // ============================================================================
+
+  export enum PoolRedeemerType {
+    Evolve = 0,
+    EmergencyWithdrawal = 1,
+    ChangeFees = 2,
+    ChangeAgentFee = 3,
+  }
+
+  export type EvolveRedeemer = {
+    poolLocation: bigint;
+    agentLocation: bigint;
+    /** For CP simple swaps pass `{ int: "0" }` (matches mainnet convention). Haskell type is `(Int, Data)`. */
+    requestLocations: Array<{ inputIndex: bigint; extraData: PlutusData }>;
+  };
+
+  export namespace PoolRedeemer {
+    export function evolve(r: EvolveRedeemer): PlutusData {
+      return {
+        constructor: PoolRedeemerType.Evolve,
+        fields: [
+          PlutusInt.wrap(r.poolLocation),
+          PlutusInt.wrap(r.agentLocation),
+          {
+            list: r.requestLocations.map((rl) => ({
+              constructor: 0,
+              fields: [PlutusInt.wrap(rl.inputIndex), rl.extraData],
+            })),
+          },
+        ],
+      };
+    }
+  }
+
+  // ============================================================================
+  // Validity Minting Policy Redeemer
+  // ============================================================================
+
+  export enum ValidityRedeemerType {
+    MintFirstFactory = 0,
+    MintNewPool = 1,
+  }
+
+  export namespace ValidityRedeemer {
+    export function mintFirstFactory(): PlutusData {
+      return { constructor: ValidityRedeemerType.MintFirstFactory, fields: [] };
+    }
+
+    export function mintNewPool(): PlutusData {
+      return { constructor: ValidityRedeemerType.MintNewPool, fields: [] };
     }
   }
 }

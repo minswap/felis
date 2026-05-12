@@ -68,7 +68,7 @@
       "outputs": ["dist/**"]
     },
     "@minswap/felis-build-tx#build": {
-      "dependsOn": ["@minswap/felis-tx-builder#build", "@minswap/felis-dex-v2#build"],
+      "dependsOn": ["@minswap/felis-tx-builder#build", "@minswap/felis-dex-v2#build", "@minswap/felis-wingriders-v2#build", "@minswap/felis-sundaeswap-v1#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },

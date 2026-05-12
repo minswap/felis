@@ -32,6 +32,12 @@ importers:
       '@cardano-ogmios/client':
         specifier: ^6.11.0
         version: 6.14.0
+      '@minswap/felis-build-tx':
+        specifier: workspace:*
+        version: link:../../packages/minswap-build-tx
+      '@minswap/felis-cip':
+        specifier: workspace:*
+        version: link:../../packages/cip
       '@minswap/felis-dex-v2':
         specifier: workspace:*
         version: link:../../packages/minswap-dex-v2
@@ -56,6 +62,9 @@ importers:
       '@minswap/felis-tx-builder':
         specifier: workspace:*
         version: link:../../packages/tx-builder
+      '@minswap/felis-wingriders-v2':
+        specifier: workspace:*
+        version: link:../../packages/wingriders-v2
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
@@ -75,6 +84,9 @@ importers:
       dpdm:
         specifier: ^3.15.1
         version: 3.15.1
+      tsx:
+        specifier: ^4.19.4
+        version: 4.20.3
       typescript:
         specifier: 5.8.2
         version: 5.8.2
@@ -419,9 +431,15 @@ importers:
       '@minswap/felis-ledger-utils':
         specifier: workspace:*
         version: link:../ledger-utils
+      '@minswap/felis-sundaeswap-v1':
+        specifier: workspace:*
+        version: link:../sundaeswap-v1
       '@minswap/felis-tx-builder':
         specifier: workspace:*
         version: link:../tx-builder
+      '@minswap/felis-wingriders-v2':
+        specifier: workspace:*
+        version: link:../wingriders-v2
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
@@ -622,6 +640,9 @@ importers:
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
+      json-bigint:
+        specifier: ^1.0.0
+        version: 1.0.0
       remeda:
         specifier: ^2.19.2
         version: 2.28.0

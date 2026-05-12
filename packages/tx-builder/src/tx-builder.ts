@@ -64,6 +64,7 @@ export type TxBuilderBuildOptions = {
   // Sometimes, we need to pass extra fee for some special cases like when CSL compute Insufficient fee due to unknown reason.
   // For example, Metadata Message contains special characters like (Ť Ŏ Ǹ Ȳ) requires more fee than CSL calculated.
   extraFee?: bigint;
+  hardCodedTxFee?: bigint; // hard-code txFee, unsafe
 };
 
 const MAX_FAKE_EX_UNIT: ExUnit = {
@@ -689,6 +690,7 @@ export class TxBuilder {
       walletCollaterals: _walletCollaterals,
       coinSelectionAlgorithm,
       debug,
+      hardCodedTxFee,
     } = options;
 
     let finalTx: string | undefined;
@@ -804,6 +806,10 @@ export class TxBuilder {
         default: {
           throw new Error(`Not supported coin selection algorithms: ${coinSelectionAlgorithm}`);
         }
+      }
+
+      if (hardCodedTxFee) {
+        this.txDraft.body.fee = hardCodedTxFee;
       }
 
       if (isUsingPlutus) {

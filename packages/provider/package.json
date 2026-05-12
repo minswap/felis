@@ -36,6 +36,7 @@
     "@minswap/felis-ledger-core": "workspace:*",
     "@minswap/felis-ledger-utils": "workspace:*",
     "@minswap/tiny-invariant": "^1.2.0",
+    "json-bigint": "^1.0.0",
     "remeda": "^2.19.2"
   }
 }
