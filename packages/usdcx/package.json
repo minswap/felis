@@ -1,0 +1,43 @@
+{
+  "name": "@minswap/felis-usdcx",
+  "version": "0.0.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/minswap/felis",
+    "directory": "packages/usdcx"
+  },
+  "bugs": {
+    "url": "https://github.com/minswap/felis/issues"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "tsc --watch --preserveWatchOutput",
+    "build": "tsc",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "check-circular-imports": "dpdm --no-warning --no-tree src"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "dpdm": "^3.15.1",
+    "typescript": "5.8.2",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@minswap/felis-ledger-core": "workspace:*",
+    "@minswap/felis-ledger-utils": "workspace:*",
+    "@minswap/felis-tx-builder": "workspace:*",
+    "@minswap/tiny-invariant": "^1.2.0",
+    "viem": "^2.21.0"
+  }
+}

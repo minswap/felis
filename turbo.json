@@ -82,6 +82,11 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
+    "@minswap/felis-usdcx#build": {
+      "dependsOn": ["@minswap/felis-ledger-core#build", "@minswap/felis-tx-builder#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
     "@minswap/felis-syncer#build": {
       "dependsOn": ["@minswap/felis-dex-v1#build", "@minswap/felis-dex-v2#build", "@minswap/felis-stableswap#build", "@minswap/felis-tx-builder#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
@@ -132,7 +137,8 @@
         "@minswap/felis-sundaeswap-v3#build",
         "@minswap/felis-syncer#build",
         "@minswap/felis-provider#build",
-        "@minswap/felis-tx-builder#build"
+        "@minswap/felis-tx-builder#build",
+        "@minswap/felis-usdcx#build"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]

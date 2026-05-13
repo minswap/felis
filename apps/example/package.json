@@ -7,6 +7,7 @@
   },
   "scripts": {
     "syncer": "pnpm tsx src/syncer.ts",
+    "usdcx": "pnpm tsx src/usdcx.ts",
     "dev": "tsc --watch --preserveWatchOutput",
     "build": "tsc",
     "check-circular-imports": "dpdm --no-warning --no-tree src"
@@ -31,6 +32,7 @@
     "@minswap/felis-sundaeswap-v3": "workspace:*",
     "@minswap/felis-syncer": "workspace:*",
     "@minswap/felis-tx-builder": "workspace:*",
+    "@minswap/felis-usdcx": "workspace:*",
     "@minswap/felis-wingriders-v2": "workspace:*",
     "@minswap/tiny-invariant": "^1.2.0",
     "socket.io-client": "^4.8.3"
