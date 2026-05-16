@@ -33,8 +33,11 @@
     "typescript": "5.8.2"
   },
   "dependencies": {
+    "@cardano-ogmios/client": "^6.14.0",
+    "@cardano-ogmios/schema": "^6.11.0",
     "@minswap/felis-ledger-core": "workspace:*",
     "@minswap/felis-ledger-utils": "workspace:*",
+    "@minswap/felis-tx-builder": "workspace:*",
     "@minswap/tiny-invariant": "^1.2.0",
     "json-bigint": "^1.0.0",
     "remeda": "^2.19.2"

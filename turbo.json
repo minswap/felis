@@ -38,7 +38,7 @@
       "outputs": ["dist/**"]
     },
     "@minswap/felis-provider#build": {
-      "dependsOn": ["@minswap/felis-ledger-core#build", "@minswap/felis-ledger-utils#build"],
+      "dependsOn": ["@minswap/felis-ledger-core#build", "@minswap/felis-ledger-utils#build", "@minswap/felis-tx-builder#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },

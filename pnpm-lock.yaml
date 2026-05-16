@@ -634,12 +634,21 @@ importers:
 
   packages/provider:
     dependencies:
+      '@cardano-ogmios/client':
+        specifier: ^6.14.0
+        version: 6.14.0
+      '@cardano-ogmios/schema':
+        specifier: ^6.11.0
+        version: 6.14.0
       '@minswap/felis-ledger-core':
         specifier: workspace:*
         version: link:../ledger-core
       '@minswap/felis-ledger-utils':
         specifier: workspace:*
         version: link:../ledger-utils
+      '@minswap/felis-tx-builder':
+        specifier: workspace:*
+        version: link:../tx-builder
       '@minswap/tiny-invariant':
         specifier: ^1.2.0
         version: 1.2.0
