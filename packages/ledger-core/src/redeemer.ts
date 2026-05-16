@@ -144,39 +144,61 @@ export namespace Redeemer {
   }
 
   export function toHex(redeemers: Redeemer[]): string {
-    const encodedRedeemers: Array<EncodedRedeemer> = [];
-    for (const redeemer of redeemers) {
-      let tag: number;
-      switch (redeemer.type) {
-        case RedeemerType.SPEND: {
-          tag = 0;
-          break;
-        }
-        case RedeemerType.MINT: {
-          tag = 1;
-          break;
-        }
-        case RedeemerType.CERT: {
-          tag = 2;
-          break;
-        }
-        case RedeemerType.REWARD: {
-          tag = 3;
-          break;
-        }
+    const hasSourceRedeemer = redeemers.some((r) => r.redeemerData.source);
+    if (!hasSourceRedeemer) {
+      // Fast path: no pre-encoded redeemers, use cbors directly
+      const encodedRedeemers: Array<EncodedRedeemer> = [];
+      for (const redeemer of redeemers) {
+        encodedRedeemers.push([
+          redeemer.type,
+          redeemer.index,
+          PlutusData.toPlutusDataEncoding(redeemer.redeemerData),
+          [Number(redeemer.exUnit.memory), Number(redeemer.exUnit.step)],
+        ]);
       }
-      encodedRedeemers.push([
-        tag,
-        redeemer.index,
-        PlutusData.toPlutusDataEncoding(redeemer.redeemerData),
-        [Number(redeemer.exUnit.memory), Number(redeemer.exUnit.step)],
-      ]);
+      return cbors.Encoder.encode(encodedRedeemers).toString("hex");
     }
-    const redeemerHex = encodedRedeemers
-      ? cbors.Encoder.encode(encodedRedeemers).toString("hex")
-      : cbors.Encoder.encode([]).toString("hex");
 
-    return redeemerHex;
+    // When any redeemer has pre-encoded CBOR source, build each redeemer
+    // individually and splice the source CBOR directly into the array.
+    const redeemerHexParts: string[] = [];
+    for (const redeemer of redeemers) {
+      const dataHex = PlutusData.toDataHex(redeemer.redeemerData);
+      const exUnitHex = cbors.Encoder.encode([Number(redeemer.exUnit.memory), Number(redeemer.exUnit.step)]).toString(
+        "hex",
+      );
+      // Encode [tag, index, data, exUnits] as a 4-element CBOR array
+      const tagHex = cbors.Encoder.encode(redeemer.type).toString("hex");
+      const indexHex = cbors.Encoder.encode(redeemer.index).toString("hex");
+      redeemerHexParts.push(`84${tagHex}${indexHex}${dataHex}${exUnitHex}`);
+    }
+    // Encode CBOR definite-length array header (major type 4) for `n` elements.
+    // Per RFC 8949 §3.1 (https://www.rfc-editor.org/rfc/rfc8949#section-3.1):
+    //   n < 24        -> 1 byte:  0x80 | n
+    //   n < 2^8       -> 2 bytes: 0x98 <n>
+    //   n < 2^16      -> 3 bytes: 0x99 <n:u16 BE>
+    //   n < 2^32      -> 5 bytes: 0x9a <n:u32 BE>
+    //   n < 2^64      -> 9 bytes: 0x9b <n:u64 BE>
+    // Do NOT use `cbors.Encoder.encode(n)` here: that produces the CBOR encoding of
+    // `n` as a uint (major type 0), which differs from an array header only by the
+    // major-type bits. For n >= 24, encoding as uint emits an additional-info prefix
+    // byte (e.g. 0x18) followed by the value; stitching "98" in front of that yields
+    // bytes like "98 18 1b" which CSL parses as "array of 0x18=24 elements" with a
+    // stray 0x1b that corrupts the next Redeemer.
+    const n = redeemers.length;
+    let arrayHeaderHex: string;
+    if (n < 24) {
+      arrayHeaderHex = (0x80 + n).toString(16).padStart(2, "0");
+    } else if (n < 0x100) {
+      arrayHeaderHex = `98${n.toString(16).padStart(2, "0")}`;
+    } else if (n < 0x10000) {
+      arrayHeaderHex = `99${n.toString(16).padStart(4, "0")}`;
+    } else if (n < 0x100000000) {
+      arrayHeaderHex = `9a${n.toString(16).padStart(8, "0")}`;
+    } else {
+      arrayHeaderHex = `9b${n.toString(16).padStart(16, "0")}`;
+    }
+    return arrayHeaderHex + redeemerHexParts.join("");
   }
 
   export function clone(redeemer: Redeemer): Redeemer {

@@ -156,7 +156,18 @@ export class CSLTxSerializer {
     }
     const CSL = RustModule.get;
     const cWithdrawals = CSL.Withdrawals.new();
-    for (const [rewardAddressStr, amount] of Object.entries(withdrawal)) {
+    // Sort withdrawal entries by reward address for canonical CBOR encoding
+    /**
+     * Reference to Aiken transaction.ak
+     * [!IMPORTANT]
+     * Withdrawals are ordered by ascending [Credential](./credential.html#Credential).
+     * Yet, note that [`Script`](./credential.html#Credential) credentials are
+     *  treated as **lower values** than [`VerificationKey`](./credential.html#Credential) credentials.
+     */
+    const sortedEntries = Object.entries(withdrawal).sort(([a], [b]) =>
+      RewardAddress.fromBech32(a).compare(RewardAddress.fromBech32(b)),
+    );
+    for (const [rewardAddressStr, amount] of sortedEntries) {
       const rewardAddress = RewardAddress.fromBech32(rewardAddressStr);
       const cslRewardAddr = CSL.RewardAddress.from_address(rewardAddress.toCSL());
       invariant(cslRewardAddr);

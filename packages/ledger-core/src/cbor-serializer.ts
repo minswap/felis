@@ -385,7 +385,11 @@ export namespace CborSerializer {
   export namespace CWithdrawals {
     export function encode(withdrawals: Withdrawals): EncodedWithdrawals {
       const encodedWithdrawals: EncodedWithdrawals = new Map();
-      for (const [addrBech32, amount] of Object.entries(withdrawals)) {
+      // Sort by reward address for canonical CBOR map key ordering
+      const sortedEntries = Object.entries(withdrawals).sort(([a], [b]) =>
+        RewardAddress.fromBech32(a).compare(RewardAddress.fromBech32(b)),
+      );
+      for (const [addrBech32, amount] of sortedEntries) {
         const stakingAddressBuffer = Buffer.from(RewardAddress.fromBech32(addrBech32).toCSL().to_bytes());
         encodedWithdrawals.set(stakingAddressBuffer, new BigNumber(amount.toString()));
       }
