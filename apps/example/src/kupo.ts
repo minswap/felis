@@ -8,6 +8,7 @@
  *   --health                                  Ping the Kupo instance.
  *   --datum --datum-hash <hash> [...]         Resolve one or more datum hashes.
  *   --utxo <target flags...>                  Fetch UTxOs matching any of the targets.
+ *   --inspect-utxo <hex>                      Parse a raw hex-encoded UTxO and print it (offline, no Kupo call).
  *
  * Targets for --utxo (repeatable, combined as a union):
  *   --tx-in <txId#index>                      UTxO at a specific output reference.
@@ -19,6 +20,8 @@
  * Output:
  *   Default: pretty XJSON (BigInt-safe).
  *   --raw    Print one hex-encoded UTxO per line (only with --utxo).
+ *   --sum    Print the summed Value of all matching UTxOs (only with --utxo).
+ *   --count  Print each UTxO as { txIn, coin (ADA), assets (token count) } (only with --utxo).
  *
  * Env:
  *   KUPO_MAINNET_URL, KUPO_PREPROD_URL, KUPO_PREVIEW_URL override defaults.
@@ -28,8 +31,9 @@
  *   pnpm tsx src/kupo.ts --utxo --network testnet-preprod --address addr_test1...
  *   pnpm tsx src/kupo.ts --utxo --network mainnet --tx-in abcd...#0 --raw
  *   pnpm tsx src/kupo.ts --datum --network mainnet --datum-hash <hash>
+ *   pnpm tsx src/kupo.ts --inspect-utxo 82825820...
  */
-import { Address, Asset, Bytes, NetworkEnvironment, TxIn, Utxo, XJSON } from "@minswap/felis-ledger-core";
+import { ADA, Address, Asset, Bytes, NetworkEnvironment, TxIn, Utxo, XJSON } from "@minswap/felis-ledger-core";
 import { RustModule } from "@minswap/felis-ledger-utils";
 import { KupoService } from "@minswap/felis-provider";
 
@@ -38,8 +42,11 @@ type Flags = {
   utxo: boolean;
   health: boolean;
   datum: boolean;
+  inspectUtxo?: string;
   // Output
   raw: boolean;
+  sum: boolean;
+  count: boolean;
   // Target
   network?: string;
   txIns: string[];
@@ -56,6 +63,8 @@ const parseArgs = (argv: string[]): Flags => {
     health: false,
     datum: false,
     raw: false,
+    sum: false,
+    count: false,
     txIns: [],
     addresses: [],
     paymentCredentials: [],
@@ -80,8 +89,18 @@ const parseArgs = (argv: string[]): Flags => {
       case "--datum":
         flags.datum = true;
         break;
+      case "--inspect-utxo":
+        flags.inspectUtxo = take(i);
+        i++;
+        break;
       case "--raw":
         flags.raw = true;
+        break;
+      case "--sum":
+        flags.sum = true;
+        break;
+      case "--count":
+        flags.count = true;
         break;
       case "--network":
         flags.network = take(i);
@@ -149,6 +168,12 @@ const printJson = (v: unknown) => {
 const main = async () => {
   await RustModule.load();
   const flags = parseArgs(process.argv.slice(2));
+
+  if (flags.inspectUtxo !== undefined) {
+    printJson(Utxo.fromHex(flags.inspectUtxo));
+    return;
+  }
+
   const network = parseNetwork(flags.network);
   const kupo = new KupoService(resolveKupoUrl(network));
 
@@ -191,7 +216,17 @@ const main = async () => {
     return;
   }
 
-  if (flags.raw) {
+  if (flags.count) {
+    printJson(
+      utxos.map((u) => ({
+        txIn: TxIn.toString(u.input),
+        coin: Number(u.output.value.coin()) / 1_000_000,
+        assets: u.output.value.assets().filter((a) => !a.equals(ADA)).length,
+      })),
+    );
+  } else if (flags.sum) {
+    printJson(Utxo.sumValue(utxos));
+  } else if (flags.raw) {
     for (const u of utxos) console.log(Utxo.toHex(u));
   } else {
     printJson(utxos);
