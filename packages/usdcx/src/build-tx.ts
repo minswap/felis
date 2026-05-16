@@ -73,10 +73,14 @@ export namespace USDCxBurnTx {
     const burnRedeemer = buildBurnRedeemer(burnIntentHex);
     const mintValue = new Value().add(config.usdcxAsset, -burnAmount);
 
+    // Force the USDCx-bearing UTxOs into the body (they hold the tokens we burn).
+    // Pure-ADA UTxOs are passed to `complete({ walletUtxos })` so coin selection picks
+    // just enough for fees and change — otherwise large wallets blow the 16KB tx limit.
+    void walletUtxos;
+
     return txb
       .readFrom(protocolParamsUtxo, mintingRefScriptUtxo, mintingLogicRefScriptUtxo)
       .collectFromPubKey(...usdcxUtxos)
-      .collectFromPubKey(...walletUtxos)
       .mintAssets(mintValue, PlutusData.fromDataHex("d87980"))
       .withdraw(mintingLogicStakeAddress, 0n, burnRedeemer)
       .addSigner(senderAddress);

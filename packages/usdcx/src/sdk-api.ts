@@ -1,3 +1,12 @@
+/**
+ * Build an undici Agent that skips TLS cert verification. Use only as a stopgap
+ * when the upstream server has an expired cert and you cannot fix it server-side.
+ */
+async function insecureDispatcher(): Promise<unknown> {
+  const { Agent } = await import("undici");
+  return new Agent({ connect: { rejectUnauthorized: false } });
+}
+
 export namespace USDCxSdkApi {
   export type StoreDatumResult = {
     datumHash: string;
@@ -7,8 +16,10 @@ export namespace USDCxSdkApi {
     sdkApiUrl: string;
     datumCBOR: string;
     targetAda?: number;
+    /** Skip TLS cert verification for this call only (e.g. expired SDK API cert). */
+    insecure?: boolean;
   }): Promise<StoreDatumResult> {
-    const { sdkApiUrl, datumCBOR, targetAda } = opts;
+    const { sdkApiUrl, datumCBOR, targetAda, insecure } = opts;
 
     const body: Record<string, unknown> = {
       datumCBOR: datumCBOR.startsWith("0x") ? datumCBOR.slice(2) : datumCBOR,
@@ -18,11 +29,13 @@ export namespace USDCxSdkApi {
       body.targetAda = targetAda;
     }
 
-    const response = await fetch(`${sdkApiUrl}/store-datum`, {
+    const init: RequestInit & { dispatcher?: unknown } = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    });
+    };
+    if (insecure) init.dispatcher = await insecureDispatcher();
+    const response = await fetch(`${sdkApiUrl}/store-datum`, init);
 
     if (!response.ok) {
       const error = await response.text();
@@ -58,17 +71,21 @@ export namespace USDCxSdkApi {
     sdkApiUrl: string;
     transactionHash: string;
     localAddress: string;
+    /** Skip TLS cert verification for this call only (e.g. expired SDK API cert). */
+    insecure?: boolean;
   }): Promise<RegisterWithdrawalResult> {
-    const { sdkApiUrl, transactionHash, localAddress } = opts;
+    const { sdkApiUrl, transactionHash, localAddress, insecure } = opts;
 
-    const response = await fetch(`${sdkApiUrl}/register-withdrawal`, {
+    const init: RequestInit & { dispatcher?: unknown } = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         transactionHash,
         localAddress,
       }),
-    });
+    };
+    if (insecure) init.dispatcher = await insecureDispatcher();
+    const response = await fetch(`${sdkApiUrl}/register-withdrawal`, init);
 
     if (!response.ok) {
       const error = await response.text();

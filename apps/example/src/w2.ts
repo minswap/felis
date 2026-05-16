@@ -14,8 +14,8 @@ import {
   XJSON,
 } from "@minswap/felis-ledger-core";
 import { Maybe, RustModule } from "@minswap/felis-ledger-utils";
-import { CardanoscanProvider, KupoService } from "@minswap/felis-provider";
-import { CoinSelectionAlgorithm, ECSLConverter, EmulatorProvider, TxBuilder } from "@minswap/felis-tx-builder";
+import { CardanoscanProvider, KupoService, OgmiosApi } from "@minswap/felis-provider";
+import { CoinSelectionAlgorithm, ECSLConverter, TxBuilder } from "@minswap/felis-tx-builder";
 import { normalizePair, WingridersV2, WingridersV2Warehouse } from "@minswap/felis-wingriders-v2";
 import invariant from "@minswap/tiny-invariant";
 
@@ -54,6 +54,26 @@ function resolveKupoUrl(network: NetworkEnvironment): string {
     case NetworkEnvironment.TESTNET_PREVIEW:
       return process.env["KUPO_PREVIEW_URL"] ?? "http://dev-3:1442";
   }
+}
+
+function resolveOgmiosUrl(network: NetworkEnvironment): string {
+  switch (network) {
+    case NetworkEnvironment.MAINNET:
+      return process.env["OGMIOS_MAINNET_URL"] ?? "http://mainnet-staging:1337";
+    case NetworkEnvironment.TESTNET_PREPROD:
+      return process.env["OGMIOS_PREPROD_URL"] ?? "http://testnet-preprod.tail2feb3.ts.net:1337";
+    case NetworkEnvironment.TESTNET_PREVIEW:
+      return process.env["OGMIOS_PREVIEW_URL"] ?? "http://dev-3:1337";
+  }
+}
+
+function parseOgmiosUrl(url: string): { host: string; port: number } {
+  const u = new URL(url);
+  return { host: u.hostname, port: Number(u.port || (u.protocol === "https:" ? 443 : 80)) };
+}
+
+async function newOgmiosProvider(network: NetworkEnvironment): Promise<OgmiosApi> {
+  return OgmiosApi.new(parseOgmiosUrl(resolveOgmiosUrl(network)));
 }
 
 function parseCreatePoolFlags(argv: string[]): CreatePoolFlags {
@@ -124,7 +144,7 @@ async function runCreatePool(argv: string[]): Promise<void> {
   const result = await txBuilder.complete({
     walletUtxos,
     coinSelectionAlgorithm: CoinSelectionAlgorithm.SPEND_ALL,
-    provider: new EmulatorProvider(flags.network),
+    provider: await newOgmiosProvider(flags.network),
     changeAddress: flags.owner,
   });
   if (result.type !== "ok") {
@@ -532,7 +552,7 @@ async function runBatchInner(
       walletUtxos: [agentInput],
       walletCollaterals,
       coinSelectionAlgorithm: CoinSelectionAlgorithm.MINWALLET_SEND_ALL,
-      provider: new EmulatorProvider(flags.network),
+      provider: await newOgmiosProvider(flags.network),
       changeAddress: flags.agent,
     });
     if (completeResult.type !== "ok") {
@@ -697,7 +717,7 @@ async function runSplitAgentToken(argv: string[]): Promise<void> {
   const result = await txBuilder.complete({
     walletUtxos: agentUtxos,
     coinSelectionAlgorithm: CoinSelectionAlgorithm.MINWALLET_SEND_ALL,
-    provider: new EmulatorProvider(flags.network),
+    provider: await newOgmiosProvider(flags.network),
     changeAddress: flags.agent,
   });
   if (result.type !== "ok") {

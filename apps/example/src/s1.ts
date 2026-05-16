@@ -14,9 +14,9 @@ import {
   XJSON,
 } from "@minswap/felis-ledger-core";
 import { Maybe, RustModule } from "@minswap/felis-ledger-utils";
-import { CardanoscanProvider, KupoService } from "@minswap/felis-provider";
+import { CardanoscanProvider, KupoService, OgmiosApi } from "@minswap/felis-provider";
 import { SundaeSwapV1, SundaeSwapV1Warehouse } from "@minswap/felis-sundaeswap-v1";
-import { CoinSelectionAlgorithm, ECSLConverter, EmulatorProvider, TxBuilder } from "@minswap/felis-tx-builder";
+import { CoinSelectionAlgorithm, ECSLConverter, TxBuilder } from "@minswap/felis-tx-builder";
 import invariant from "@minswap/tiny-invariant";
 
 // ─── CLI plumbing ──────────────────────────────────────────────────────────
@@ -45,6 +45,26 @@ function resolveKupoUrl(network: NetworkEnvironment): string {
     case NetworkEnvironment.TESTNET_PREVIEW:
       return process.env["KUPO_PREVIEW_URL"] ?? "http://dev-3:1442";
   }
+}
+
+function resolveOgmiosUrl(network: NetworkEnvironment): string {
+  switch (network) {
+    case NetworkEnvironment.MAINNET:
+      return process.env["OGMIOS_MAINNET_URL"] ?? "http://mainnet-staging:1337";
+    case NetworkEnvironment.TESTNET_PREPROD:
+      return process.env["OGMIOS_PREPROD_URL"] ?? "http://testnet-preprod.tail2feb3.ts.net:1337";
+    case NetworkEnvironment.TESTNET_PREVIEW:
+      return process.env["OGMIOS_PREVIEW_URL"] ?? "http://dev-3:1337";
+  }
+}
+
+function parseOgmiosUrl(url: string): { host: string; port: number } {
+  const u = new URL(url);
+  return { host: u.hostname, port: Number(u.port || (u.protocol === "https:" ? 443 : 80)) };
+}
+
+async function newOgmiosProvider(network: NetworkEnvironment): Promise<OgmiosApi> {
+  return OgmiosApi.new(parseOgmiosUrl(resolveOgmiosUrl(network)));
 }
 
 function parseFlags(argv: string[]): Record<string, string> {
@@ -185,7 +205,7 @@ async function runCreatePool(argv: string[]): Promise<void> {
   const result = await txBuilder.complete({
     walletUtxos,
     coinSelectionAlgorithm: CoinSelectionAlgorithm.MINSWAP,
-    provider: new EmulatorProvider(flags.network),
+    provider: await newOgmiosProvider(flags.network),
     changeAddress: flags.owner,
   });
   if (result.type !== "ok") {
@@ -617,7 +637,7 @@ async function runBatchInner(
     walletUtxos: otherScooperUtxos,
     walletCollaterals: pureAdaCollaterals,
     coinSelectionAlgorithm: CoinSelectionAlgorithm.MINSWAP,
-    provider: new EmulatorProvider(flags.network),
+    provider: await newOgmiosProvider(flags.network),
     changeAddress: flags.scooper,
     hardCodedTxFee: HARDCODED_TX_FEE,
     debug: true,
@@ -750,7 +770,7 @@ async function runSplitScooperToken(argv: string[]): Promise<void> {
   const result = await txBuilder.complete({
     walletUtxos: scooperUtxos,
     coinSelectionAlgorithm: CoinSelectionAlgorithm.MINSWAP,
-    provider: new EmulatorProvider(flags.network),
+    provider: await newOgmiosProvider(flags.network),
     changeAddress: flags.scooper,
   });
   if (result.type !== "ok") {

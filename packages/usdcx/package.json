@@ -38,6 +38,7 @@
     "@minswap/felis-ledger-utils": "workspace:*",
     "@minswap/felis-tx-builder": "workspace:*",
     "@minswap/tiny-invariant": "^1.2.0",
+    "undici": "^6.21.0",
     "viem": "^2.21.0"
   }
 }

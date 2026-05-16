@@ -9,9 +9,9 @@ import {
   XJSON,
 } from "@minswap/felis-ledger-core";
 import { RustModule } from "@minswap/felis-ledger-utils";
-import { CardanoscanProvider, KupoService } from "@minswap/felis-provider";
-import { CoinSelectionAlgorithm, ECSLConverter, EmulatorProvider, TxBuilder } from "@minswap/felis-tx-builder";
-import { EthDeposit, USDCx, USDCxBurnTx, USDCxSdkApi, XReserveApi } from "@minswap/felis-usdcx";
+import { CardanoscanProvider, KupoService, OgmiosApi } from "@minswap/felis-provider";
+import { CoinSelectionAlgorithm, ECSLConverter, TxBuilder } from "@minswap/felis-tx-builder";
+import { BurnIntent, EthDeposit, USDCx, USDCxBurnTx, USDCxSdkApi, XReserveApi } from "@minswap/felis-usdcx";
 import invariant from "@minswap/tiny-invariant";
 
 // ─── CLI Plumbing ──────────────────────────────────────────────────────────
@@ -40,6 +40,22 @@ function resolveKupoUrl(network: NetworkEnvironment): string {
     case NetworkEnvironment.TESTNET_PREVIEW:
       return process.env["KUPO_PREVIEW_URL"] ?? "http://dev-3:1442";
   }
+}
+
+function resolveOgmiosUrl(network: NetworkEnvironment): string {
+  switch (network) {
+    case NetworkEnvironment.MAINNET:
+      return process.env["OGMIOS_MAINNET_URL"] ?? "http://mainnet-staging:1337";
+    case NetworkEnvironment.TESTNET_PREPROD:
+      return process.env["OGMIOS_PREPROD_URL"] ?? "http://testnet-preprod.tail2feb3.ts.net:1337";
+    case NetworkEnvironment.TESTNET_PREVIEW:
+      return process.env["OGMIOS_PREVIEW_URL"] ?? "http://dev-3:1337";
+  }
+}
+
+function parseOgmiosUrl(url: string): { host: string; port: number } {
+  const u = new URL(url);
+  return { host: u.hostname, port: Number(u.port || (u.protocol === "https:" ? 443 : 80)) };
 }
 
 function parseFlags(argv: string[]): Record<string, string> {
@@ -147,6 +163,12 @@ async function runWithdraw(argv: string[]): Promise<void> {
   const amountUsdc = m["amount-usdc"]; // human USDC, e.g. "100"
   const kupoUrl = m["kupo-url"] ?? resolveKupoUrl(network);
   const cardanoscanKey = m["cardanoscan-key"] ?? process.env["CARDANOSCAN_KEY"];
+  // Stopgap for the periodically-expired Let's Encrypt cert on the SDK API host.
+  // Off by default; pass `--insecure-sdk-api true` (or USDCX_INSECURE_SDK_API=1) to enable.
+  const insecureSdkApi =
+    m["insecure-sdk-api"] === "true" ||
+    process.env["USDCX_INSECURE_SDK_API"] === "1" ||
+    process.env["USDCX_INSECURE_SDK_API"] === "true";
 
   invariant(cardanoAddrBech32, "--cardano-address required");
   invariant(ethAddr, "--eth-address required");
@@ -157,15 +179,15 @@ async function runWithdraw(argv: string[]): Promise<void> {
   const config = USDCx.getConfig(network);
   const senderAddress = Address.fromBech32(cardanoAddrBech32);
 
-  // Amount in 6-decimal smallest units (USDC has 6 decimals == USDCx).
-  const burnAmount = BigInt(Math.round(Number(amountUsdc) * 1_000_000));
-  invariant(burnAmount > 0n, "--amount-usdc must be > 0");
+  // We don't compute burnAmount from --amount-usdc; the on-chain script requires
+  // the mint to match the `value` field embedded in the Circle burn intent, so we
+  // decode it from `prepared.burnIntentHex` below (after step 2).
 
   console.log("\n=== USDCx seamless withdrawal ===\n");
   console.log(`Network:           ${NetworkEnvironment[network]}`);
   console.log(`Cardano address:   ${cardanoAddrBech32}`);
   console.log(`Ethereum address:  ${ethAddr}`);
-  console.log(`Amount:            ${amountUsdc} USDC (${burnAmount} base units)\n`);
+  console.log(`Amount (requested ex-fees): ${amountUsdc} USDC\n`);
 
   // 1. Load WASM and derive wallet
   console.log("Step 1: deriving wallet from seed phrase…");
@@ -185,8 +207,13 @@ async function runWithdraw(argv: string[]): Promise<void> {
     ethRecipientAddress: ethAddr,
     valueExcludingFees: amountUsdc,
   });
+  // The on-chain MintingLogic enforces mint == -(maxFee + value) from the intent,
+  // so we decode burnAmount from the intent rather than from --amount-usdc.
+  const intentSummary = BurnIntent.summarize(prepared.burnIntentHex);
+  const burnAmount = intentSummary.burnAmount;
   console.log(`  ✓ burnIntentHex:     ${prepared.burnIntentHex.slice(0, 32)}…`);
-  console.log(`  ✓ messageHashToSign: ${prepared.messageHashToSign.slice(0, 32)}…\n`);
+  console.log(`  ✓ messageHashToSign: ${prepared.messageHashToSign.slice(0, 32)}…`);
+  console.log(`  ✓ intent: value=${intentSummary.value}, maxFee=${intentSummary.maxFee}, burnAmount=${burnAmount}\n`);
 
   // 3. Fetch UTxOs (wallet + protocol params)
   console.log(`Step 3: fetching UTxOs from Kupo (${kupoUrl})…`);
@@ -234,11 +261,15 @@ async function runWithdraw(argv: string[]): Promise<void> {
     burnAmount,
   });
 
+  const ogmiosUrl = m["ogmios-url"] ?? resolveOgmiosUrl(network);
+  console.log(`  using Ogmios for protocol params: ${ogmiosUrl}`);
+  const ogmios = await OgmiosApi.new(parseOgmiosUrl(ogmiosUrl));
+
   const completeResult = await txb.complete({
     changeAddress: senderAddress,
     walletUtxos: adaUtxos,
     coinSelectionAlgorithm: CoinSelectionAlgorithm.MINSWAP,
-    provider: new EmulatorProvider(network),
+    provider: ogmios,
   });
   if (completeResult.type !== "ok") {
     throw new Error(`txb.complete failed: ${String(completeResult.error)}`);
@@ -253,11 +284,14 @@ async function runWithdraw(argv: string[]): Promise<void> {
   console.log(`  ✓ submitted\n`);
 
   // 6. Register withdrawal with SDK API
-  console.log(`Step 6: registering withdrawal with SDK API (${config.sdkApiUrl})…`);
+  console.log(
+    `Step 6: registering withdrawal with SDK API (${config.sdkApiUrl})${insecureSdkApi ? " [TLS verify off]" : ""}…`,
+  );
   const registered = await USDCxSdkApi.registerWithdrawal({
     sdkApiUrl: config.sdkApiUrl,
     transactionHash: txHash,
     localAddress: cardanoAddrBech32,
+    insecure: insecureSdkApi,
   });
   console.log(`  ✓ status: ${registered.status}\n`);
 
@@ -315,16 +349,21 @@ async function runRegisterWithdrawal(argv: string[]): Promise<void> {
   const network = parseNetwork(m["network"]);
   const txHash = m["tx-hash"];
   const cardanoAddr = m["cardano-address"];
+  const insecureSdkApi =
+    m["insecure-sdk-api"] === "true" ||
+    process.env["USDCX_INSECURE_SDK_API"] === "1" ||
+    process.env["USDCX_INSECURE_SDK_API"] === "true";
 
   invariant(txHash, "--tx-hash required");
   invariant(cardanoAddr, "--cardano-address required");
 
   const config = USDCx.getConfig(network);
-  console.log(`Registering withdrawal with SDK API at ${config.sdkApiUrl}...`);
+  console.log(`Registering withdrawal with SDK API at ${config.sdkApiUrl}${insecureSdkApi ? " [TLS verify off]" : ""}...`);
   const result = await USDCxSdkApi.registerWithdrawal({
     sdkApiUrl: config.sdkApiUrl,
     transactionHash: txHash,
     localAddress: cardanoAddr,
+    insecure: insecureSdkApi,
   });
 
   console.log("Withdrawal registered:");
