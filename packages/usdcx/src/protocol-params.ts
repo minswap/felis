@@ -30,34 +30,31 @@ export namespace USDCXProtocolParams {
 
     invariant(fields.length >= 11, "Protocol params datum must have at least 11 fields");
 
-    // Field 0: ScriptHash (wrapped in Credential constr)
+    // Field 0: ScriptHash — bare 28-byte bytes (NOT wrapped in Credential constr)
     const field0 = fields[0];
     invariant(field0, "Field 0 (minting logic) is missing");
-    const scriptHashData = PlutusConstr.unwrap(field0, { [0]: 1 });
-    const mintingLogicScriptHash = Bytes.fromHex((scriptHashData.fields[0] as { bytes: string }).bytes);
+    const mintingLogicScriptHash = Bytes.fromHex((field0 as { bytes: string }).bytes);
 
     // Field 1: Address
     const field1 = fields[1];
     invariant(field1, "Field 1 (fee script address) is missing");
     const feeScriptAddress = Address.fromPlutusJson(field1, networkEnv);
 
-    // Field 2: CurrencySymbol (wrapped in AssetClass constr)
+    // Field 2: CurrencySymbol — bare bytes (Plutus CurrencySymbol is a newtype over BuiltinByteString)
     const field2 = fields[2];
     invariant(field2, "Field 2 (usdcx policy) is missing");
-    const assetClassData = PlutusConstr.unwrap(field2, { [0]: 0 });
-    const usdcxPolicyId = Bytes.fromHex((assetClassData.fields[0] as { bytes: string }).bytes);
+    const usdcxPolicyId = Bytes.fromHex((field2 as { bytes: string }).bytes);
 
-    // Field 8: Bool (isPaused)
+    // Field 8: Bool (isPaused) — Plutus encodes Bool as Constr 0 (False) / Constr 1 (True)
     const field8 = fields[8];
     invariant(field8, "Field 8 (isPaused) is missing");
     const isPausedData = field8 as { int: string } | { constructor: number };
     const isPaused = "int" in isPausedData ? isPausedData.int !== "0" : isPausedData.constructor !== 0;
 
-    // Field 9: ScriptHash (nonceListScript)
+    // Field 9: ScriptHash (nonceListScript) — bare 28-byte bytes
     const field9 = fields[9];
     invariant(field9, "Field 9 (nonce list script) is missing");
-    const nonceHashData = PlutusConstr.unwrap(field9, { [0]: 1 });
-    const nonceListScriptHash = Bytes.fromHex((nonceHashData.fields[0] as { bytes: string }).bytes);
+    const nonceListScriptHash = Bytes.fromHex((field9 as { bytes: string }).bytes);
 
     // Field 10: Integer (minDepositFee)
     const field10 = fields[10];

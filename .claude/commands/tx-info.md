@@ -1,12 +1,12 @@
 ---
-description: Fetch a Cardano transaction CBOR from Maestro and print the parsed ECSL JSON
+description: Fetch a Cardano transaction CBOR from Cardanoscan and print the parsed ECSL JSON
 argument-hint: <mainnet|testnet-preprod|testnet-preview> <txHash>
 allowed-tools: [Bash]
 ---
 
 # /tx-info
 
-Runs the script at [apps/example/src/tx-info.ts](apps/example/src/tx-info.ts) to fetch a transaction from Maestro and print its decoded JSON.
+Runs the script at [apps/example/src/tx-info.ts](apps/example/src/tx-info.ts) to fetch a transaction from Cardanoscan and print its decoded JSON.
 
 ## Arguments
 
@@ -22,6 +22,6 @@ Run exactly this command from the repo root, passing `$ARGUMENTS` through verbat
 cd apps/example && pnpm tsx src/tx-info.ts $ARGUMENTS
 ```
 
-The script reads `MAESTRO_MAINNET_KEY` / `MAESTRO_PREPROD_KEY` / `MAESTRO_PREVIEW_KEY` from the environment depending on the network. If the corresponding env var is missing, the Maestro fetch returns `{"message": "..."}` rather than `{"data": "..."}` and `ECSL.Transaction.from_hex` will throw — surface that error to the user and suggest setting the right env var.
+The script reads `CARDANOSCAN_API_KEY` from the environment. If it's missing, the script throws an invariant error — surface that to the user and suggest setting `CARDANOSCAN_API_KEY`. Cardanoscan sits behind Cloudflare and can return HTTP 403 from unfamiliar networks; if you see a Cloudflare HTML response, tell the user the request was blocked and that they may need to retry from a different network.
 
 Do not modify or re-interpret the arguments. Print the command's stdout back to the user.
