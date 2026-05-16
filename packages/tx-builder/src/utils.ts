@@ -206,6 +206,19 @@ export namespace TxBuilderUtils {
 export namespace UtxoSelection {
   export const DEFAULT_COLLATERAL_AMOUNT = 5_000000n;
 
+  /**
+   * CIP-40
+   * Common constrains:
+   * - At least 1 collateral input
+   * - At most maxCollateralInputs (3 | ref https://cardanoscan.io/protocolparams)
+   * - All Collateral inputs at vkey address (pubkey only)
+   * - sum(inputs).ada ≥ ⌈fee × collateralPercent / 100⌉  (150%)
+   * Case 1: NOT set `collateral_return`
+   * - Collateral inputs must be ada-only UTxOs
+   * Case 2: set `collateral_return`
+   * - CNT tokens are allowed in collateral inputs
+   * - Exactly ONE collateral_return output
+   */
   export function selectCollaterals({
     walletCollaterals,
     walletUtxos,
@@ -220,78 +233,84 @@ export namespace UtxoSelection {
     maxCollateralInputs: number;
     changeAddress: Address;
     networkEnv: NetworkEnvironment;
-  }): Result<TxCollateral, InsufficientBalanceError | MaxCollateralBreachError> {
-    if (walletCollaterals.length > 0) {
-      const sortedWalletCollaterals = [...walletCollaterals]
-        .sort((a, b) => Utxo.sortDesc(a, b, ADA, networkEnv, true))
-        .slice(0, maxCollateralInputs);
-      if (Utxo.sumValue(sortedWalletCollaterals).get(ADA) >= UtxoSelection.DEFAULT_COLLATERAL_AMOUNT) {
-        return Result.ok({
-          collaterals: sortedWalletCollaterals,
-          collateralReturn: undefined,
-        });
-      }
-    }
-
-    const potentialCollaterals = [
+  }): Result<TxCollateral, MaxCollateralBreachError> {
+    const uniqueUtxoInputs = new Set<string>();
+    const uniqueCollateralCandidates: Utxo[] = [];
+    for (const utxo of [
       ...walletCollaterals,
       ...walletUtxos,
       ...currentInputs.filter((utxo) => utxo.output.address.equals(changeAddress)),
-    ];
-
-    if (potentialCollaterals.length === 0) {
-      return Result.err(
-        new InsufficientBalanceError(
-          ADA.toString(),
-          DEFAULT_COLLATERAL_AMOUNT.toString(),
-          InsufficientBalanceCause.COLLATERAL,
-        ),
-      );
-    }
-    const sortedUtxosByADADesc = potentialCollaterals.sort((a, b) => Utxo.sortDesc(a, b, ADA, networkEnv, true));
-    const selectedUtxos: Utxo[] = [];
-    let collateralReturn: TxOut | undefined;
-    for (const utxo of sortedUtxosByADADesc) {
-      selectedUtxos.push(utxo);
-      const sumSelectedUtxos = Utxo.sumValue(selectedUtxos);
-      collateralReturn = TxOut.newPubKeyOut({
-        address: changeAddress,
-        value: sumSelectedUtxos.clone().remove(ADA, DEFAULT_COLLATERAL_AMOUNT),
-      });
-      const adaRequireForCollateralReturn = collateralReturn.getMissingMinimumADA(networkEnv);
-
-      if (adaRequireForCollateralReturn <= 0n) {
-        break;
+    ]) {
+      const txIn = TxIn.toString(utxo.input);
+      if (!uniqueUtxoInputs.has(txIn)) {
+        uniqueCollateralCandidates.push(utxo);
+        uniqueUtxoInputs.add(txIn);
       }
     }
-    if (!collateralReturn) {
-      return Result.err(
-        new InsufficientBalanceError(
-          ADA.toString(),
-          DEFAULT_COLLATERAL_AMOUNT.toString(),
-          InsufficientBalanceCause.COLLATERAL,
-        ),
-      );
+    const sortedCollateralCandidates = uniqueCollateralCandidates.sort((a, b) =>
+      Utxo.sortDesc(a, b, ADA, networkEnv, true),
+    );
+
+    let collateralInputs: Utxo[] | undefined;
+    let collateralReturn: TxOut | undefined;
+
+    for (let count = 1; count <= maxCollateralInputs; count++) {
+      if (Maybe.isJust(collateralInputs)) {
+        break;
+      }
+      for (const candidates of pickCombination(
+        sortedCollateralCandidates,
+        count,
+        (combo) => Utxo.sumValue(combo).get(ADA) >= DEFAULT_COLLATERAL_AMOUNT,
+      )) {
+        const sumValue = Utxo.sumValue(candidates);
+        const draftCollateralReturn = TxOut.newPubKeyOut({
+          address: changeAddress,
+          value: sumValue.clone().remove(ADA, DEFAULT_COLLATERAL_AMOUNT),
+        });
+        if (sumValue.size() > 1) {
+          if (draftCollateralReturn.getMissingMinimumADA(networkEnv) <= 0n) {
+            collateralInputs = candidates;
+            collateralReturn = draftCollateralReturn;
+            break;
+          }
+        } else {
+          collateralInputs = candidates;
+          if (draftCollateralReturn.getMissingMinimumADA(networkEnv) <= 0n) {
+            collateralReturn = draftCollateralReturn;
+          }
+          break;
+        }
+      }
     }
 
-    const finalADARequireForCollateralReturn = collateralReturn.getMissingMinimumADA(networkEnv);
-    const enoughFundForCollateral = finalADARequireForCollateralReturn <= 0n;
-    if (enoughFundForCollateral && selectedUtxos.length <= maxCollateralInputs) {
+    if (Maybe.isJust(collateralInputs)) {
       return Result.ok({
-        collaterals: selectedUtxos,
+        collaterals: collateralInputs,
         collateralReturn: collateralReturn,
       });
-    } else if (!enoughFundForCollateral) {
-      return Result.err(
-        new InsufficientBalanceError(
-          ADA.toString(),
-          finalADARequireForCollateralReturn.toString(),
-          InsufficientBalanceCause.COLLATERAL,
-        ),
-      );
     } else {
-      return Result.err(new MaxCollateralBreachError(selectedUtxos.length));
+      return Result.err(new MaxCollateralBreachError());
     }
+  }
+
+  export function* pickCombination<T>(items: T[], count: number, stopFn?: (combo: T[]) => boolean): Generator<T[]> {
+    if (count <= 0 || count > items.length) return;
+
+    const combo: T[] = [];
+
+    function* backtrack(start: number): Generator<T[]> {
+      const remaining = count - combo.length;
+      for (let i = start; i <= items.length - remaining; i++) {
+        if (stopFn && !stopFn([...combo, ...items.slice(i, i + remaining)])) break;
+        combo.push(items[i]);
+        if (combo.length === count) yield [...combo];
+        else yield* backtrack(i + 1);
+        combo.pop();
+      }
+    }
+
+    yield* backtrack(0);
   }
 }
 
@@ -314,7 +333,7 @@ export namespace ChangeOutputBuilder {
 
   export class ChangeOutputExceedAttempt extends Error {
     constructor() {
-      super("Change spliting exceed maximum attempts");
+      super("Change splitting exceed maximum attempts");
       Object.setPrototypeOf(this, ChangeOutputExceedAttempt.prototype);
     }
   }

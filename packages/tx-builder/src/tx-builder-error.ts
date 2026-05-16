@@ -79,10 +79,8 @@ export class SelectUtxosError extends Error {
 export const MAX_COLLATERAL_BREACH_ERROR_MESSAGE = "Max collateral breach";
 
 export class MaxCollateralBreachError extends Error {
-  inputsCount: number;
-  constructor(inputsCount: number) {
+  constructor() {
     super(MAX_COLLATERAL_BREACH_ERROR_MESSAGE);
-    this.inputsCount = inputsCount;
     Object.setPrototypeOf(this, MaxCollateralBreachError.prototype);
   }
 }
