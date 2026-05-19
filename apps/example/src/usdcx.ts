@@ -358,7 +358,9 @@ async function runRegisterWithdrawal(argv: string[]): Promise<void> {
   invariant(cardanoAddr, "--cardano-address required");
 
   const config = USDCx.getConfig(network);
-  console.log(`Registering withdrawal with SDK API at ${config.sdkApiUrl}${insecureSdkApi ? " [TLS verify off]" : ""}...`);
+  console.log(
+    `Registering withdrawal with SDK API at ${config.sdkApiUrl}${insecureSdkApi ? " [TLS verify off]" : ""}...`,
+  );
   const result = await USDCxSdkApi.registerWithdrawal({
     sdkApiUrl: config.sdkApiUrl,
     transactionHash: txHash,

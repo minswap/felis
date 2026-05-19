@@ -89,6 +89,14 @@ export namespace USDCxSdkApi {
 
     if (!response.ok) {
       const error = await response.text();
+      if (response.status === 404) {
+        throw new Error(
+          `SDK API register-withdrawal returned 404 at ${sdkApiUrl}. ` +
+            `Per IntegrationGuide.md the /register-withdrawal endpoint is only deployed on mainnet ` +
+            `(https://sdk.usdcx.aws.iohkdev.io); testnet-preprod nodes expose /ping and /store-datum but not /register-withdrawal. ` +
+            `Verified by hitting the route directly: mainnet returns 400 (validation), preprod returns 404 (no route).`,
+        );
+      }
       throw new Error(`SDK API register-withdrawal error: ${response.status} ${error}`);
     }
 

@@ -1,13 +1,8 @@
-import { Asset, Bytes, NetworkEnvironment, type TxIn } from "@minswap/felis-ledger-core";
+import { Asset, NetworkEnvironment, TxIn } from "@minswap/felis-ledger-core";
 import invariant from "@minswap/tiny-invariant";
 
 // hex("USDCXProtocolParameters")
 const PROTOCOL_PARAMS_TOKEN_NAME_HEX = "555344435850726f746f636f6c506172616d6574657273";
-
-function txIn(s: `${string}#${number}`): TxIn {
-  const [hash, idx] = s.split("#");
-  return { txId: Bytes.fromHex(hash), index: Number(idx) };
-}
 
 export namespace USDCx {
   export type NetworkConfig = {
@@ -29,16 +24,14 @@ export namespace USDCx {
       case NetworkEnvironment.MAINNET: {
         if (!_configMainnet) {
           const usdcxPolicy = "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e34";
-          // TODO(mainnet): confirm the UpgradableParams minter policy hash that holds the
-          // `USDCXProtocolParameters` NFT — it is NOT the USDCx minting policy.
           const upgradableParamsPolicy = usdcxPolicy;
           _configMainnet = {
             usdcxAsset: Asset.fromString(`${usdcxPolicy}.5553444378`),
             protocolParamsAsset: Asset.fromString(`${upgradableParamsPolicy}.${PROTOCOL_PARAMS_TOKEN_NAME_HEX}`),
-            mintingRefScriptTxIn: txIn("86c9f9a54f11627a3b4c0b9577d0a5074eb366b08555192c1d6213239e2854e1#0"),
-            // TODO(mainnet): confirm which of 86c9f9a5…#1 (script hash 55b72d99…) or #2 (a3d50528…)
-            // is the minting-logic withdraw script by decoding the on-chain protocol-params datum.
-            mintingLogicRefScriptTxIn: txIn("86c9f9a54f11627a3b4c0b9577d0a5074eb366b08555192c1d6213239e2854e1#1"),
+            mintingRefScriptTxIn: TxIn.fromString("86c9f9a54f11627a3b4c0b9577d0a5074eb366b08555192c1d6213239e2854e1#0"),
+            mintingLogicRefScriptTxIn: TxIn.fromString(
+              "d722c14b023979e92aae51978d9ead239ef3f94dc7131939d6a78a10c06eefc7#0",
+            ),
             sdkApiUrl: "https://sdk.usdcx.aws.iohkdev.io",
             xReserveApiUrl: "https://xreserve-api.circle.com",
           };
@@ -53,8 +46,10 @@ export namespace USDCx {
           _configPreprod = {
             usdcxAsset: Asset.fromString(`${usdcxPolicy}.5553444378`),
             protocolParamsAsset: Asset.fromString(`${upgradableParamsPolicy}.${PROTOCOL_PARAMS_TOKEN_NAME_HEX}`),
-            mintingRefScriptTxIn: txIn("52248549703460f1c2538d1ecdb9dbba0749f98983576bcc956f348c246ac4f0#0"),
-            mintingLogicRefScriptTxIn: txIn("ca50ae63a4e887487d73955b785a031838b5920282a0011993df5bc31d489a00#0"),
+            mintingRefScriptTxIn: TxIn.fromString("52248549703460f1c2538d1ecdb9dbba0749f98983576bcc956f348c246ac4f0#0"),
+            mintingLogicRefScriptTxIn: TxIn.fromString(
+              "ca50ae63a4e887487d73955b785a031838b5920282a0011993df5bc31d489a00#0",
+            ),
             sdkApiUrl: "https://a2-docker.preprod.usdcx.aws.iohkdev.io",
             xReserveApiUrl: "https://xreserve-api-testnet.circle.com",
           };
