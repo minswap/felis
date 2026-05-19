@@ -74,6 +74,9 @@ importers:
       socket.io-client:
         specifier: ^4.8.3
         version: 4.8.3
+      viem:
+        specifier: ^2.21.0
+        version: 2.48.11(typescript@5.8.2)(zod@4.3.6)
     devDependencies:
       '@repo/typescript-config':
         specifier: workspace:*

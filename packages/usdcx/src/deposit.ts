@@ -1,7 +1,50 @@
+import { NetworkEnvironment } from "@minswap/felis-ledger-core";
+import invariant from "@minswap/tiny-invariant";
 import { cardanoAddressToRemoteRecipient, formatHookData } from "./address-utils.js";
 
 export namespace EthDeposit {
   export const CARDANO_DOMAIN = 10004;
+
+  /** Ethereum-side contract addresses paired with each Cardano network. */
+  export type EthNetworkConfig = {
+    /** Human-readable chain name; matches viem/chains export. */
+    chain: "sepolia" | "mainnet";
+    /** Ethereum chain ID — useful for sanity checks against the RPC. */
+    chainId: number;
+    /** USDC ERC-20 contract. */
+    usdcAddress: `0x${string}`;
+    /** Circle xReserve contract (the one we call `depositToRemote` on). */
+    xReserveAddress: `0x${string}`;
+  };
+
+  /**
+   * Returns the Ethereum-side config that pairs with a Cardano `NetworkEnvironment`:
+   * - `MAINNET` → Ethereum mainnet
+   * - `TESTNET_PREPROD` / `TESTNET_PREVIEW` → Sepolia
+   *
+   * Source: usdcx-contracts/IntegrationGuide.md (Contract Addresses & Constants).
+   */
+  export function getConfig(networkEnv: NetworkEnvironment): EthNetworkConfig {
+    switch (networkEnv) {
+      case NetworkEnvironment.MAINNET:
+        return {
+          chain: "mainnet",
+          chainId: 1,
+          usdcAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          xReserveAddress: "0x8888888199b2Df864bf678259607d6D5EBb4e3Ce",
+        };
+      case NetworkEnvironment.TESTNET_PREPROD:
+      case NetworkEnvironment.TESTNET_PREVIEW:
+        return {
+          chain: "sepolia",
+          chainId: 11155111,
+          usdcAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+          xReserveAddress: "0x008888878f94C0d87defdf0B07f46B93C1934442",
+        };
+      default:
+        invariant(false, `EthDeposit config not defined for networkEnv=${networkEnv}`);
+    }
+  }
 
   export const ERC20_ABI = [
     {

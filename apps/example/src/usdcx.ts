@@ -13,6 +13,9 @@ import { CardanoscanProvider, KupoService, OgmiosApi } from "@minswap/felis-prov
 import { CoinSelectionAlgorithm, ECSLConverter, TxBuilder } from "@minswap/felis-tx-builder";
 import { BurnIntent, EthDeposit, USDCx, USDCxBurnTx, USDCxSdkApi, XReserveApi } from "@minswap/felis-usdcx";
 import invariant from "@minswap/tiny-invariant";
+import { createPublicClient, createWalletClient, http, parseUnits } from "viem";
+import { mnemonicToAccount } from "viem/accounts";
+import { mainnet, sepolia } from "viem/chains";
 
 // ─── CLI Plumbing ──────────────────────────────────────────────────────────
 
@@ -124,6 +127,164 @@ function runDepositArgs(argv: string[]): void {
 
   console.log("Deposit args for viem writeContract:");
   console.log(XJSON.stringify(depositArgs, 2));
+}
+
+// ─── Use case: deposit (seamless end-to-end Ethereum → Cardano) ──────────
+
+async function runDeposit(argv: string[]): Promise<void> {
+  const m = parseFlags(argv);
+  const network = parseNetwork(m["network"]);
+  const cardanoAddr = m["cardano-address"];
+  const amountUsdcDec = m["amount-usdc"]; // human USDC, e.g. "100"
+  const maxFeeUsdcDec = m["max-fee-usdc"] ?? "10"; // human USDC, e.g. "10"
+  const seedPhrase = m["seed-phrase"] ?? process.env["ETH_SEED_PHRASE"];
+  const ethRpcUrl = m["eth-rpc-url"] ?? process.env["ETH_RPC_URL"] ?? "https://ethereum-sepolia-rpc.publicnode.com";
+  const datumHash = m["datum-hash"];
+
+  invariant(cardanoAddr, "--cardano-address required (USDCx recipient on Cardano)");
+  invariant(amountUsdcDec, "--amount-usdc required (e.g. 100 for 100 USDC)");
+  invariant(seedPhrase, "--seed-phrase (or ETH_SEED_PHRASE env) required for Ethereum signer");
+
+  const ethCfg = EthDeposit.getConfig(network);
+  const chain = ethCfg.chain === "mainnet" ? mainnet : sepolia;
+
+  // BIP44 path m/44'/60'/0'/0/0 (default for Ethereum). viem derives this when
+  // accountIndex/addressIndex are omitted.
+  const account = mnemonicToAccount(seedPhrase);
+
+  const publicClient = createPublicClient({ chain, transport: http(ethRpcUrl) });
+  const walletClient = createWalletClient({ account, chain, transport: http(ethRpcUrl) });
+
+  console.log("\n=== USDCx seamless deposit (Ethereum → Cardano) ===\n");
+  console.log(`Cardano network:   ${NetworkEnvironment[network]}`);
+  console.log(`Ethereum chain:    ${chain.name} (chainId=${ethCfg.chainId})`);
+  console.log(`RPC URL:           ${ethRpcUrl}`);
+  console.log(`USDC:              ${ethCfg.usdcAddress}`);
+  console.log(`xReserve:          ${ethCfg.xReserveAddress}`);
+  console.log(`Ethereum signer:   ${account.address}`);
+  console.log(`Cardano recipient: ${cardanoAddr}`);
+  console.log(`Amount:            ${amountUsdcDec} USDC`);
+  console.log(`Max fee:           ${maxFeeUsdcDec} USDC\n`);
+
+  // 0. Verify the RPC actually points at the expected chain.
+  const remoteChainId = await publicClient.getChainId();
+  invariant(
+    remoteChainId === ethCfg.chainId,
+    `RPC chain mismatch: expected chainId=${ethCfg.chainId} (${chain.name}) but RPC returned ${remoteChainId}. Wrong --eth-rpc-url?`,
+  );
+
+  const amountBaseUnits = parseUnits(amountUsdcDec, 6);
+  const maxFeeBaseUnits = parseUnits(maxFeeUsdcDec, 6);
+
+  // 1. Read USDC balance for early failure.
+  console.log("Step 1: reading USDC balance & allowance…");
+  const BALANCE_OF_ABI = [
+    {
+      name: "balanceOf",
+      type: "function",
+      stateMutability: "view",
+      inputs: [{ name: "owner", type: "address" }],
+      outputs: [{ name: "", type: "uint256" }],
+    },
+  ] as const;
+  const [balance, allowance] = await Promise.all([
+    publicClient.readContract({
+      address: ethCfg.usdcAddress,
+      abi: BALANCE_OF_ABI,
+      functionName: "balanceOf",
+      args: [account.address],
+    }),
+    publicClient.readContract({
+      address: ethCfg.usdcAddress,
+      abi: EthDeposit.ERC20_ABI,
+      functionName: "allowance",
+      args: [account.address, ethCfg.xReserveAddress],
+    }),
+  ]);
+  console.log(`  USDC balance:   ${balance} base units (${Number(balance) / 1e6} USDC)`);
+  console.log(`  USDC allowance: ${allowance} base units`);
+  invariant(
+    balance >= amountBaseUnits,
+    `Insufficient USDC: have ${balance} base units, need ${amountBaseUnits}. ` +
+      `Top up at https://faucet.circle.com (select Ethereum Sepolia → USDC).`,
+  );
+
+  // 2. Approve(max uint256) once if allowance is short (saves gas on subsequent deposits).
+  const MAX_UINT256 = (1n << 256n) - 1n;
+  if (allowance < amountBaseUnits) {
+    console.log(`\nStep 2: approving xReserve to spend USDC (max uint256, one-time)…`);
+    const approveHash = await walletClient.writeContract({
+      address: ethCfg.usdcAddress,
+      abi: EthDeposit.ERC20_ABI,
+      functionName: "approve",
+      args: [ethCfg.xReserveAddress, MAX_UINT256],
+    });
+    console.log(`  approve tx: ${approveHash}`);
+    const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash });
+    invariant(approveReceipt.status === "success", `approve tx reverted: ${approveHash}`);
+    console.log(`  ✓ approved (block ${approveReceipt.blockNumber})\n`);
+  } else {
+    console.log(`\nStep 2: allowance sufficient, skipping approve\n`);
+  }
+
+  // 3. Build deposit args (remoteRecipient + hookData derived from the bech32 address).
+  const depositArgs = EthDeposit.buildDepositArgs({
+    cardanoRecipient: cardanoAddr,
+    amountUsdc: amountBaseUnits,
+    maxFeeUsdc: maxFeeBaseUnits,
+    localToken: ethCfg.usdcAddress,
+    datumHashHex: datumHash,
+  });
+  console.log("Step 3: depositToRemote args:");
+  console.log(`  value:           ${depositArgs.value} (= ${amountUsdcDec} USDC)`);
+  console.log(`  remoteDomain:    ${depositArgs.remoteDomain}`);
+  console.log(`  remoteRecipient: ${depositArgs.remoteRecipient}`);
+  console.log(`  localToken:      ${depositArgs.localToken}`);
+  console.log(`  maxFee:          ${depositArgs.maxFee} (= ${maxFeeUsdcDec} USDC)`);
+  console.log(`  hookData (${depositArgs.hookData.length / 2 - 1} bytes): ${depositArgs.hookData.slice(0, 22)}…\n`);
+
+  // 4. Submit depositToRemote.
+  console.log("Step 4: submitting depositToRemote…");
+  const depositHash = await walletClient.writeContract({
+    address: ethCfg.xReserveAddress,
+    abi: EthDeposit.XRESERVE_ABI,
+    functionName: "depositToRemote",
+    args: [
+      depositArgs.value,
+      depositArgs.remoteDomain,
+      depositArgs.remoteRecipient,
+      depositArgs.localToken,
+      depositArgs.maxFee,
+      depositArgs.hookData,
+    ],
+  });
+  console.log(`  deposit tx: ${depositHash}`);
+  const depositReceipt = await publicClient.waitForTransactionReceipt({ hash: depositHash });
+  invariant(depositReceipt.status === "success", `depositToRemote reverted: ${depositHash}`);
+  console.log(`  ✓ confirmed in block ${depositReceipt.blockNumber}\n`);
+
+  console.log("=== Done ===");
+  const explorerBase = chain.name === "Sepolia" ? "https://sepolia.etherscan.io" : "https://etherscan.io";
+  console.log(
+    XJSON.stringify(
+      {
+        chain: chain.name,
+        chainId: ethCfg.chainId,
+        ethSigner: account.address,
+        cardanoRecipient: cardanoAddr,
+        amountUsdc: amountUsdcDec,
+        maxFeeUsdc: maxFeeUsdcDec,
+        depositTxHash: depositHash,
+        explorer: `${explorerBase}/tx/${depositHash}`,
+      },
+      2,
+    ),
+  );
+  console.log(
+    "\nCircle xReserve operators will observe the deposit event and mint USDCx\n" +
+      "on Cardano to the recipient (~20 minutes). Check the Cardano address with kupo\n" +
+      "or cardanoscan for the USDCx UTxO.",
+  );
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -379,7 +540,8 @@ Usage: pnpm tsx src/usdcx.ts <command> [options]
 
 Commands:
   info                  Print USDCx config for a network
-  deposit-args          Convert Cardano address to deposit arguments
+  deposit-args          Convert Cardano address to deposit arguments (no signing)
+  deposit               Seamless end-to-end USDC → USDCx deposit on Ethereum (approve + depositToRemote)
   withdraw              Seamless end-to-end USDCx → USDC withdrawal (prepare → build → sign → submit → register)
   prepare-withdrawal    [low-level] Call Circle API to get burn intent
   register-withdrawal   [low-level] Register an existing burn tx with the SDK API
@@ -387,7 +549,7 @@ Commands:
 Common options:
   --network <name>      mainnet | testnet-preprod | testnet-preview (default: testnet-preprod)
 
-Withdraw options (all required unless from env):
+Withdraw options:
   --cardano-address     Cardano bech32 address (must match seed phrase)
   --eth-address         Ethereum recipient (0x...)
   --seed-phrase         Cardano seed phrase (or CARDANO_SEED_PHRASE env)
@@ -395,7 +557,22 @@ Withdraw options (all required unless from env):
   --kupo-url            Kupo URL (default: per-network)
   --cardanoscan-key     Cardanoscan API key (or CARDANOSCAN_KEY env)
 
+Deposit options:
+  --cardano-address     Cardano bech32 address that will receive USDCx
+  --amount-usdc         USDC amount to deposit, decimal (e.g. "100" = 100 USDC)
+  --max-fee-usdc        Max fee in USDC, decimal (default: "10")
+  --seed-phrase         Ethereum BIP-39 mnemonic (or ETH_SEED_PHRASE env). Derives m/44'/60'/0'/0/0.
+  --eth-rpc-url         Sepolia/Mainnet RPC URL (or ETH_RPC_URL env; default: public Sepolia)
+  --datum-hash          Optional 32-byte datum hash from /store-datum (for advanced UTxO targeting)
+
 Examples:
+  # Seamless deposit (testnet)
+  pnpm tsx src/usdcx.ts deposit \\
+    --network testnet-preprod \\
+    --cardano-address addr_test1qz2... \\
+    --amount-usdc 100 \\
+    --seed-phrase "word1 word2 ..."
+
   # Seamless withdrawal
   pnpm tsx src/usdcx.ts withdraw \\
     --network testnet-preprod \\
@@ -417,6 +594,8 @@ const main = async () => {
       return runInfo(args);
     case "deposit-args":
       return runDepositArgs(args);
+    case "deposit":
+      return runDeposit(args);
     case "withdraw":
       return runWithdraw(args);
     case "prepare-withdrawal":
