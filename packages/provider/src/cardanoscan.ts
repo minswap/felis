@@ -56,6 +56,17 @@ export type GetTransactionListOptions = {
   order: "asc" | "desc";
 };
 
+export type CardanoscanQueryValue = string | number | boolean | null | undefined;
+
+export type CardanoscanQuery = Record<string, CardanoscanQueryValue | CardanoscanQueryValue[]>;
+
+export type CardanoscanRequestOptions = {
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  query?: CardanoscanQuery;
+  headers?: Record<string, string>;
+  body?: BodyInit;
+};
+
 export class CardanoscanProvider {
   static readonly MAINNET_URL = "https://api.cardanoscan.io/api/v1";
   static readonly PREVIEW_URL = "https://api-preview.cardanoscan.io/api/v1";
@@ -80,6 +91,80 @@ export class CardanoscanProvider {
     }
   }
 
+  async request<T = unknown>(path: string, options: CardanoscanRequestOptions = {}): Promise<T> {
+    const { method = "GET", query, headers, body } = options;
+    const url = this.buildUrl(path, query);
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Accept: "application/json",
+        apiKey: this.apiKey,
+        ...headers,
+      },
+      body,
+    });
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    const responseText = await response.text();
+    if (!response.ok) {
+      throw new Error(`Cardanoscan API error: ${response.status} ${response.statusText} ${responseText}`);
+    }
+
+    return (responseText ? JSON.parse(responseText) : undefined) as T;
+  }
+
+  async getBlock(query: CardanoscanQuery = {}): Promise<unknown> {
+    return this.request("/block", { query });
+  }
+
+  async getLatestBlock(): Promise<unknown> {
+    return this.request("/block/latest");
+  }
+
+  async getAddressBalance(address: string): Promise<unknown> {
+    return this.request("/address/balance", { query: { address } });
+  }
+
+  async getPool(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/pool", { query });
+  }
+
+  async getPoolStats(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/pool/stats", { query });
+  }
+
+  async getPoolList(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/pool/list", { query });
+  }
+
+  async getExpiringPools(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/pool/list/expiring", { query });
+  }
+
+  async getExpiredPools(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/pool/list/expired", { query });
+  }
+
+  async getAsset(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/asset", { query });
+  }
+
+  async getAssetsByPolicyId(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/asset/list/byPolicyId", { query });
+  }
+
+  async getAssetsByAddress(address: string, query: CardanoscanQuery = {}): Promise<unknown> {
+    return this.request("/asset/list/byAddress", { query: { ...query, address } });
+  }
+
+  async getTransaction(hash: string): Promise<CardanoscanTransaction> {
+    return this.request<CardanoscanTransaction>("/transaction", { query: { hash } });
+  }
+
   async getTransactionList(options: GetTransactionListOptions): Promise<CardanoscanTransactionListResponse> {
     const { address, pageNo, limit = 20, order } = options;
     if (!address || address.length > 200) {
@@ -95,26 +180,85 @@ export class CardanoscanProvider {
       throw new Error("order must be 'asc' or 'desc'");
     }
 
-    const url = new URL(`${this.baseUrl}/transaction/list`);
-    url.searchParams.set("address", address);
-    url.searchParams.set("pageNo", pageNo.toString());
-    url.searchParams.set("limit", limit.toString());
-    url.searchParams.set("order", order);
-
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        apiKey: this.apiKey,
-      },
+    return this.request<CardanoscanTransactionListResponse>("/transaction/list", {
+      query: { address, pageNo, limit, order },
     });
+  }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Cardanoscan API error: ${response.status} ${response.statusText} ${errorText}`);
-    }
+  async getRewardAccount(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/rewardAccount", { query });
+  }
 
-    return (await response.json()) as CardanoscanTransactionListResponse;
+  async getRewardAccountAddresses(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/rewardAccount/addresses", { query });
+  }
+
+  async getNetworkState(): Promise<unknown> {
+    return this.request("/network/state");
+  }
+
+  async getNetworkProtocolParams(): Promise<unknown> {
+    return this.request("/network/protocolParams");
+  }
+
+  async getCCHot(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/governance/ccHot", { query });
+  }
+
+  async getCCMember(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/governance/ccMember", { query });
+  }
+
+  async getCommittee(): Promise<unknown> {
+    return this.request("/governance/committee");
+  }
+
+  async getCommitteeMembers(query: CardanoscanQuery = {}): Promise<unknown> {
+    return this.request("/governance/committee/members", { query });
+  }
+
+  async getDRep(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/governance/dRep", { query });
+  }
+
+  async getDRepList(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/governance/dRep/list", { query });
+  }
+
+  async getGovernanceAction(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/governance/action", { query });
+  }
+
+  async getTransactionSummary(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/transaction/summary", { query });
+  }
+
+  async getUtxoList(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/utxo/list", { query });
+  }
+
+  async getAssetHoldersByPolicyId(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/asset/holders/byPolicyId", { query });
+  }
+
+  async getAssetHoldersByAssetId(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/asset/holders/byAssetId", { query });
+  }
+
+  async getAssetMetadata(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/asset/metadata", { query });
+  }
+
+  async getVotesByVoter(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/votes/byVoter", { query });
+  }
+
+  async getVotesByAction(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/votes/byAction", { query });
+  }
+
+  async getDailyTxFees(query: CardanoscanQuery): Promise<unknown> {
+    return this.request("/stats/dailyTxFee", { query });
   }
 
   async getTransactionListByAddress(
@@ -190,12 +334,8 @@ export class CardanoscanProvider {
     return null;
   }
 
-  /**
-   * Submit a signed transaction CBOR to the Cardano network.
-   * On 204 success, returns the submitted tx hex (caller can hash separately if needed).
-   */
-  async submitTx(txCbor: string): Promise<string> {
-    const url = `${this.baseUrl}/transaction/submit`;
+  async submit(txCbor: string): Promise<"success"> {
+    const url = this.buildUrl("/transaction/submit");
     const txBytes = Buffer.from(txCbor, "hex");
 
     const response = await fetch(url, {
@@ -208,11 +348,56 @@ export class CardanoscanProvider {
     });
 
     if (response.status === 204) {
-      return txCbor;
+      return "success";
     }
 
-    const errorData = (await response.json().catch(() => ({}))) as { error?: string };
-    const errorMsg = errorData.error ?? response.statusText;
-    throw new Error(`Cardanoscan submit failed (${response.status}): ${errorMsg}`);
+    const errorBody = await response.text().catch(() => "");
+    throw new Error(`Cardanoscan submit failed (${response.status}): ${errorBody || response.statusText}`);
+  }
+
+  async submitChain(txCbor: string): Promise<"success"> {
+    const url = this.buildUrl("/transaction/submit/chain");
+    const txBytes = Buffer.from(txCbor, "hex");
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/cbor",
+        apiKey: this.apiKey,
+      },
+      body: txBytes,
+    });
+
+    if (response.status === 204) {
+      return "success";
+    }
+
+    const errorBody = await response.text().catch(() => "");
+    throw new Error(`Cardanoscan submit chain failed (${response.status}): ${errorBody || response.statusText}`);
+  }
+
+  async submitTx(txCbor: string): Promise<"success"> {
+    return this.submit(txCbor);
+  }
+
+  async submitTxToChain(txCbor: string): Promise<"success"> {
+    return this.submitChain(txCbor);
+  }
+
+  private buildUrl(path: string, query?: CardanoscanQuery): string {
+    const url = new URL(path.startsWith("/") ? `${this.baseUrl}${path}` : `${this.baseUrl}/${path}`);
+
+    if (query) {
+      for (const [key, value] of Object.entries(query)) {
+        const values = Array.isArray(value) ? value : [value];
+        for (const item of values) {
+          if (item !== undefined && item !== null) {
+            url.searchParams.append(key, item.toString());
+          }
+        }
+      }
+    }
+
+    return url.toString();
   }
 }
