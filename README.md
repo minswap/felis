@@ -1,17 +1,45 @@
-# Minswap Lending Market – Long/Short: Milestone 3, 4 Submission
+# Minswap Lending Market – Long/Short
 
-This document provides a reviewer-oriented package for Milestone 3 (UI Integration for Long Positions) and Milestone 4 (UI Integration for Short Positions). It covers the backend infrastructure, frontend interface, acceptance criteria mapping, and evidence artifacts.
+**Status: ✅ Project Complete** — all milestones (1–6) delivered and approved.
 
-## Evidence Artifacts
+The Minswap Lending Market brings leveraged long/short trading to Cardano by combining Minswap DEX V2 swaps with Liqwid lending. Users open and manage leveraged positions through a single, integrated interface, with the full multi-step lifecycle automated by a backend state machine.
 
-Repository (open source)
-- https://github.com/minswap/felis
+## Live Interface
 
-Demo Interface (Testnet Preview)
-- https://dev-3.minswap.org/margin
+**👉 [https://app.minswap.org/margin](https://app.minswap.org/margin)** — open, monitor, and close leveraged long/short positions directly on Minswap.
 
-Liqwid Interface (Testnet Preview)
-- https://dev.liqwid.finance/
+## Project Catalyst — Funded Proposal
+
+This work was delivered under a Project Catalyst proposal across six milestones:
+
+| Milestone | Deliverable | Status |
+|-----------|-------------|--------|
+| 1–2 | Proof-of-Concept: core SDK integration, Nitro Wallet, minimal UI | ✅ Complete |
+| 3 | UI integration for long positions | ✅ Complete |
+| 4 | UI integration for short positions | ✅ Complete |
+| 5 | Testing, hardening, and deployment | ✅ Complete |
+| 6 | User feedback collection and close-out | ✅ Complete |
+
+The sections below document the Milestone 3 and 4 deliverables in detail and remain as a record of the work.
+
+## Close-out — Results & Reports
+
+### Quantitative Measures (last 30 days)
+
+| Metric | Value |
+|--------|-------|
+| Users accessing the service | 272 |
+| Active users | 149 |
+| Number of actions (deposit/withdraw/open/close) | 338 |
+| Volume | over 13,000 ₳ |
+
+### Qualitative Measures & Reports
+
+- **User feedback survey:** [Feedback form & responses](https://docs.google.com/document/d/16d_1bOlg0DM6XJ0mB-26BHv4DM0hiaCObzNYRGBrUY0/edit#heading=h.srgofhhd2rlv)
+- **Final close-out report:** [Close-out report](https://docs.google.com/document/d/16d_1bOlg0DM6XJ0mB-26BHv4DM0hiaCObzNYRGBrUY0/edit#heading=h.xsfxdz1dyxq4)
+- **Final close-out video:** [Watch on YouTube](https://www.youtube.com/watch?v=pecnO8oxWs0)
+
+---
 
 ## What changed since Milestone 1, 2
 
