@@ -20,7 +20,7 @@ This work was delivered under a Project Catalyst proposal across six milestones:
 | 5 | Testing, hardening, and deployment | ✅ Complete |
 | 6 | User feedback collection and close-out | ✅ Complete |
 
-The sections below document the Milestone 3 and 4 deliverables in detail and remain as a record of the work.
+The sections below document the Milestone 3 to 5 deliverables in detail and remain as a record of the work.
 
 ## Close-out — Results & Reports
 
@@ -45,11 +45,12 @@ The sections below document the Milestone 3 and 4 deliverables in detail and rem
 
 Milestone 1–2 delivered a **Proof-of-Concept** with hardcoded values, minimal UI, and the core SDK integration.
 
-Milestone 3–4 delivers a **production-grade system** with:
-- A full backend server (API, database, state machine) that orchestrates multi-step leveraged positions end-to-end.
+Milestones 3–6 deliver a **production-grade, mainnet-deployed system** with:
+- A full backend server (API, database, state machine) that orchestrates multi-step leveraged positions end-to-end on Cardano Mainnet.
 - A polished trading interface integrated into the Minswap page at `/margin`, replacing the POC.
 - Real-time data feeds for asset prices, lending rates, and position health.
 - Educational content and risk warnings for short position mechanics.
+- An user feedback evaluation period to collect user insights and plan future improvements.
 
 ---
 
@@ -132,9 +133,35 @@ All data is served through the backend API endpoint `GET /position/get`, which c
 
 ---
 
+## "A tour" of what I accomplished in Milestone 5
+
+### Milestone Outputs
+
+#### _Mainnet deployment of the Minswap Lending Market._
+
+- **Mainnet Launch**: The unified Long/Short trading interface went live at **[https://app.minswap.org/margin](https://app.minswap.org/margin)**, making leveraged trading accessible to all Minswap users.
+- **Production-Hardened Integration**: The backend server, database, and state machine were fully hardened, integrated, and deployed to coordinate mainnet transactions between Minswap DEX V2 and Liqwid V2.
+
+### Acceptance Criteria
+
+#### _Users can initiate and manage long/short positions through a single, intuitive interface._
+
+- Users can open, monitor, and close both leveraged long and short positions directly on Cardano mainnet.
+- Seamless execution of multi-step strategies on mainnet via the automated state machine.
+
+#### _Latest data feeds provide accurate information on asset prices, lending rates, and position health._
+
+- Verified live mainnet feeds for asset prices (from the Minswap aggregator), lending APYs (from Liqwid V2), and position health factors.
+
+#### _Seamless off-chain integration successfully enables asset supply, borrowing, and purchasing for long/short positions._
+
+- All state machine transitions (supplying collateral, borrowing, swapping, and repaying) operate successfully under real mainnet conditions.
+
+---
+
 ## Backend Infrastructure
 
-The backend is the core new component built for Milestone 3–4. It replaces the POC's client-side logic with a server-side system.
+The backend is the core new component built for Milestones 3–5. It replaces the POC's client-side logic with a server-side system, hardened and deployed for mainnet production.
 
 ### API Endpoints
 
